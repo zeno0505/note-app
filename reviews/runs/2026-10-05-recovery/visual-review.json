@@ -1,0 +1,48 @@
+{
+  "reviewedAt": "2026-10-05T14:00:00Z",
+  "screenshots": [
+    {
+      "file": "T-007-overview.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-24664a9/evidence/T-007-overview.png",
+      "label": "Synthetic project overview",
+      "sha256": "46a064f053651853fb25be457edc24d1d7998093aeaff74061902b87e297dc15",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "T-007-narrow.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-24664a9/evidence/T-007-narrow.png",
+      "label": "800-pixel responsive overview",
+      "sha256": "2e86e359b5ea2d523bf45474a655897bed66628f11a5ca02a8bcd8701ff2d344",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "T-phase1-approved-local-cache.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-b265ef9/evidence/T-phase1-approved-local-cache.png",
+      "label": "Approved six-aspect summary in app-owned cache",
+      "sha256": "2afcf434fca5a0db4f3b6649f0b49b1ba30e52452b28f7f81963cb9a0c128431",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "T-excerpts-production-bounded-preview.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-b265ef9/evidence/T-excerpts-production-bounded-preview.png",
+      "label": "Exact registered excerpt with line and byte provenance",
+      "sha256": "7e707d7fe5a0c79dbc238dc6c668b34fe5d4c337b88b15e440e7ce40944ba5af",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "T-excerpts-saved-checkpoint-changed-slice.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-b265ef9/evidence/T-excerpts-saved-checkpoint-changed-slice.png",
+      "label": "Changed excerpt compared with saved checkpoint",
+      "sha256": "e3c1bc12d86c0ff3e40d027275207522e343e072b58045695251dcbec5a1536e",
+      "visuallyReviewed": true
+    },
+    {
+      "file": "T-excerpts-fresh-source-blocks-stale-approval.png",
+      "sourcePath": "/workspace/scratch/5a42b5329b35/electron-final-b265ef9/evidence/T-excerpts-fresh-source-blocks-stale-approval.png",
+      "label": "Fresh source change blocks stale approval and preserves prior approval",
+      "sha256": "4555253dafeff42cbb6f488af09a3fe0301c1facf6378b3b289789f924f65efe",
+      "visuallyReviewed": true
+    }
+  ],
+  "findings": "Opened each nominated PNG at actual evidence paths. Korean text, context/provenance rows, saved comparison labels, error banner and retained approval are legible. No overlap or horizontal overflow was visible. Excerpt screenshots show real UI records; stale rejection screenshot shows the actual error panel. Long sections extend vertically beyond viewport normally. Automated assertions establish behavior; screenshots establish visual state."
+}

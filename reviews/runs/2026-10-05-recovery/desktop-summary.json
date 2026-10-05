@@ -1,0 +1,316 @@
+{
+  "testedProductionSourceCommit": "24664a99cac692aa20abb0d57ee2f6a7d4e0a96c",
+  "correctedHarnessCommit": "c63708b6ca6ec64bb89e9bf31278bd590ce8e58b",
+  "allNineSuitesPassed": true,
+  "suites": [
+    {
+      "suite": "app",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:53:07.842Z",
+      "finishedAt": "2026-10-05T13:53:10.994Z",
+      "originalResultFile": "T-007-result.json",
+      "originalResultSha256": "c0f39aa32b44ea7b561773130c15002c41e4c564475502593af88f9b91f9369e",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:53:10.982Z",
+      "checks": [
+        "Initial state: no real sources, no automatic fixture or summary execution",
+        "Runtime security: sandbox/context isolation on; Node absent; narrow API; malformed and path/command-shaped requests rejected",
+        "Remote fetch/new external windows blocked; real child frame has no IPC bridge; foreign Electron window IPC rejected",
+        "User navigation: 2 connected → 3 nonarchived workstreams; no-result search/clear; detail/evidence/back (Atlas 메모 검색 ↗)",
+        "Synthetic failure keeps last-good workstreams and timestamp, including empty → failure;  normal retry recovers; repeated refreshes stable; explicit empty success separate",
+        "Test-injected unknown connectivity stays unknown; hostile markup renders as plain text without creating an image or running script",
+        "Actual missing IPC handler rejects refresh: visible error/stale state retains prior cards and timestamp",
+        "Exit demo clears state; missing detail safe; re-entry; narrow-window layout without horizontal overflow; reload safe; no renderer exceptions",
+        "Window closes and all main/renderer/GPU/utility processes tracked by Electron metrics exit"
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "webSecurity": true,
+        "webviewTag": false,
+        "argv": [
+          "/workspace/scratch/5a42b5329b35/recovery_scope_20261005/inspection/node_modules/electron/dist/electron",
+          "/workspace/scratch/5a42b5329b35/recovery_scope_20261005/inspection"
+        ],
+        "versions": {
+          "node": "24.21.0",
+          "acorn": "8.18.0",
+          "ada": "4.0.0",
+          "amaro": "1.1.11",
+          "ares": "1.34.8",
+          "brotli": "1.2.0",
+          "cldr": "48.0",
+          "icu": "78.2",
+          "llhttp": "9.4.3",
+          "merve": "1.2.2",
+          "modules": "149",
+          "napi": "10",
+          "nbytes": "0.1.4",
+          "ncrypto": "0.0.1",
+          "nghttp2": "1.70.0",
+          "nghttp3": "",
+          "ngtcp2": "",
+          "openssl": "0.0.0",
+          "simdjson": "4.6.7",
+          "simdutf": "7.7.0",
+          "sqlite": "3.53.4",
+          "tz": "2025c",
+          "undici": "7.29.1",
+          "unicode": "17.0",
+          "uv": "1.52.1",
+          "uvwasi": "0.0.23",
+          "v8": "15.2.124.28-electron.0",
+          "zlib": "1.3.2.1-motley",
+          "zstd": "1.6.0",
+          "electron": "44.5.1",
+          "chrome": "152.0.7977.130"
+        }
+      },
+      "scope": "Linux development build with synthetic/manual fixture only; not real Orca, notes, macOS native dialogs or packaged .app"
+    },
+    {
+      "suite": "collectors",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:53:10.995Z",
+      "finishedAt": "2026-10-05T13:53:12.877Z",
+      "originalResultFile": "T-008-009-result.json",
+      "originalResultSha256": "40a47e52784cf4be9eb97f2a8eb7f61024cfafd22b7ec981d21233150e07fac0",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:53:12.849Z",
+      "checks": [
+        "Real synthetic subprocess with fixed Orca argv; projected sensitive fields discarded; two temporary worktrees share one canonical DAG; project completeness stays unknown",
+        "Missing note remains unresolved while mapped worktree is retained",
+        "Access denied stays explicit failure, not empty success; raw error body does not escape",
+        "Long-running subprocess does not block window interaction/IPC; overlap rejected; cancellation settles and cleans process",
+        "Retry succeeds; owned temporary filesystem fixtures cleaned; tracked Electron processes exit"
+      ],
+      "scope": "Actual Linux Electron integration harness with synthetic CLI and real temporary filesystem; not real Orca, user notes, product read-model UI, native macOS or packaged .app"
+    },
+    {
+      "suite": "polling",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:53:12.877Z",
+      "finishedAt": "2026-10-05T13:53:58.754Z",
+      "originalResultFile": "T-010-result.json",
+      "originalResultSha256": "67d5ec102d253d3ed801b9de4b6b93cf1b6fb66d2fc7c7ea160abdb211d739b1",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:53:58.712Z",
+      "checks": [
+        "20-second active cadence observed",
+        "No new collection during 22-second native hidden interval",
+        "Immediate successful refresh on native show/focus; timestamp advanced",
+        "Unknown project coverage preserved",
+        "One-second test-only freshness deadline publishes stale while real synthetic subprocess is pending",
+        "Dispose, temporary fixture cleanup and tracked process exit"
+      ],
+      "scope": "Actual Linux Electron window hide/show with synthetic CLI, real wall-clock waits; not macOS background policy or real Orca"
+    },
+    {
+      "suite": "summary",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:53:58.755Z",
+      "finishedAt": "2026-10-05T13:54:00.040Z",
+      "originalResultFile": "T-summary-result.json",
+      "originalResultSha256": "9a75f592dc56b53ddf8c967a1076436ef8c6be093eb3f80ab52a0cc9f700e7db",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:54:00.005Z",
+      "checks": [
+        "Real pure modules execute in Electron main through fixed synthetic scenarios; exact results attached",
+        "Unknown, missing and extra arguments rejected; a second real renderer is rejected as an untrusted sender; sandbox and isolation verified",
+        "All tracked Electron processes exited after close"
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "foreignSenderRejected": true
+      },
+      "scope": "Actual Linux Electron harness for pure context, prompt, claim-store and advisory budget contracts. Synthetic data and synthetic approval events only; no live Orca/CodeBurn/provider transport, production summary UI, persistence or packaged macOS verification."
+    },
+    {
+      "suite": "read-model",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:54:00.040Z",
+      "finishedAt": "2026-10-05T13:54:09.676Z",
+      "originalResultFile": "T-read-model-result.json",
+      "originalResultSha256": "f37dd4118f4254dbaad0bbe363329b736f1923c71f36aaa6c944c3f4f7249714",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:54:09.638Z",
+      "checks": [
+        "Production CodeBurn reader executed exact fixed status/quota argv against synthetic executable; quota availability stays distinct from agent availability; failure does not imply zero",
+        "Timeout and cancellation clean up CodeBurn subprocesses and permit a subsequent successful query",
+        "Pinned external query executed actual 1000-task synthetic DAG; unchanged cache skipped query, changed DAG refreshed; source bytes unchanged",
+        "Actual Python launch observed before interactive main-process IPC pulse; overlap rejected; DAG cancellation retires reader and rejects reuse",
+        "No renderer paths or argv accepted; foreign renderer rejected; sandbox and context isolation verified",
+        "Tracked query processes are absent or explicitly reported nonexecuting zombies/dead states after two observations; tracked Electron processes exited; owned fixture and snapshot directories removed"
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "foreignSenderRejected": true
+      },
+      "scope": "Actual Linux Electron integration of production read-only adapters with synthetic CodeBurn executable and real externally supplied pinned query script over temporary synthetic DAG. No real CodeBurn account, user notes, Orca, production read-model UI, agent invocation or packaged macOS verification.",
+      "cleanup": {
+        "trackedSubprocessesExited": true,
+        "noExecutingTrackedSubprocesses": true,
+        "quiescentObservationPasses": 2,
+        "temporarySnapshotsRemoved": true,
+        "fixtureRootRemoved": true,
+        "dagQueryLaunches": 5
+      }
+    },
+    {
+      "suite": "cache",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:54:09.676Z",
+      "finishedAt": "2026-10-05T13:54:11.451Z",
+      "originalResultFile": "T-cache-result.json",
+      "originalResultSha256": "778bede9540b495a120e17d8e5424b76997df7f9f6cf292165a4a67f823746fd",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:54:11.416Z",
+      "checks": [
+        "Saved synthetic approval, then verified every tracked Electron process exited before reopening",
+        "New Electron process restored historical local-only approval without calling approve; changed evidence recomputed three stale claims while retaining historical approved text",
+        "Malformed, unsupported, oversized and symlink cache files rejected for reads and writes; stale revision and pre-aborted writes preserved prior bytes; safe cleanup verified",
+        "Fixed scenario IPC rejects unknown, missing, extra arguments and foreign renderer; sandbox and context isolation verified"
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "foreignSenderRejected": true
+      },
+      "scope": "Actual Linux Electron harness using synthetic cache data and historical synthetic approval only. Temporary main-owned root; no actual userData, vault, provider, production persistence UI, power-loss durability or macOS claim.",
+      "cleanup": {
+        "ownedTemporaryRootRemoved": true
+      }
+    },
+    {
+      "suite": "live",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:54:11.452Z",
+      "finishedAt": "2026-10-05T13:54:19.648Z",
+      "originalResultFile": "T-live-result.json",
+      "originalResultSha256": "33466e16e2ba5c4fb12540c0dff1bb6c0ee8302535a80d305b55e9289ca9208f",
+      "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:54:19.633Z",
+      "checks": [
+        "Production app opens configured but disconnected: no Orca, CodeBurn, DAG, cache generation or model subprocess starts automatically; XDG profile and Electron userData are confined to the temporary fixture root",
+        "Connect runs all four exact Orca commands and three independent CodeBurn commands through actual child processes at paths containing spaces; real pinned external query reads one canonical DAG shared by two docs/note symlinks",
+        "Empty branch/null project and handoff agent state remain unknown; quota-unavailable Claude and quota-available Codex remain independent of agent execution availability; full DAG count and bounded 200-task display remain distinct",
+        "Production detail/back navigation shows DAG declarations and empty cached-summary state; hostile task markup stays text; unchanged DAG refresh skips another external query and leaves note bytes/symlinks untouched",
+        "Actual Orca command failure preserves prior workstreams, DAG and successful timestamp with a stale banner; one CodeBurn status failure neither gates the other provider nor quota and raw error bodies are discarded",
+        "Explicit successful empty data is separate from failed refresh; an empty last-good observation remains empty and stale after failure; a normal retry recovers",
+        "Real production settings and narrow 800px window render without horizontal overflow; sandbox, context isolation, no Node exposure and narrow bridge verified; all five no-argument IPC handlers reject 25 invalid payloads and all five actual foreign-window invocations are rejected; child frame, network fetch and new windows blocked",
+        "Disconnect stays usable during a real hanging child; it cancels the child group, leaves no executing fixture process/snapshot and starts no disconnected polling; rapid UI refresh/connect clicks do not multiply collection and reconnect recovers",
+        "After production userData containment verification and app closure, test-only production claims/context/storage APIs seed a fictional historical cache; reopened product shows six separate candidate and approved claims without a model or actual approval action",
+        "Changed selected DAG content marks both restored claim sets stale while preserving approved text and cache bytes; unchanged refresh skips the query; real DAG command failure retains history with unknown freshness rather than erasing it or claiming fresh evidence",
+        "Invalid startup configuration is visibly blocked and connect cannot start any subprocess; renderer has no uncaught exceptions; every tracked Electron process exits"
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "webSecurity": true,
+        "webviewTag": false,
+        "noSandboxArg": false
+      },
+      "rendererErrors": [],
+      "scope": "Actual Linux production Electron window, main runtime, preload and renderer; synthetic Orca and CodeBurn CLI processes; temporary synthetic notes and genuine externally supplied pinned query. No real private-source collection, real model/provider call, actual user approval, remote upload or packaged macOS verification.",
+      "cleanup": {
+        "trackedSubprocessesExited": true,
+        "noExecutingTrackedSubprocesses": true,
+        "temporaryDagSnapshotsRemoved": true,
+        "quiescentObservationPasses": 2,
+        "fixtureRootRemoved": true
+      }
+    },
+    {
+      "suite": "phase1",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:58:30.724Z",
+      "finishedAt": "2026-10-05T13:58:53.398Z",
+      "originalResultFile": "T-phase1-result.json",
+      "originalResultSha256": "bbd242042e1a116437dc29263d7f2058ba7f2ba84828f97f3eff85549421952f",
+      "buildHash": "92cc6b43096029baa2a1b81491b6032a381a005c3c53f86548a156f0291afa6f",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:58:53.383Z",
+      "checks": [
+        "Production renderer selects at most 32 current tasks, reviews exact bounded task/direct-dependency context, missing goal, unresolved dependency and byte-based accounting; unavailable quota and unknown budgets remain unknown. Production run is hardblocked even when test-only control variables are present and public IPC is called directly.",
+        "Actual production UI selects a registered scope and previews exact symlink/exclude paths plus both worktrees sharing the common Git exclusion. Cancel writes nothing, external changes invalidate preview, an existing object conflicts, rapid confirm clicks apply one real temporary symlink/exclude change, and no-op preserves file identity. Source notes stay untouched.",
+        "Real production sandbox/context isolation/no-Node and exact narrow bridge remain intact; malformed summary authority and unregistered link requests fail closed; all ten new methods reject actual foreign-window senders; child frames, external windows and network fetch remain blocked.",
+        "Separate test-only entry runs the identical production host/preload/renderer with synthetic transport. Actual UI submission, waiting and TUI-idle remain distinct from validated completion. Six-aspect candidate is persisted unapproved; explicit UI approval (including repeated clicks) creates one separate durable approval revision. No real provider is invoked.",
+        "Closing and reopening the actual Electron app restores candidate and approval from its real app-owned cache without a test seed or new approval. A new bounded task slice creates a distinct candidate; a disk change between candidate review and approval blocks that approval without rewriting the cache. Explicit UI rejection of the restored stale candidate persists and preserves the previous approved wording and timestamp.",
+        "Strict unsupported-citation rejection preserves prior approval/cache; hostile selected task markup remains text. Cancel, source changes and navigation reject late completion, repeated clicks create only one run, and ambiguous submission never silently retries. No invalid/late response becomes a saved candidate or approval."
+      ],
+      "security": {
+        "sandbox": true,
+        "contextIsolation": true,
+        "nodeIntegration": false,
+        "webSecurity": true,
+        "webviewTag": false,
+        "noSandboxArg": false
+      },
+      "rendererErrors": [],
+      "scope": "Actual Linux Electron production renderer/preload/IPC/main. Summary execution uses a separate test-only main entry and synthetic transport; production execution remains blocked. Real Git/fs link changes and app-owned cache writes are confined to temporary fictional fixtures. Externally supplied pinned query remains outside the repository. No real private notes, provider/Orca-agent calls, upload, GitHub, macOS packaging or local-user-computer validation.",
+      "remainingLimits": [
+        "Injected note-link rollback/partial and unsettled-OS fault cases are covered by backend tests, not this native UI journey.",
+        "Synthetic responses verify orchestration and schema/provenance checks, not model truthfulness or real restricted agent transport.",
+        "Native macOS behavior and packaged .app remain to be verified on the user’s Mac."
+      ],
+      "syntheticRequests": 7,
+      "realProviderCalls": 0,
+      "actualUserApprovals": 0,
+      "successfulAutomatedUiApprovals": 1,
+      "staleAutomatedUiApprovalsRejected": 1,
+      "cleanup": {
+        "trackedSubprocessesExited": true,
+        "noExecutingTrackedSubprocesses": true,
+        "temporaryDagSnapshotsRemoved": true,
+        "quiescentObservationPasses": 2,
+        "fixtureRootRemoved": true
+      }
+    },
+    {
+      "suite": "excerpts",
+      "exitCode": 0,
+      "startedAt": "2026-10-05T13:58:53.399Z",
+      "finishedAt": "2026-10-05T13:59:02.595Z",
+      "originalResultFile": "T-excerpts-result.json",
+      "originalResultSha256": "f94fde3415d8425707aba6d62a54a558e85dd77454bb517cc4219f8ac121dd0f",
+      "buildHash": "92cc6b43096029baa2a1b81491b6032a381a005c3c53f86548a156f0291afa6f",
+      "status": "passed",
+      "observedAt": "2026-10-05T13:59:02.579Z",
+      "checks": [
+        "Production UI previews exactly registered goal/document/inbox line excerpts with byte/line provenance; unselected marker/path data stays hidden and real execution remains blocked. Restart after unsaved preparation establishes a new baseline and creates no cache file.",
+        "A saved synthetic candidate and explicit automated UI approval survive process restart with exact historical wording/time. Selected goal changes are shown against that checkpoint; an outside-only document edit remains unchanged. Fresh registered-source revalidation blocks an approval after another goal edit without changing cache bytes or prior approval.",
+        "Removing an exact document registration after restart surfaces the absent source and still permits a new synthetic candidate; no old candidate is silently rebound, approved or stranded. Source files remain unchanged by app operations.",
+        "Live DOM inspection confines the deliberately disclosed project path to the exact registered note-link target option; summary HTML/DTOs contain no local paths, and the complete page contains no unselected source-body marker."
+      ],
+      "rendererErrors": [],
+      "scope": "Actual Linux Electron production host/preload/renderer with exact synthetic registered note sources. Candidate execution uses the isolated Phase1 synthetic transport only. No real notes, model call, terminal transport schema, macOS or packaging validation.",
+      "syntheticRequests": 3,
+      "realProviderCalls": 0,
+      "actualUserApprovals": 0,
+      "successfulAutomatedUiApprovals": 1,
+      "staleAutomatedUiApprovalsRejected": 1,
+      "cleanup": {
+        "trackedSubprocessesExited": true,
+        "noExecutingTrackedSubprocesses": true,
+        "temporaryDagSnapshotsRemoved": true,
+        "quiescentObservationPasses": 2,
+        "fixtureRootRemoved": true
+      }
+    }
+  ],
+  "harnessCorrection": "First excerpts attempt failed a page-wide path ban because the separate note-link selector intentionally displays its registered target. Corrected test checks every DOM text node and attribute, allowing only the exact registered note-link option, bans unselected body markers globally, checks the full summary subtree and every emitted summary DTO, and verifies transport prompt paths. No production change was needed. Original failing evidence remains outside publication candidates."
+}

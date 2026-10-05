@@ -1,0 +1,307 @@
+{
+  "testedProductionSourceCommit": "24664a99cac692aa20abb0d57ee2f6a7d4e0a96c",
+  "testHarnessCommit": "c63708b6ca6ec64bb89e9bf31278bd590ce8e58b",
+  "workingTreeStatus": "",
+  "files": [
+    {
+      "path": "tests/electron/app-smoke.mjs",
+      "originalSha256": "f975ee3a9cf37d8c820b3ac852a178955604599fe43e85b92fdb9ac7b14a4f08",
+      "runnerSha256": "a5a6300e7199d32d158be9db91078b3b18aa0273780fb9788023da8f68a8cf43",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/cache-fixture/index.html",
+      "originalSha256": "c5b83b6636d390803d6b154bd7bf9e562c959758e08f1ba5a4fd2b9b4e98d47c",
+      "runnerSha256": "c5b83b6636d390803d6b154bd7bf9e562c959758e08f1ba5a4fd2b9b4e98d47c",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-fixture/main.ts",
+      "originalSha256": "df738e1add2917555c40a57a07a1dc335a14d389feab031bb4e5258ed2036227",
+      "runnerSha256": "df738e1add2917555c40a57a07a1dc335a14d389feab031bb4e5258ed2036227",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-fixture/preload.cjs",
+      "originalSha256": "b38a1e5f590ba620bae8e16e0d1682b28e3e3d987c3f507704218a4f9e7a0f37",
+      "runnerSha256": "b38a1e5f590ba620bae8e16e0d1682b28e3e3d987c3f507704218a4f9e7a0f37",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-fixture/renderer.js",
+      "originalSha256": "10c3a067f79fb9c5022e65f5c37a54ef396ec801377d652ecc55029efdb22eba",
+      "runnerSha256": "10c3a067f79fb9c5022e65f5c37a54ef396ec801377d652ecc55029efdb22eba",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-fixture/scenarios.ts",
+      "originalSha256": "a21cd90cca4d6cdc97bce1020d83d4c1f586e98b84b17a4605ba00d73d225f12",
+      "runnerSha256": "a21cd90cca4d6cdc97bce1020d83d4c1f586e98b84b17a4605ba00d73d225f12",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-fixture/style.css",
+      "originalSha256": "c163934446e6179ae5292cf34dac3964ccc39fe070ea0410ad31f0366a8e4ac5",
+      "runnerSha256": "c163934446e6179ae5292cf34dac3964ccc39fe070ea0410ad31f0366a8e4ac5",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/cache-smoke.mjs",
+      "originalSha256": "61d26d122bbf0417bea7b6ae28becdb5ad114959fffdbae2fd14803257bb6029",
+      "runnerSha256": "1e25292ab19ff279b12f55da550c6d9e10f5648b07f61adfd420643c6d2a4dbf",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/collector-fixture/index.html",
+      "originalSha256": "ca46580eaee5e6bf300d918694f0152afd0d359d4ef906c02f2bf6119bad66d3",
+      "runnerSha256": "ca46580eaee5e6bf300d918694f0152afd0d359d4ef906c02f2bf6119bad66d3",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-fixture/main.ts",
+      "originalSha256": "f3f6a94c9f987fc073aed5e27bd0b0a86e712bc11b38f63f5fc9c50a0716b6bc",
+      "runnerSha256": "f3f6a94c9f987fc073aed5e27bd0b0a86e712bc11b38f63f5fc9c50a0716b6bc",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-fixture/preload.cjs",
+      "originalSha256": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "runnerSha256": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-fixture/renderer.js",
+      "originalSha256": "c5577c12e45e3bc2f835b30c179cb2a68596f0106e5b3f7aafde8b67df4a4b31",
+      "runnerSha256": "c5577c12e45e3bc2f835b30c179cb2a68596f0106e5b3f7aafde8b67df4a4b31",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-fixture/setup.ts",
+      "originalSha256": "2c9dd23e7bc4a6751e5df37b88efb615890751a425c5281f010e5374c99afc13",
+      "runnerSha256": "2c9dd23e7bc4a6751e5df37b88efb615890751a425c5281f010e5374c99afc13",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-fixture/style.css",
+      "originalSha256": "9051d6dd97cec7125b01507b74188eacfa2faf38bc1d381494f59f269c440c8f",
+      "runnerSha256": "9051d6dd97cec7125b01507b74188eacfa2faf38bc1d381494f59f269c440c8f",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/collector-smoke.mjs",
+      "originalSha256": "6971e52833e615395565fbfe38fe4e115678d3e432d031841508733baeb01305",
+      "runnerSha256": "ff9a6fdfbb4244554a06e40ad57c6f6300603c0663b18a2330f0c286eec9912c",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/evidence.mjs",
+      "originalSha256": "fad513a17c5450c697d9ff9ce0c856070d60541bf66de33ee6b6053fe8a7b462",
+      "runnerSha256": "fad513a17c5450c697d9ff9ce0c856070d60541bf66de33ee6b6053fe8a7b462",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/fixture/index.html",
+      "originalSha256": "f00ef66c439869c9e7087773aaa14c53f5f89c74b171f9a5b2b38c271bf4be69",
+      "runnerSha256": "f00ef66c439869c9e7087773aaa14c53f5f89c74b171f9a5b2b38c271bf4be69",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/fixture/main.cjs",
+      "originalSha256": "d1a8d9e8bc50f263963a4c9028025f13c3393592443745b39cb2bcb01095b383",
+      "runnerSha256": "d1a8d9e8bc50f263963a4c9028025f13c3393592443745b39cb2bcb01095b383",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/fixture/preload.cjs",
+      "originalSha256": "e934d462631cb04caa5099c7139da7ccb8fb6b82cf682bb64e5258c7d5d9b856",
+      "runnerSha256": "e934d462631cb04caa5099c7139da7ccb8fb6b82cf682bb64e5258c7d5d9b856",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/fixture/renderer.js",
+      "originalSha256": "046b9e34afa23d13a0a93bcd74fb59bec1dd292dcdcefe16d1dc3863fb175b9e",
+      "runnerSha256": "046b9e34afa23d13a0a93bcd74fb59bec1dd292dcdcefe16d1dc3863fb175b9e",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/fixture/style.css",
+      "originalSha256": "6607233e4e07152babd4870656f9404850036d02f4f5fd476646ec45ae3e2295",
+      "runnerSha256": "6607233e4e07152babd4870656f9404850036d02f4f5fd476646ec45ae3e2295",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/launch-smoke.mjs",
+      "originalSha256": "0fbca03e42e07054f1d555ce4a69984aa6efd08aced3afad2813a4fbf17c86d9",
+      "runnerSha256": "7e94a2f6cb018ef2c963378fa2746f1187d1d221ae10c9f8d7c284e144351733",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/live-fixture/seed-summary.ts",
+      "originalSha256": "184ed47f5e2e9e9b7190f8966a4af7ce6a82b6967ed8d02d21356dafaf52a4c2",
+      "runnerSha256": "184ed47f5e2e9e9b7190f8966a4af7ce6a82b6967ed8d02d21356dafaf52a4c2",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/live-fixture/setup.mjs",
+      "originalSha256": "2a3ce43bed0768f2d70b4ab066c543bd9bced41dd3c52f2bdce7291ee016cccf",
+      "runnerSha256": "2a3ce43bed0768f2d70b4ab066c543bd9bced41dd3c52f2bdce7291ee016cccf",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/live-smoke.mjs",
+      "originalSha256": "0f424633448213bf2ec6f04413ff66f6ec7b3b29e119ff5962a17a456550648b",
+      "runnerSha256": "cbcabbef9ac82d3f79fabce5075e69279240700cf77a1eb75703be6ff4ced9ee",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/phase1-fixture/main.ts",
+      "originalSha256": "62af7c48a7a8e8d79f327d0d5787a7eccd1ce36a2aa93b89338919d76f542233",
+      "runnerSha256": "62af7c48a7a8e8d79f327d0d5787a7eccd1ce36a2aa93b89338919d76f542233",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/phase1-fixture/setup.mjs",
+      "originalSha256": "d990d5779c99a9c7caa77a5b4920a8670858f91bab377ae1fe33c41a1adf65cd",
+      "runnerSha256": "d990d5779c99a9c7caa77a5b4920a8670858f91bab377ae1fe33c41a1adf65cd",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/phase1-fixture/transport.ts",
+      "originalSha256": "cc3e3db45672d779ff389bc6d58c1ebb983830bb0752107b907d5eee33f0b204",
+      "runnerSha256": "cc3e3db45672d779ff389bc6d58c1ebb983830bb0752107b907d5eee33f0b204",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/phase1-smoke.mjs",
+      "originalSha256": "2b71ae0195f4e707b73fa5fee327c3636507b00b3d64052e67eb258f1da3ad91",
+      "runnerSha256": "cf7b8ebee19f17dc00539ff96bb2828119b952bdf49258065af66677d1f5a1a9",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/polling-fixture/index.html",
+      "originalSha256": "0024e820c59b277d07b55a1322f7ba927cdc443319d938a6d39c085c4af30add",
+      "runnerSha256": "0024e820c59b277d07b55a1322f7ba927cdc443319d938a6d39c085c4af30add",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/polling-fixture/main.ts",
+      "originalSha256": "d99eaf9e6be9abe30417d70535fa9cd6b4b8e9c4c83a74ac3760fafde7f31548",
+      "runnerSha256": "d99eaf9e6be9abe30417d70535fa9cd6b4b8e9c4c83a74ac3760fafde7f31548",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/polling-fixture/preload.cjs",
+      "originalSha256": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "runnerSha256": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/polling-fixture/renderer.js",
+      "originalSha256": "560514a453c0cdf0cd75282277b88b7bf3c05a692ca88207f79785e780fe357b",
+      "runnerSha256": "560514a453c0cdf0cd75282277b88b7bf3c05a692ca88207f79785e780fe357b",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/polling-smoke.mjs",
+      "originalSha256": "5b07c9e8c9de518836bad40ec92772d9d720f6ea7344525a5c75e767870b9455",
+      "runnerSha256": "b46eaf87571a499c1be455ca15da875703e6cbb4fb7a1a8191ab470a1a68076b",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/read-model-fixture/fixture.ts",
+      "originalSha256": "cbddb664b7c47424c76b88bc0dd8abf43ac182badae5e689347578b77d687680",
+      "runnerSha256": "cbddb664b7c47424c76b88bc0dd8abf43ac182badae5e689347578b77d687680",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-fixture/index.html",
+      "originalSha256": "f80fca59506aa403f86f87ce0a44d4fc5b605f8783b3df4b5a6cf91cb0631071",
+      "runnerSha256": "f80fca59506aa403f86f87ce0a44d4fc5b605f8783b3df4b5a6cf91cb0631071",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-fixture/main.ts",
+      "originalSha256": "1c032a16bec9fa45c146f25f7312f809ed266b4b2aed03e657c7b9fb30527b85",
+      "runnerSha256": "1c032a16bec9fa45c146f25f7312f809ed266b4b2aed03e657c7b9fb30527b85",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-fixture/preload.cjs",
+      "originalSha256": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "runnerSha256": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-fixture/renderer.js",
+      "originalSha256": "62be9dc263117eda001972e3d586a9c9ff28db389a924cb1a2aabc6023c74ecd",
+      "runnerSha256": "62be9dc263117eda001972e3d586a9c9ff28db389a924cb1a2aabc6023c74ecd",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-fixture/style.css",
+      "originalSha256": "fa30a189de51762dc9a19cdde2c532ffdb7a17562de4ae7a5094c112f06b8c5b",
+      "runnerSha256": "fa30a189de51762dc9a19cdde2c532ffdb7a17562de4ae7a5094c112f06b8c5b",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/read-model-smoke.mjs",
+      "originalSha256": "72f5058da527e0180b60346076c0dcc7264581992ec63dbefd313cec145a03dc",
+      "runnerSha256": "edf66b9039e57c14086a90fadb4db016286c1f8b43c0b14adb7e96ed88d9dc3a",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/registered-excerpts-smoke.mjs",
+      "originalSha256": "405d302992f9157c0fe2e6abfe4dc7e6a2af0770bb766dc1e36a8469dda1b410",
+      "runnerSha256": "7391e74783bfb92425d061f838fde20df76d754f2938e235103811f2e7b64a05",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/resource-baseline.mjs",
+      "originalSha256": "8e89013497fa5f01543651eacf9e551d1a0b17ed71aaf37091a1ad1f21785080",
+      "runnerSha256": "233e435d6e7783f46da2fec9d9505320d1399b56ed1ccdca3afcde15441ab6b3",
+      "evidencePathReplacementCount": 1
+    },
+    {
+      "path": "tests/electron/summary-fixture/index.html",
+      "originalSha256": "32613ae0d4cac20d168f8c75430e6ed478d10be8c855b4fcee907525a53f550f",
+      "runnerSha256": "32613ae0d4cac20d168f8c75430e6ed478d10be8c855b4fcee907525a53f550f",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-fixture/main.ts",
+      "originalSha256": "64e55efc01b069a6940db6fba9c80d140f48fa028f9e208f9a217f64b22d74a2",
+      "runnerSha256": "64e55efc01b069a6940db6fba9c80d140f48fa028f9e208f9a217f64b22d74a2",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-fixture/preload.cjs",
+      "originalSha256": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "runnerSha256": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-fixture/renderer.js",
+      "originalSha256": "5c11a479b8dcf5b80fbcbfe55ceebbbcb05d3d60ca71c643667d9f0fac1c2f8a",
+      "runnerSha256": "5c11a479b8dcf5b80fbcbfe55ceebbbcb05d3d60ca71c643667d9f0fac1c2f8a",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-fixture/scenarios.ts",
+      "originalSha256": "51dc708ee8ba85e40bea7f90585ad81f04e0cfd3d0dad0867a1ba232b82f96be",
+      "runnerSha256": "51dc708ee8ba85e40bea7f90585ad81f04e0cfd3d0dad0867a1ba232b82f96be",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-fixture/style.css",
+      "originalSha256": "c163934446e6179ae5292cf34dac3964ccc39fe070ea0410ad31f0366a8e4ac5",
+      "runnerSha256": "c163934446e6179ae5292cf34dac3964ccc39fe070ea0410ad31f0366a8e4ac5",
+      "evidencePathReplacementCount": 0
+    },
+    {
+      "path": "tests/electron/summary-smoke.mjs",
+      "originalSha256": "8eb3443d050f64a7caadbd0e5ccc1d6e0dfa4968d7e028b440d2dcc2385107bd",
+      "runnerSha256": "b0cbd48190bada49ec2ef3cf7cd88343583897c3060e608dacf6d6f51e0feec8",
+      "evidencePathReplacementCount": 1
+    }
+  ]
+}

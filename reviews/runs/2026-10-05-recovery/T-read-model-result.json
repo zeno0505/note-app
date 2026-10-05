@@ -1,0 +1,807 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-05T13:54:09.638Z",
+  "codeIdentity": {
+    "commit": "96a3b71232a8762cb722ad830c3680ca356678a0",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+    "files": {
+      "dist/electron-tests/cache-main.cjs": "1da6966b352ba3351227bd7a2dbae958d89f9def40d3a2abf2fc03e1172c9981",
+      "dist/electron-tests/cache-main.cjs.map": "c2019579aba84e08110f141d1a7afaa20cc72d4dd428eb5e100fd0ea42e1aa25",
+      "dist/electron-tests/cache-preload.cjs": "b38a1e5f590ba620bae8e16e0d1682b28e3e3d987c3f507704218a4f9e7a0f37",
+      "dist/electron-tests/collector-main.cjs": "2938d88ec50cb815594299d03c4eb420c88adff127dbbee59c836211ff2e644e",
+      "dist/electron-tests/collector-main.cjs.map": "8fa082a7f2a8d0756ad1c523311f8e0f76be8710c75d9b97a89cc86b4368ca6a",
+      "dist/electron-tests/live-fixture-tools.mjs": "948f0ba37392ec7d5decc81d0ad56787d685cfac1cd0efa92660ad65f56d04fb",
+      "dist/electron-tests/live-fixture-tools.mjs.map": "22152e1286261f08a172bbeb0c82ad016a820e96355798246921b610d5e67db7",
+      "dist/electron-tests/polling-main.cjs": "c94bc7ebee0853380e506d1f3e2d242712649e24aeaaf397619f025bd737e26a",
+      "dist/electron-tests/polling-main.cjs.map": "7433c503664dfb5f122c007abf71903adb23292158cb03face1c3ec3161b345c",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/electron-tests/read-model-main.cjs": "e7bfab9473666a9324856e2ebd3bb6b98f54c492dcf3c69c824aafc1711a6386",
+      "dist/electron-tests/read-model-main.cjs.map": "21675d9b34a38e4a7a2ed73a2511bc0d8c87ee531c7d64dbe8822cc4223a2315",
+      "dist/electron-tests/read-model-preload.cjs": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "dist/electron-tests/summary-main.cjs": "1f9cf90313a78cdc3cd13f376279b4f4f2d19152f8cd3296390b4600668ad9fd",
+      "dist/electron-tests/summary-main.cjs.map": "5d56f8c118ec4b40a93cba238ba431ca3345cc7432d5e220b9e28697243351cb",
+      "dist/electron-tests/summary-preload.cjs": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "dist/main/index.cjs": "75c8b94610456ee9463a0bc899ad524d55b488a4e3cd2373b2146abc1ab9d388",
+      "dist/main/index.cjs.map": "e298425f716f8fbf7ad6fa9c024fd7b4257067b5a5b5d4d6c28830f611558731",
+      "dist/main/phase1-test.cjs": "c8a7021740a058f12fca5fe5bd6fe2f53ffb87ff433fd0270b5abdde324d93a5",
+      "dist/main/phase1-test.cjs.map": "bb050da181ae49be1a891254fe278f22f85fdbd72ef9d6b5ddc8b2ba16eecb53",
+      "dist/preload/index.cjs": "7ee05794e971699e2fd0daab915df25ee432168872564a3fede89b71d9b06122",
+      "dist/preload/index.cjs.map": "89cfa0cfc6c815b08050877a2e3c67a2e346986a730c49bb6667bd0f3652ccda",
+      "dist/renderer/assets/index-_g_GvVqa.js": "55e81e73f640fc1e4689ec87fa199c24be7b0ee1bc2348baad03e3a7a3257270",
+      "dist/renderer/assets/index-zfa8Kg1_.css": "fc4d4b97c4a988b2770a65a8f4c058d604936f74c2bd0e43f0305b1c3beb794c",
+      "dist/renderer/index.html": "3f8b3b3358b3d8d2d55236bad2c8784c7c518e2e609e2c55d522b00c5eb63e1c"
+    }
+  },
+  "checks": [
+    "Production CodeBurn reader executed exact fixed status/quota argv against synthetic executable; quota availability stays distinct from agent availability; failure does not imply zero",
+    "Timeout and cancellation clean up CodeBurn subprocesses and permit a subsequent successful query",
+    "Pinned external query executed actual 1000-task synthetic DAG; unchanged cache skipped query, changed DAG refreshed; source bytes unchanged",
+    "Actual Python launch observed before interactive main-process IPC pulse; overlap rejected; DAG cancellation retires reader and rejects reuse",
+    "No renderer paths or argv accepted; foreign renderer rejected; sandbox and context isolation verified",
+    "Tracked query processes are absent or explicitly reported nonexecuting zombies/dead states after two observations; tracked Electron processes exited; owned fixture and snapshot directories removed"
+  ],
+  "results": {
+    "codeburn-normal": {
+      "status": "CodeBurn projection verified",
+      "claude": {
+        "ok": true,
+        "value": {
+          "observedAt": 1791208440762,
+          "provenance": "codeburn-cli",
+          "kind": "status",
+          "provider": "claude",
+          "currency": "USD",
+          "periods": [
+            {
+              "label": "today",
+              "cost": 1.25,
+              "savings": 0.5,
+              "calls": 4,
+              "approximate": true,
+              "window": null
+            },
+            {
+              "label": "month",
+              "cost": 12,
+              "savings": 3,
+              "calls": 32,
+              "approximate": true,
+              "window": null
+            }
+          ],
+          "calendarBasis": "unknown"
+        }
+      },
+      "codex": {
+        "ok": true,
+        "value": {
+          "observedAt": 1791208440798,
+          "provenance": "codeburn-cli",
+          "kind": "status",
+          "provider": "codex",
+          "currency": "USD",
+          "periods": [
+            {
+              "label": "today",
+              "cost": 1.25,
+              "savings": 0.5,
+              "calls": 4,
+              "approximate": true,
+              "window": null
+            },
+            {
+              "label": "month",
+              "cost": 12,
+              "savings": 3,
+              "calls": 32,
+              "approximate": true,
+              "window": null
+            }
+          ],
+          "calendarBasis": "unknown"
+        }
+      },
+      "quota": {
+        "ok": true,
+        "value": {
+          "observedAt": 1791208440827,
+          "provenance": "codeburn-cli",
+          "kind": "quota",
+          "providers": [
+            {
+              "provider": "claude",
+              "quotaData": "unavailable",
+              "agentAvailability": "unknown",
+              "error": "reported-error",
+              "windows": []
+            },
+            {
+              "provider": "codex",
+              "quotaData": "available",
+              "agentAvailability": "unknown",
+              "error": "none",
+              "windows": [
+                {
+                  "label": "weekly",
+                  "usedPct": 31,
+                  "resetsAt": null,
+                  "resetTimeFormat": "unverified"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "privatePayloadDiscarded": true
+    },
+    "codeburn-errors": {
+      "status": "Failures remain failures",
+      "malformed": {
+        "ok": false,
+        "observedAt": 1791208441033,
+        "error": {
+          "kind": "invalid-json",
+          "query": "claude-status"
+        }
+      },
+      "failed": {
+        "ok": false,
+        "observedAt": 1791208441067,
+        "error": {
+          "kind": "command-failed",
+          "query": "codex-status"
+        }
+      },
+      "notZeroUsage": true
+    },
+    "codeburn-timeout": {
+      "status": "CodeBurn timeout and retry verified",
+      "result": {
+        "ok": false,
+        "observedAt": 1791208442446,
+        "error": {
+          "kind": "timeout",
+          "query": "quota"
+        }
+      },
+      "retrySucceeded": true
+    },
+    "codeburn-cancel": {
+      "status": "CodeBurn cancelled and retried",
+      "result": {
+        "ok": false,
+        "observedAt": 1791208442703,
+        "error": {
+          "kind": "cancelled",
+          "query": "quota"
+        }
+      },
+      "retrySucceeded": true
+    },
+    "dag-first": {
+      "status": "1000-task DAG verified",
+      "contextPreparation": {
+        "fullDagTasks": 1000,
+        "explicitlySelectedTasks": 1,
+        "recordsForAgent": 1,
+        "serializedBytes": 2378,
+        "coverage": "partial",
+        "goal": "unknown",
+        "unselectedTaskContentAbsent": true,
+        "upstreamProvenanceKeptLocal": true,
+        "agentInvoked": false
+      },
+      "unrelatedEditNoSummaryRefresh": null,
+      "ok": true,
+      "unchanged": false,
+      "sourceHash": "a6159e47aa2d2bc0ddabc48193f2c865eb08bf9b6b38cc0d33dab4ee59be8a9a",
+      "coverage": {
+        "tasksTotal": 1000,
+        "declared": 2,
+        "required": 2,
+        "uncoveredDone": [
+          "T-0"
+        ],
+        "uncoveredOpen": [],
+        "malformed": []
+      },
+      "representativeTasks": [
+        {
+          "id": "T-0",
+          "title": "Synthetic task 0",
+          "status": "done",
+          "dependencies": [
+            {
+              "id": "EXT-1",
+              "scope": "external"
+            }
+          ],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [],
+            "coverage": "unmet"
+          },
+          "commitReferences": [
+            "abc123"
+          ],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-1",
+          "title": "Synthetic task 1",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "undeclared",
+            "required": null,
+            "coveredBy": null,
+            "coverage": "undeclared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-2",
+          "title": "Synthetic task 2",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [
+              "T-999"
+            ],
+            "coverage": "references-declared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        }
+      ],
+      "verifiedFacts": [],
+      "queryLaunches": 1,
+      "queryLaunchDelta": 1,
+      "sourceBytesUnchanged": true
+    },
+    "dag-cache": {
+      "status": "Unchanged DAG skips query",
+      "contextPreparation": {
+        "fullDagTasks": 1000,
+        "explicitlySelectedTasks": 1,
+        "recordsForAgent": 1,
+        "serializedBytes": 2378,
+        "coverage": "partial",
+        "goal": "unknown",
+        "unselectedTaskContentAbsent": true,
+        "upstreamProvenanceKeptLocal": true,
+        "agentInvoked": false
+      },
+      "unrelatedEditNoSummaryRefresh": null,
+      "ok": true,
+      "unchanged": true,
+      "sourceHash": "a6159e47aa2d2bc0ddabc48193f2c865eb08bf9b6b38cc0d33dab4ee59be8a9a",
+      "coverage": {
+        "tasksTotal": 1000,
+        "declared": 2,
+        "required": 2,
+        "uncoveredDone": [
+          "T-0"
+        ],
+        "uncoveredOpen": [],
+        "malformed": []
+      },
+      "representativeTasks": [
+        {
+          "id": "T-0",
+          "title": "Synthetic task 0",
+          "status": "done",
+          "dependencies": [
+            {
+              "id": "EXT-1",
+              "scope": "external"
+            }
+          ],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [],
+            "coverage": "unmet"
+          },
+          "commitReferences": [
+            "abc123"
+          ],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-1",
+          "title": "Synthetic task 1",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "undeclared",
+            "required": null,
+            "coveredBy": null,
+            "coverage": "undeclared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-2",
+          "title": "Synthetic task 2",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [
+              "T-999"
+            ],
+            "coverage": "references-declared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        }
+      ],
+      "verifiedFacts": [],
+      "queryLaunches": 1,
+      "queryLaunchDelta": 0,
+      "sourceBytesUnchanged": true
+    },
+    "dag-unselected": {
+      "status": "Unrelated edit skips summary refresh",
+      "contextPreparation": {
+        "fullDagTasks": 1000,
+        "explicitlySelectedTasks": 1,
+        "recordsForAgent": 1,
+        "serializedBytes": 2378,
+        "coverage": "partial",
+        "goal": "unknown",
+        "unselectedTaskContentAbsent": true,
+        "upstreamProvenanceKeptLocal": true,
+        "agentInvoked": false
+      },
+      "unrelatedEditNoSummaryRefresh": true,
+      "ok": true,
+      "unchanged": false,
+      "sourceHash": "26ebcd6e1d6f0c5e85832712405c816689b1707a852d1e383140cb7ed235b069",
+      "coverage": {
+        "tasksTotal": 1000,
+        "declared": 2,
+        "required": 2,
+        "uncoveredDone": [
+          "T-0"
+        ],
+        "uncoveredOpen": [],
+        "malformed": []
+      },
+      "representativeTasks": [
+        {
+          "id": "T-0",
+          "title": "Synthetic task 0",
+          "status": "done",
+          "dependencies": [
+            {
+              "id": "EXT-1",
+              "scope": "external"
+            }
+          ],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [],
+            "coverage": "unmet"
+          },
+          "commitReferences": [
+            "abc123"
+          ],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-1",
+          "title": "Synthetic task 1",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "undeclared",
+            "required": null,
+            "coveredBy": null,
+            "coverage": "undeclared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-2",
+          "title": "Synthetic task 2",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [
+              "T-999"
+            ],
+            "coverage": "references-declared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        }
+      ],
+      "verifiedFacts": [],
+      "queryLaunches": 2,
+      "queryLaunchDelta": 1,
+      "sourceBytesUnchanged": true
+    },
+    "dag-changed": {
+      "status": "Changed DAG refreshed",
+      "contextPreparation": {
+        "fullDagTasks": 1000,
+        "explicitlySelectedTasks": 1,
+        "recordsForAgent": 1,
+        "serializedBytes": 2387,
+        "coverage": "partial",
+        "goal": "unknown",
+        "unselectedTaskContentAbsent": true,
+        "upstreamProvenanceKeptLocal": true,
+        "agentInvoked": false
+      },
+      "unrelatedEditNoSummaryRefresh": null,
+      "ok": true,
+      "unchanged": false,
+      "sourceHash": "d4531b4a39c731491741ea8728655ce1d80c525df05e44a6ecff050aabe4b8f9",
+      "coverage": {
+        "tasksTotal": 1000,
+        "declared": 2,
+        "required": 2,
+        "uncoveredDone": [],
+        "uncoveredOpen": [
+          "T-0"
+        ],
+        "malformed": []
+      },
+      "representativeTasks": [
+        {
+          "id": "T-0",
+          "title": "Synthetic task 0",
+          "status": "running",
+          "dependencies": [
+            {
+              "id": "EXT-1",
+              "scope": "external"
+            }
+          ],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [],
+            "coverage": "unmet"
+          },
+          "commitReferences": [
+            "abc123"
+          ],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-1",
+          "title": "Synthetic task 1",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "undeclared",
+            "required": null,
+            "coveredBy": null,
+            "coverage": "undeclared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-2",
+          "title": "Synthetic task 2",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [
+              "T-999"
+            ],
+            "coverage": "references-declared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        }
+      ],
+      "verifiedFacts": [],
+      "queryLaunches": 3,
+      "queryLaunchDelta": 1,
+      "sourceBytesUnchanged": true
+    },
+    "dag-slow": {
+      "status": "Asynchronous DAG query complete",
+      "contextPreparation": {
+        "fullDagTasks": 1000,
+        "explicitlySelectedTasks": 1,
+        "recordsForAgent": 1,
+        "serializedBytes": 2399,
+        "coverage": "partial",
+        "goal": "unknown",
+        "unselectedTaskContentAbsent": true,
+        "upstreamProvenanceKeptLocal": true,
+        "agentInvoked": false
+      },
+      "unrelatedEditNoSummaryRefresh": null,
+      "ok": true,
+      "unchanged": false,
+      "sourceHash": "7e13ded01371fa7a4a8b6239dedd5f70eff162c71d65f119ae776e3250d627cc",
+      "coverage": {
+        "tasksTotal": 1000,
+        "declared": 2,
+        "required": 2,
+        "uncoveredDone": [],
+        "uncoveredOpen": [
+          "T-0"
+        ],
+        "malformed": []
+      },
+      "representativeTasks": [
+        {
+          "id": "T-0",
+          "title": "Synthetic refreshed dag-slow",
+          "status": "running",
+          "dependencies": [
+            {
+              "id": "EXT-1",
+              "scope": "external"
+            }
+          ],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [],
+            "coverage": "unmet"
+          },
+          "commitReferences": [
+            "abc123"
+          ],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-1",
+          "title": "Synthetic task 1",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "undeclared",
+            "required": null,
+            "coveredBy": null,
+            "coverage": "undeclared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        },
+        {
+          "id": "T-2",
+          "title": "Synthetic task 2",
+          "status": "pending",
+          "dependencies": [],
+          "e2e": {
+            "state": "declared",
+            "required": true,
+            "coveredBy": [
+              "T-999"
+            ],
+            "coverage": "references-declared"
+          },
+          "commitReferences": [],
+          "commitVerification": "not-performed"
+        }
+      ],
+      "verifiedFacts": [],
+      "queryLaunches": 4,
+      "queryLaunchDelta": 1,
+      "sourceBytesUnchanged": true
+    },
+    "responsiveness": {
+      "actualPythonLaunchObserved": true,
+      "active": {
+        "responsive": true,
+        "running": true,
+        "codeburnLaunches": 9,
+        "dagLaunches": 4,
+        "pythonLaunches": 4
+      },
+      "overlapRejected": true
+    },
+    "dag-cancel": {
+      "status": "DAG query cancelled",
+      "result": {
+        "ok": false,
+        "error": {
+          "kind": "cancelled",
+          "message": "DAG observation could not be refreshed."
+        }
+      },
+      "reuse": {
+        "ok": false,
+        "error": {
+          "kind": "cleanup_unverified",
+          "message": "DAG observation could not be refreshed."
+        }
+      },
+      "retiredReaderReuseRejected": true
+    }
+  },
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "foreignSenderRejected": true
+  },
+  "cleanup": {
+    "trackedSubprocessesExited": true,
+    "noExecutingTrackedSubprocesses": true,
+    "subprocessLifecycle": [
+      {
+        "pid": 23314,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23321,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23328,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23336,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23343,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23350,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23357,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23364,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23371,
+        "kind": "codeburn",
+        "state": "gone"
+      },
+      {
+        "pid": 23378,
+        "kind": "dag",
+        "state": "gone"
+      },
+      {
+        "pid": 23385,
+        "kind": "python-child",
+        "state": "gone"
+      },
+      {
+        "pid": 23386,
+        "kind": "dag",
+        "state": "gone"
+      },
+      {
+        "pid": 23393,
+        "kind": "python-child",
+        "state": "gone"
+      },
+      {
+        "pid": 23416,
+        "kind": "dag",
+        "state": "gone"
+      },
+      {
+        "pid": 23423,
+        "kind": "python-child",
+        "state": "gone"
+      },
+      {
+        "pid": 23424,
+        "kind": "dag",
+        "state": "gone"
+      },
+      {
+        "pid": 23431,
+        "kind": "python-child",
+        "state": "gone"
+      },
+      {
+        "pid": 23432,
+        "kind": "dag",
+        "state": "gone"
+      },
+      {
+        "pid": 23439,
+        "kind": "python-child",
+        "state": "gone"
+      }
+    ],
+    "quiescentObservationPasses": 2,
+    "temporarySnapshotsRemoved": true,
+    "fixtureRootRemoved": true,
+    "codeburnCalls": [
+      [
+        "status",
+        "--format",
+        "json",
+        "--provider",
+        "claude"
+      ],
+      [
+        "status",
+        "--format",
+        "json",
+        "--provider",
+        "codex"
+      ],
+      [
+        "quota",
+        "--format",
+        "json"
+      ],
+      [
+        "status",
+        "--format",
+        "json",
+        "--provider",
+        "claude"
+      ],
+      [
+        "status",
+        "--format",
+        "json",
+        "--provider",
+        "codex"
+      ],
+      [
+        "quota",
+        "--format",
+        "json"
+      ],
+      [
+        "quota",
+        "--format",
+        "json"
+      ],
+      [
+        "quota",
+        "--format",
+        "json"
+      ],
+      [
+        "quota",
+        "--format",
+        "json"
+      ]
+    ],
+    "dagQueryLaunches": 5
+  },
+  "scope": "Actual Linux Electron integration of production read-only adapters with synthetic CodeBurn executable and real externally supplied pinned query script over temporary synthetic DAG. No real CodeBurn account, user notes, Orca, production read-model UI, agent invocation or packaged macOS verification.",
+  "visualReview": "Pending separate screenshot opening"
+}

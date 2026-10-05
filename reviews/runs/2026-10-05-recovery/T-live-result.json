@@ -1,0 +1,471 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-05T13:54:19.633Z",
+  "codeIdentity": {
+    "commit": "96a3b71232a8762cb722ad830c3680ca356678a0",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "feb0f58bd244f522e456c291fdc5d18ddbba0fe949d47c4bc1aa46fc72725754",
+    "files": {
+      "dist/electron-tests/cache-main.cjs": "1da6966b352ba3351227bd7a2dbae958d89f9def40d3a2abf2fc03e1172c9981",
+      "dist/electron-tests/cache-main.cjs.map": "c2019579aba84e08110f141d1a7afaa20cc72d4dd428eb5e100fd0ea42e1aa25",
+      "dist/electron-tests/cache-preload.cjs": "b38a1e5f590ba620bae8e16e0d1682b28e3e3d987c3f507704218a4f9e7a0f37",
+      "dist/electron-tests/collector-main.cjs": "2938d88ec50cb815594299d03c4eb420c88adff127dbbee59c836211ff2e644e",
+      "dist/electron-tests/collector-main.cjs.map": "8fa082a7f2a8d0756ad1c523311f8e0f76be8710c75d9b97a89cc86b4368ca6a",
+      "dist/electron-tests/live-fixture-tools.mjs": "948f0ba37392ec7d5decc81d0ad56787d685cfac1cd0efa92660ad65f56d04fb",
+      "dist/electron-tests/live-fixture-tools.mjs.map": "22152e1286261f08a172bbeb0c82ad016a820e96355798246921b610d5e67db7",
+      "dist/electron-tests/polling-main.cjs": "c94bc7ebee0853380e506d1f3e2d242712649e24aeaaf397619f025bd737e26a",
+      "dist/electron-tests/polling-main.cjs.map": "7433c503664dfb5f122c007abf71903adb23292158cb03face1c3ec3161b345c",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/electron-tests/read-model-main.cjs": "e7bfab9473666a9324856e2ebd3bb6b98f54c492dcf3c69c824aafc1711a6386",
+      "dist/electron-tests/read-model-main.cjs.map": "21675d9b34a38e4a7a2ed73a2511bc0d8c87ee531c7d64dbe8822cc4223a2315",
+      "dist/electron-tests/read-model-preload.cjs": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "dist/electron-tests/summary-main.cjs": "1f9cf90313a78cdc3cd13f376279b4f4f2d19152f8cd3296390b4600668ad9fd",
+      "dist/electron-tests/summary-main.cjs.map": "5d56f8c118ec4b40a93cba238ba431ca3345cc7432d5e220b9e28697243351cb",
+      "dist/electron-tests/summary-preload.cjs": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "dist/main/index.cjs": "75c8b94610456ee9463a0bc899ad524d55b488a4e3cd2373b2146abc1ab9d388",
+      "dist/main/index.cjs.map": "e298425f716f8fbf7ad6fa9c024fd7b4257067b5a5b5d4d6c28830f611558731",
+      "dist/main/phase1-test.cjs": "c8a7021740a058f12fca5fe5bd6fe2f53ffb87ff433fd0270b5abdde324d93a5",
+      "dist/main/phase1-test.cjs.map": "bb050da181ae49be1a891254fe278f22f85fdbd72ef9d6b5ddc8b2ba16eecb53",
+      "dist/preload/index.cjs": "7ee05794e971699e2fd0daab915df25ee432168872564a3fede89b71d9b06122",
+      "dist/preload/index.cjs.map": "89cfa0cfc6c815b08050877a2e3c67a2e346986a730c49bb6667bd0f3652ccda",
+      "dist/renderer/assets/index-_g_GvVqa.js": "55e81e73f640fc1e4689ec87fa199c24be7b0ee1bc2348baad03e3a7a3257270",
+      "dist/renderer/assets/index-zfa8Kg1_.css": "fc4d4b97c4a988b2770a65a8f4c058d604936f74c2bd0e43f0305b1c3beb794c",
+      "dist/renderer/index.html": "3f8b3b3358b3d8d2d55236bad2c8784c7c518e2e609e2c55d522b00c5eb63e1c"
+    }
+  },
+  "checks": [
+    "Production app opens configured but disconnected: no Orca, CodeBurn, DAG, cache generation or model subprocess starts automatically; XDG profile and Electron userData are confined to the temporary fixture root",
+    "Connect runs all four exact Orca commands and three independent CodeBurn commands through actual child processes at paths containing spaces; real pinned external query reads one canonical DAG shared by two docs/note symlinks",
+    "Empty branch/null project and handoff agent state remain unknown; quota-unavailable Claude and quota-available Codex remain independent of agent execution availability; full DAG count and bounded 200-task display remain distinct",
+    "Production detail/back navigation shows DAG declarations and empty cached-summary state; hostile task markup stays text; unchanged DAG refresh skips another external query and leaves note bytes/symlinks untouched",
+    "Actual Orca command failure preserves prior workstreams, DAG and successful timestamp with a stale banner; one CodeBurn status failure neither gates the other provider nor quota and raw error bodies are discarded",
+    "Explicit successful empty data is separate from failed refresh; an empty last-good observation remains empty and stale after failure; a normal retry recovers",
+    "Real production settings and narrow 800px window render without horizontal overflow; sandbox, context isolation, no Node exposure and narrow bridge verified; all five no-argument IPC handlers reject 25 invalid payloads and all five actual foreign-window invocations are rejected; child frame, network fetch and new windows blocked",
+    "Disconnect stays usable during a real hanging child; it cancels the child group, leaves no executing fixture process/snapshot and starts no disconnected polling; rapid UI refresh/connect clicks do not multiply collection and reconnect recovers",
+    "After production userData containment verification and app closure, test-only production claims/context/storage APIs seed a fictional historical cache; reopened product shows six separate candidate and approved claims without a model or actual approval action",
+    "Changed selected DAG content marks both restored claim sets stale while preserving approved text and cache bytes; unchanged refresh skips the query; real DAG command failure retains history with unknown freshness rather than erasing it or claiming fresh evidence",
+    "Invalid startup configuration is visibly blocked and connect cannot start any subprocess; renderer has no uncaught exceptions; every tracked Electron process exits"
+  ],
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "webSecurity": true,
+    "webviewTag": false,
+    "noSandboxArg": false
+  },
+  "cleanup": {
+    "trackedSubprocessesExited": true,
+    "noExecutingTrackedSubprocesses": true,
+    "subprocessLifecycle": [
+      {
+        "pid": 23779,
+        "state": "gone"
+      },
+      {
+        "pid": 23780,
+        "state": "gone"
+      },
+      {
+        "pid": 23793,
+        "state": "gone"
+      },
+      {
+        "pid": 23799,
+        "state": "gone"
+      },
+      {
+        "pid": 23807,
+        "state": "gone"
+      },
+      {
+        "pid": 23813,
+        "state": "gone"
+      },
+      {
+        "pid": 23821,
+        "state": "gone"
+      },
+      {
+        "pid": 23828,
+        "state": "gone"
+      },
+      {
+        "pid": 23835,
+        "state": "gone"
+      },
+      {
+        "pid": 23838,
+        "state": "gone"
+      },
+      {
+        "pid": 23839,
+        "state": "gone"
+      },
+      {
+        "pid": 23852,
+        "state": "gone"
+      },
+      {
+        "pid": 23853,
+        "state": "gone"
+      },
+      {
+        "pid": 23866,
+        "state": "gone"
+      },
+      {
+        "pid": 23872,
+        "state": "gone"
+      },
+      {
+        "pid": 23880,
+        "state": "gone"
+      },
+      {
+        "pid": 23887,
+        "state": "gone"
+      },
+      {
+        "pid": 23888,
+        "state": "gone"
+      },
+      {
+        "pid": 23901,
+        "state": "gone"
+      },
+      {
+        "pid": 23902,
+        "state": "gone"
+      },
+      {
+        "pid": 23917,
+        "state": "gone"
+      },
+      {
+        "pid": 23916,
+        "state": "gone"
+      },
+      {
+        "pid": 23930,
+        "state": "gone"
+      },
+      {
+        "pid": 23931,
+        "state": "gone"
+      },
+      {
+        "pid": 23944,
+        "state": "gone"
+      },
+      {
+        "pid": 23945,
+        "state": "gone"
+      },
+      {
+        "pid": 23958,
+        "state": "gone"
+      },
+      {
+        "pid": 23959,
+        "state": "gone"
+      },
+      {
+        "pid": 23972,
+        "state": "gone"
+      },
+      {
+        "pid": 23979,
+        "state": "gone"
+      },
+      {
+        "pid": 23980,
+        "state": "gone"
+      },
+      {
+        "pid": 23993,
+        "state": "gone"
+      },
+      {
+        "pid": 23994,
+        "state": "gone"
+      },
+      {
+        "pid": 24008,
+        "state": "gone"
+      },
+      {
+        "pid": 24007,
+        "state": "gone"
+      },
+      {
+        "pid": 24021,
+        "state": "gone"
+      },
+      {
+        "pid": 24029,
+        "state": "gone"
+      },
+      {
+        "pid": 24028,
+        "state": "gone"
+      },
+      {
+        "pid": 24042,
+        "state": "gone"
+      },
+      {
+        "pid": 24043,
+        "state": "gone"
+      },
+      {
+        "pid": 24056,
+        "state": "gone"
+      },
+      {
+        "pid": 24057,
+        "state": "gone"
+      },
+      {
+        "pid": 24070,
+        "state": "gone"
+      },
+      {
+        "pid": 24071,
+        "state": "gone"
+      },
+      {
+        "pid": 24084,
+        "state": "gone"
+      },
+      {
+        "pid": 24085,
+        "state": "gone"
+      },
+      {
+        "pid": 24098,
+        "state": "gone"
+      },
+      {
+        "pid": 24099,
+        "state": "gone"
+      },
+      {
+        "pid": 24112,
+        "state": "gone"
+      },
+      {
+        "pid": 24135,
+        "state": "gone"
+      },
+      {
+        "pid": 24134,
+        "state": "gone"
+      },
+      {
+        "pid": 24148,
+        "state": "gone"
+      },
+      {
+        "pid": 24155,
+        "state": "gone"
+      },
+      {
+        "pid": 24163,
+        "state": "gone"
+      },
+      {
+        "pid": 24162,
+        "state": "gone"
+      },
+      {
+        "pid": 24176,
+        "state": "gone"
+      },
+      {
+        "pid": 24177,
+        "state": "gone"
+      },
+      {
+        "pid": 24191,
+        "state": "gone"
+      },
+      {
+        "pid": 24190,
+        "state": "gone"
+      },
+      {
+        "pid": 24204,
+        "state": "gone"
+      },
+      {
+        "pid": 24211,
+        "state": "gone"
+      },
+      {
+        "pid": 24218,
+        "state": "gone"
+      },
+      {
+        "pid": 24318,
+        "state": "gone"
+      },
+      {
+        "pid": 24319,
+        "state": "gone"
+      },
+      {
+        "pid": 24332,
+        "state": "gone"
+      },
+      {
+        "pid": 24338,
+        "state": "gone"
+      },
+      {
+        "pid": 24346,
+        "state": "gone"
+      },
+      {
+        "pid": 24352,
+        "state": "gone"
+      },
+      {
+        "pid": 24360,
+        "state": "gone"
+      },
+      {
+        "pid": 24367,
+        "state": "gone"
+      },
+      {
+        "pid": 24374,
+        "state": "gone"
+      },
+      {
+        "pid": 24377,
+        "state": "gone"
+      },
+      {
+        "pid": 24378,
+        "state": "gone"
+      },
+      {
+        "pid": 24391,
+        "state": "gone"
+      },
+      {
+        "pid": 24392,
+        "state": "gone"
+      },
+      {
+        "pid": 24405,
+        "state": "gone"
+      },
+      {
+        "pid": 24406,
+        "state": "gone"
+      },
+      {
+        "pid": 24419,
+        "state": "gone"
+      },
+      {
+        "pid": 24426,
+        "state": "gone"
+      },
+      {
+        "pid": 24433,
+        "state": "gone"
+      },
+      {
+        "pid": 24435,
+        "state": "gone"
+      },
+      {
+        "pid": 24436,
+        "state": "gone"
+      },
+      {
+        "pid": 24451,
+        "state": "gone"
+      },
+      {
+        "pid": 24450,
+        "state": "gone"
+      },
+      {
+        "pid": 24464,
+        "state": "gone"
+      },
+      {
+        "pid": 24465,
+        "state": "gone"
+      },
+      {
+        "pid": 24478,
+        "state": "gone"
+      },
+      {
+        "pid": 24485,
+        "state": "gone"
+      },
+      {
+        "pid": 24486,
+        "state": "gone"
+      },
+      {
+        "pid": 24499,
+        "state": "gone"
+      },
+      {
+        "pid": 24500,
+        "state": "gone"
+      },
+      {
+        "pid": 24514,
+        "state": "gone"
+      },
+      {
+        "pid": 24513,
+        "state": "gone"
+      },
+      {
+        "pid": 24527,
+        "state": "gone"
+      },
+      {
+        "pid": 24534,
+        "state": "gone"
+      }
+    ],
+    "temporaryDagSnapshotsRemoved": true,
+    "quiescentObservationPasses": 2,
+    "fixtureRootRemoved": true
+  },
+  "screenshots": [
+    "T-live-configured-disconnected.png",
+    "T-live-overview.png",
+    "T-live-detail-empty-summary.png",
+    "T-live-orca-stale.png",
+    "T-live-empty.png",
+    "T-live-settings.png",
+    "T-live-narrow.png",
+    "T-live-disconnected-after-cancel.png",
+    "T-live-historical-summary.png",
+    "T-live-historical-summary-stale.png",
+    "T-live-dag-failure-preserves-history.png",
+    "T-live-invalid-configuration.png"
+  ],
+  "rendererErrors": [],
+  "scope": "Actual Linux production Electron window, main runtime, preload and renderer; synthetic Orca and CodeBurn CLI processes; temporary synthetic notes and genuine externally supplied pinned query. No real private-source collection, real model/provider call, actual user approval, remote upload or packaged macOS verification.",
+  "historicalSummarySeed": {
+    "candidateCount": 6,
+    "approvedCount": 6,
+    "actualModelCalls": 0,
+    "actualUserApprovals": 0
+  },
+  "visualReview": "Pending separate screenshot inspection"
+}

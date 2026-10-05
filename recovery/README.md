@@ -41,3 +41,13 @@ git -C recovered-note-app fsck --full
 ```
 
 This exact two-bundle restore was independently exercised in a fresh directory: tip `24664a9`, all 36 original-plus-reconstructed commits, clean worktree and `git fsck` passed. Later evidence-only connector checkpoints can be obtained from the normal remote work branch.
+
+## Final harness history
+
+The newest incremental bundle is `history/note-app-reconstruction-c63708b.bundle`, including the complete reconstructed implementation and final corrected Electron harness. It requires the same original `34253e1` bundle and supersedes the earlier `24664a9` incremental bundle for restoration.
+
+- Tip: `c63708b6ca6ec64bb89e9bf31278bd590ce8e58b`
+- Size: 120,103 bytes
+- SHA-256: `2e34b3bad068dadb7b9b25b88f3a17f9fcdfcdbb1a0c804060cebe1f613daf79`
+
+Use the previous fetch/switch commands with the new filename. The two-bundle restore was reverified at this exact tip: all 39 commits, clean worktree and successful `git fsck`. Later evidence-only commits remain on the normal remote branch.
