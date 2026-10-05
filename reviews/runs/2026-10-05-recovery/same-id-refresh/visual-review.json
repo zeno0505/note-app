@@ -1,0 +1,10 @@
+{
+  "visuallyReviewed": true,
+  "reviewedAt": "2026-10-05T14:05:20Z",
+  "files": [
+    "T-phase1-same-id-prepared-refresh.png",
+    "T-phase1-same-id-waiting-refresh.png",
+    "T-phase1-same-id-candidate.png"
+  ],
+  "findings": "All three actual Electron screenshots opened. Prepared screen visibly retains T-7 selection; waiting screen retains mounted summary and waiting label; final screen shows candidate awaiting review. Korean labels are legible, no visible overlap. Exact ticket/run ownership, IDs and process/cache behavior are established by assertions/result, not screenshot alone."
+}

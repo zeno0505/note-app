@@ -1,0 +1,15 @@
+{
+  "state": "finished",
+  "finishedAt": "2026-10-05T14:04:48.340Z",
+  "results": [
+    {
+      "suite": "same-id-refresh",
+      "file": "same-id-refresh-probe.mjs",
+      "startedAt": "2026-10-05T14:04:41.376Z",
+      "finishedAt": "2026-10-05T14:04:48.339Z",
+      "exitCode": 0,
+      "signal": null,
+      "error": null
+    }
+  ]
+}

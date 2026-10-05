@@ -1,5 +1,10 @@
 [
   {
+    "path": "README.md",
+    "bytes": 2929,
+    "sha256": "0e4c2e4fa26bbf0f78ae7041cc8e1bcae6b547f4d0b6ff93ae8f16b971f747f0"
+  },
+  {
     "path": "T-007-narrow.png",
     "bytes": 133133,
     "sha256": "2e86e359b5ea2d523bf45474a655897bed66628f11a5ca02a8bcd8701ff2d344"
@@ -113,6 +118,56 @@
     "path": "initial-runner-manifest.json",
     "bytes": 14662,
     "sha256": "93d5a8de0d9a27cb82c5922b1f89d7742ebe6af36c22003e9b84f47fe2881591"
+  },
+  {
+    "path": "same-id-refresh/README.txt",
+    "bytes": 891,
+    "sha256": "6f45401eedfb47b94db90cd00369d1a9deb00abb42a8d68f7b4302e1688856bc"
+  },
+  {
+    "path": "same-id-refresh/T-phase1-same-id-candidate.png",
+    "bytes": 70814,
+    "sha256": "a6df07271cd34035cb23a80caacc3a2aba47777d00af3fad15887307acd6cc41"
+  },
+  {
+    "path": "same-id-refresh/T-phase1-same-id-prepared-refresh.png",
+    "bytes": 64174,
+    "sha256": "ba78b2c32ce3b271ba3887fb5463a9a3b8bc4010f3190b6bef7a396240d519bf"
+  },
+  {
+    "path": "same-id-refresh/T-phase1-same-id-waiting-refresh.png",
+    "bytes": 66370,
+    "sha256": "2bdc3a48d963ac21de832467ac3e21acc906dbfaac9dc7db59cf0cb7073e78f9"
+  },
+  {
+    "path": "same-id-refresh/build-identity.json",
+    "bytes": 3096,
+    "sha256": "76965d5b7b6b7cc81d8c94ba5ccfcf437671fabf92ed72562a6dcdd7a8a97f6a"
+  },
+  {
+    "path": "same-id-refresh/probe-identity.json",
+    "bytes": 315,
+    "sha256": "0a1f18d71d309966e29e15a11fc998a51f3b21afdd03322a122bba575530586e"
+  },
+  {
+    "path": "same-id-refresh/same-id-refresh-probe.mjs",
+    "bytes": 13307,
+    "sha256": "f282e2913095f88dc50851814114311db8c9cd45732324520ebba1ce95562573"
+  },
+  {
+    "path": "same-id-refresh/same-id-refresh-result.json",
+    "bytes": 7672,
+    "sha256": "713fba6df8c34429263c66f9dc179220cb73ecb481a9a5a3540a1224336ef304"
+  },
+  {
+    "path": "same-id-refresh/status.json",
+    "bytes": 336,
+    "sha256": "93064f9db9d8d22a5193fd92c45a39c05d94941afb4f7f8fec5b757c7aaa62a4"
+  },
+  {
+    "path": "same-id-refresh/visual-review.json",
+    "bytes": 594,
+    "sha256": "c5011c71ae7b0edbd7b00afc19011e55c7a4654a474e7d0b5b4193cbf83ca59f"
   },
   {
     "path": "visual-review.json",

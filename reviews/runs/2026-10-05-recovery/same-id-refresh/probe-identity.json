@@ -1,0 +1,6 @@
+{
+  "testedProductionSourceCommit": "24664a99cac692aa20abb0d57ee2f6a7d4e0a96c",
+  "baseHarnessCommit": "c63708b6ca6ec64bb89e9bf31278bd590ce8e58b",
+  "probeSha256": "f282e2913095f88dc50851814114311db8c9cd45732324520ebba1ce95562573",
+  "buildHash": "92cc6b43096029baa2a1b81491b6032a381a005c3c53f86548a156f0291afa6f"
+}
