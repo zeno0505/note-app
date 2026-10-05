@@ -70,6 +70,31 @@ describe('CodeBurn fact projection', () => {
     ] } });
     expect(JSON.stringify(result)).not.toContain('DROP_ME');
   });
+  it('projects an omitted quota reset time as unknown without discarding reported usage', () => {
+    const result = projectCodeBurn('quota', { providers: [{ id: 'claude', available: true,
+      windows: [{ label: 'five-hour', usedPct: 35 }] }] }, 123);
+    expect(result).toMatchObject({ ok: true, value: { providers: [
+      { provider: 'claude', quotaData: 'available', windows: [
+        { label: 'five-hour', usedPct: 35, resetsAt: null, resetTimeFormat: 'unverified' },
+      ] },
+      { provider: 'codex', quotaData: 'unknown', windows: [] },
+    ] } });
+  });
+  it.each([null, 0, 1_800_000_000, '2026-10-03T00:00:00Z'])(
+    'preserves a valid explicitly reported quota reset time (%j)', resetsAt => {
+      const result = projectCodeBurn('quota', { providers: [{ id: 'claude', available: true,
+        windows: [{ label: 'five-hour', usedPct: 35, resetsAt }] }] }, 123);
+      expect(result).toMatchObject({ ok: true, value: { providers: [
+        { windows: [{ resetsAt, resetTimeFormat: 'unverified' }] },
+        { provider: 'codex', quotaData: 'unknown' },
+      ] } });
+    });
+  it.each([undefined, false, true, '', ' ', '\u0000', 'a'.repeat(121), -1, NaN, Infinity, {}, []])(
+    'rejects malformed explicitly present quota reset times (%j)', resetsAt => {
+      expect(projectCodeBurn('quota', { providers: [{ id: 'claude', available: true,
+        windows: [{ label: 'five-hour', usedPct: 35, resetsAt }] }] }, 123))
+        .toMatchObject({ ok: false, error: { kind: 'invalid-schema' } });
+    });
   it.each([null, {}, { ...status, currency: '$' }, { ...status, today: { cost: -1, savings: 0, calls: 1 } },
     { ...status, today: { cost: NaN, savings: 0, calls: 1 } }, { ...status, month: { cost: 1, savings: 0, calls: 1.2 } }])(
     'rejects unknown or invalid status shapes (%j)', input => {

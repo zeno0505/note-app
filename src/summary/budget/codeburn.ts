@@ -79,11 +79,13 @@ export function projectCodeBurn(query: CodeBurnQuery, input: unknown, observedAt
     }
     const windows: CodeBurnQuotaProvider['windows'] = [];
     for (const window of value.windows) {
-      if (!record(window) || !label(window.label) || !nonnegative(window.usedPct)
-        || !(window.resetsAt === null || label(window.resetsAt) || nonnegative(window.resetsAt))) {
+      if (!record(window)) return fail('invalid-schema', query, observedAt);
+      const resetsAt = Object.hasOwn(window, 'resetsAt') ? window.resetsAt : null;
+      if (!label(window.label) || !nonnegative(window.usedPct)
+        || !(resetsAt === null || label(resetsAt) || nonnegative(resetsAt))) {
         return fail('invalid-schema', query, observedAt);
       }
-      windows.push({ label: window.label, usedPct: window.usedPct, resetsAt: window.resetsAt, resetTimeFormat: 'unverified' });
+      windows.push({ label: window.label, usedPct: window.usedPct, resetsAt, resetTimeFormat: 'unverified' });
     }
     const reportedError = typeof value.error === 'string' && value.error.length > 0;
     if ((!value.available && windows.length > 0) || (value.available && reportedError)) return fail('invalid-schema', query, observedAt);
