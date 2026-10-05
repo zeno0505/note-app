@@ -23,3 +23,21 @@ GitHub connector checkpoint commits have new author/timestamp identities. They p
 The privacy audit covered every recovered commit, 353 historical text blobs and 45 unique screenshot images. No credentials, private company/personal notes, or private query implementation are included. Private integration tools remain external to this repository.
 
 See [recovery verification](../reviews/recovery-2026-10-05.md) for current reconstruction and test status. Production real model execution remains blocked.
+
+## Reconstructed implementation history
+
+`history/note-app-reconstruction-24664a9.bundle` preserves the 11 new implementation/documentation commits after the recovered tip. It is an incremental bundle requiring original `34253e1`, not a second copy of the full repository.
+
+- Reconstructed tested tip: `24664a99cac692aa20abb0d57ee2f6a7d4e0a96c`
+- Size: 58,696 bytes
+- SHA-256: `b5fc80655945c21979c59d7a0c5d412c88339259565b333ea733105ed5bf6b99`
+
+After the original clone above, restore the reconstructed branch:
+
+```sh
+git -C recovered-note-app fetch ../recovery/history/note-app-reconstruction-24664a9.bundle refs/heads/feat/phase1-foundation:refs/heads/reconstructed
+git -C recovered-note-app switch reconstructed
+git -C recovered-note-app fsck --full
+```
+
+This exact two-bundle restore was independently exercised in a fresh directory: tip `24664a9`, all 36 original-plus-reconstructed commits, clean worktree and `git fsck` passed. Later evidence-only connector checkpoints can be obtained from the normal remote work branch.
