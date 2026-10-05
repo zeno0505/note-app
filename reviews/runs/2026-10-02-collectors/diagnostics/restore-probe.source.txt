@@ -1,0 +1,16 @@
+import {_electron as electron} from '@playwright/test';
+import path from 'node:path';
+import {writeFile} from 'node:fs/promises';
+const app=await electron.launch({chromiumSandbox:true,args:[path.resolve('.')],timeout:30000});
+try{
+ const page=await app.firstWindow();await page.getByRole('button',{name:'샘플로 살펴보기',exact:true}).click();await page.getByText('가상 프로젝트 샘플',{exact:true}).waitFor();
+ const inspect=()=>page.evaluate(()=>Object.fromEntries(['.notice.demo','.page-subtitle','.observation','.app-footer'].map(selector=>{const node=document.querySelector(selector);const style=getComputedStyle(node);return [selector,{text:node.textContent,color:style.color,opacity:style.opacity,visibility:style.visibility,display:style.display,rect:{width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height}}]})));
+ const before=await inspect();await page.screenshot({path:'reviews/evidence/restore-before.png',fullPage:true});
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());await new Promise(resolve=>setTimeout(resolve,2500));
+ await app.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window.show();window.focus();});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const after=await inspect();await page.screenshot({path:'reviews/evidence/restore-after.png',fullPage:true});
+ await writeFile('reviews/evidence/restore-dom.json',JSON.stringify({before,after},null,2));console.log('READY_FOR_NATIVE_INSPECTION');
+ await new Promise(resolve=>setTimeout(resolve,60000));
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];const [x,y]=w.getSize();w.setSize(x-1,y);w.setSize(x,y);});await page.screenshot({path:'reviews/evidence/restore-after-resize.png',fullPage:true});
+ console.log('RESTORE_PROBE_COMPLETE');
+}finally{await app.close();}

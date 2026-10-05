@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "contractStatus": "provisional-internal-fixture-not-real-cli-schema",
+  "observedAt": "2026-10-02T09:00:00.000Z",
+  "coverage": {
+    "complete": true,
+    "truncated": false,
+    "totalCount": 4,
+    "omittedHostIds": []
+  },
+  "worktrees": [
+    {
+      "id": "wt-atlas-build",
+      "title": "Atlas 구현",
+      "repositoryId": "repo-synthetic-shared",
+      "isArchived": false,
+      "isSelected": false,
+      "terminalConnected": true,
+      "terminalCount": 1,
+      "agentState": "done",
+      "agentObservedAt": "2026-10-02T09:00:00.000Z",
+      "lastOutputAt": "2026-10-02T08:55:00.000Z"
+    },
+    {
+      "id": "wt-atlas-review",
+      "title": "Atlas 검토",
+      "repositoryId": "repo-synthetic-shared",
+      "isArchived": false,
+      "isSelected": true,
+      "terminalConnected": false,
+      "terminalCount": 0,
+      "agentState": "idle",
+      "agentObservedAt": "2026-10-02T09:00:00.000Z",
+      "lastOutputAt": null
+    },
+    {
+      "id": "wt-beacon-build",
+      "title": "Beacon 구현",
+      "repositoryId": "repo-synthetic-shared",
+      "isArchived": false,
+      "isSelected": false,
+      "terminalConnected": false,
+      "terminalCount": 0,
+      "agentState": "working",
+      "agentObservedAt": "2026-10-02T09:00:00.000Z",
+      "lastOutputAt": "2026-10-02T08:58:00.000Z"
+    },
+    {
+      "id": "wt-unmapped",
+      "title": "노트 연결 미확인",
+      "repositoryId": "repo-synthetic-unmapped",
+      "isArchived": false,
+      "isSelected": false,
+      "terminalConnected": true,
+      "terminalCount": 1,
+      "agentState": "unknown",
+      "agentObservedAt": null,
+      "lastOutputAt": null
+    }
+  ]
+}

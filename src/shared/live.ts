@@ -1,0 +1,66 @@
+import type { DagTask } from '../facts/dag-read-model/types';
+import type { CodeBurnResult } from '../summary/budget/codeburn';
+import type { ClaimView } from '../summary/claims';
+
+/** Detached display projection. No arbitrary file, command, prompt or model IPC. */
+export interface LiveConfigurationView {
+  state: 'unconfigured' | 'ready' | 'invalid';
+  message: string;
+  orcaExecutable: string | null;
+  codeburnExecutable: string | null;
+  noteScopeCount: number;
+  dagQueryConfigured: boolean;
+  summaryTransport: 'blocked';
+}
+export interface LiveSummaryView {
+  state: 'unavailable' | 'empty' | 'restored' | 'error';
+  reason: string;
+  revision: number | null;
+  candidateClaims: ClaimView[];
+  approvedClaims: ClaimView[];
+  approvedAt: string | null;
+  context: null | { selectedTaskCount: number; recordCount: number; bytes: number; truncated: boolean; unknowns: string[] };
+}
+export interface LiveDagTaskView extends DagTask {
+  /** Display-only truncation. Context selection uses the original verified read model. */
+  displayOmissions: { dependencies: number; commitReferences: number; e2eReferences: number };
+}
+export interface LiveDagView {
+  dagId: string;
+  state: 'ready' | 'unavailable' | 'error';
+  reason: string | null;
+  observedAt: string | null;
+  unchanged: boolean;
+  taskCount: number | null;
+  displayedTaskCount: number;
+  tasks: LiveDagTaskView[];
+  statusCounts: {status: string | null; count: number}[];
+  statusCountTotal: number | null;
+  statusCountsOmitted: number;
+  summary: LiveSummaryView;
+}
+export interface LiveWorkstreamView {
+  id: string;
+  title: string;
+  projectName: string | null;
+  branch: string | null;
+  archived: boolean | null;
+  terminalConnected: boolean | null;
+  terminalCount: number | null;
+  agentState: 'done' | 'unknown';
+  projectMapping: string;
+  noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null };
+}
+export interface LiveWorkspaceView {
+  mode: 'live-read-only';
+  connection: 'disconnected' | 'connected';
+  configuration: LiveConfigurationView;
+  refreshing: boolean;
+  observedAt: string | null;
+  freshness: 'unknown' | 'current' | 'stale';
+  lastError: string | null;
+  coverage: null | {projects: 'complete' | 'partial' | 'unknown'; worktrees: 'complete' | 'partial' | 'unknown'; processes: 'complete' | 'partial' | 'unknown'; totalWorktrees: number | null};
+  workstreams: LiveWorkstreamView[];
+  dags: LiveDagView[];
+  codeburn: { state: 'unconfigured' | 'idle' | 'observed'; results: CodeBurnResult[] };
+}

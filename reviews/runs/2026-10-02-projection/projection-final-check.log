@@ -1,0 +1,38 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 check
+> npm run typecheck && npm test && npm run build
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 typecheck
+> vue-tsc --noEmit
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 test
+> vitest run --root . tests/unit
+
+
+ RUN  v4.1.11 /workspace/scratch/5a42b5329b35/note-app
+
+
+ Test Files  18 passed (18)
+      Tests  409 passed (409)
+   Start at  05:23:34
+   Duration  5.34s (transform 1.37s, setup 0ms, import 1.94s, tests 16.45s, environment 8ms)
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 build
+> node scripts/build.mjs
+
+vite v7.3.6 building client environment for production...
+transforming...
+✓ 193 modules transformed.
+rendering chunks...
+computing gzip size...
+../../dist/renderer/index.html                   0.60 kB │ gzip:  0.40 kB
+../../dist/renderer/assets/index-CUy2PArl.css    9.26 kB │ gzip:  2.83 kB
+../../dist/renderer/assets/index-91PGfR5s.js   345.74 kB │ gzip: 88.16 kB
+✓ built in 1.11s

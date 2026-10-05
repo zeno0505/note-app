@@ -1,0 +1,138 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T17:16:33.120Z",
+  "codeIdentity": {
+    "commit": "90b450d5ab0b4bcb90a2df8f5ea8e09e7c795860",
+    "buildHash": "6d53ab15398a261225161b976fd6513a48605321fa437c536b027c32765bef38",
+    "files": {
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-CEobq2XH.css": "c1f349e464b8a6ef43a20174f9adfa4a3443bb0d616a18684f93c1bb571d6930",
+      "dist/renderer/assets/index-CuJ6k3jV.js": "34896cd38055b41a2ac092c0614e9c65b2166c574a31befe05e746f3a8f8b945",
+      "dist/renderer/index.html": "65f139a4c15d9796789c2bad9e0f09c2c65512b88965f78d8d1598ed066f463b"
+    }
+  },
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "webSecurity": true,
+    "webviewTag": false,
+    "argv": [
+      "/workspace/scratch/5a42b5329b35/note-app/node_modules/electron/dist/electron",
+      "/workspace/scratch/5a42b5329b35/note-app"
+    ],
+    "versions": {
+      "node": "24.21.0",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "149",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.7",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2025c",
+      "undici": "7.29.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.2.124.28-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "44.5.1",
+      "chrome": "152.0.7977.130"
+    }
+  },
+  "environment": {
+    "version": "0.1.0",
+    "platform": "linux",
+    "dataMode": "disabled",
+    "summaryBackend": "unconfigured",
+    "capabilities": {
+      "realOrca": false,
+      "noteWrites": false,
+      "remoteSummary": false
+    }
+  },
+  "checks": [
+    "Initial state: no real sources, no automatic fixture or summary execution",
+    "Runtime security: sandbox/context isolation on; Node absent; narrow API; malformed and path/command-shaped requests rejected",
+    "Remote fetch and external new window blocked",
+    "User navigation: 2 connected → 3 nonarchived workstreams; no-result search/clear; detail/evidence/back (Atlas 메모 검색 ↗)",
+    "Synthetic failure keeps last-good workstreams and timestamp, including empty → failure;  normal retry recovers; repeated refreshes stable; explicit empty success separate",
+    "Actual missing IPC handler rejects refresh: visible error/stale state retains prior cards and timestamp",
+    "Exit demo clears state; missing detail safe; re-entry; narrow-window layout without horizontal overflow; reload safe; no renderer exceptions",
+    "Window closes and all main/renderer/GPU/utility processes tracked by Electron metrics exit"
+  ],
+  "metrics": [
+    {
+      "pid": 13417,
+      "type": "Browser",
+      "cpu": {
+        "cumulativeCPUUsage": 0.76,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 241996,
+        "peakWorkingSetSize": 250148
+      }
+    },
+    {
+      "pid": 13448,
+      "type": "GPU",
+      "cpu": {
+        "cumulativeCPUUsage": 0.25,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 119988,
+        "peakWorkingSetSize": 165540
+      }
+    },
+    {
+      "pid": 13452,
+      "type": "Utility",
+      "cpu": {
+        "cumulativeCPUUsage": 0.03,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 80192,
+        "peakWorkingSetSize": 80192
+      }
+    },
+    {
+      "pid": 13487,
+      "type": "Tab",
+      "cpu": {
+        "cumulativeCPUUsage": 0.84,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 198204,
+        "peakWorkingSetSize": 198204
+      }
+    }
+  ],
+  "scope": "Linux development build with synthetic/manual fixture only; not real Orca, notes, macOS native dialogs or packaged .app",
+  "visualReview": "Pending separate image opening"
+}

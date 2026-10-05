@@ -1,0 +1,84 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 benchmark:electron
+> node tests/electron/resource-baseline.mjs
+
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T18:16:23.957Z",
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "release": "6.18.44",
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9,
+    "totalMemoryBytes": 10451464192
+  },
+  "startup": [
+    {
+      "profile": "fresh",
+      "sample": 1,
+      "elapsedMs": 415.77050399999996
+    },
+    {
+      "profile": "fresh",
+      "sample": 2,
+      "elapsedMs": 383.3535300000001
+    },
+    {
+      "profile": "fresh",
+      "sample": 3,
+      "elapsedMs": 404.690842
+    },
+    {
+      "profile": "fresh",
+      "sample": 4,
+      "elapsedMs": 427.7902560000002
+    },
+    {
+      "profile": "fresh",
+      "sample": 5,
+      "elapsedMs": 414.8650969999999
+    },
+    {
+      "profile": "reused",
+      "sample": 1,
+      "elapsedMs": 395.096642
+    },
+    {
+      "profile": "reused",
+      "sample": 2,
+      "elapsedMs": 375.614556
+    },
+    {
+      "profile": "reused",
+      "sample": 3,
+      "elapsedMs": 408.7145969999997
+    },
+    {
+      "profile": "reused",
+      "sample": 4,
+      "elapsedMs": 388.68275700000004
+    },
+    {
+      "profile": "reused",
+      "sample": 5,
+      "elapsedMs": 386.3505150000001
+    }
+  ],
+  "activeSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.0295208391147163,
+    "cpuPercentMax": 0.33220361959324607,
+    "aggregateWorkingSetKiBMean": 603025.9333333333,
+    "aggregateWorkingSetKiBMax": 615184
+  },
+  "hiddenSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.02027924173223235,
+    "cpuPercentMax": 0.1108267297226428,
+    "aggregateWorkingSetKiBMean": 597009.7333333333,
+    "aggregateWorkingSetKiBMax": 597896
+  },
+  "scope": "Shared cloud Linux development Electron, synthetic fixture overview, no live collectors/model. Fresh vs reused application profiles; no OS disk-cache flush. Main/renderer/GPU/utility working-set sum may double-count shared pages, not unique physical memory. Automation overhead included in startup. Not macOS or large-DAG performance acceptance."
+}

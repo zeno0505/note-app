@@ -1,0 +1,94 @@
+{
+  "before": {
+    ".notice.demo": {
+      "text": "가상 프로젝트 샘플직접 작성한 예시입니다. 실제 Orca 조회·AI 요약·개발 위임은 실행되지 않습니다.",
+      "color": "rgb(82, 99, 77)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1069,
+        "height": 47.796875
+      }
+    },
+    ".page-subtitle": {
+      "text": "어디까지 왔는지, 무엇이 남았는지, 지금 판단할 일을 살펴보세요",
+      "color": "rgb(110, 124, 117)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "block",
+      "rect": {
+        "width": 343.703125,
+        "height": 22.09375
+      }
+    },
+    ".observation": {
+      "text": "2개 워크스트림 · 저장소가 아닌 작업 단위샘플 관측 2026. 10. 2. 오전 9:00 UTC",
+      "color": "rgb(138, 148, 138)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1069,
+        "height": 15
+      }
+    },
+    ".app-footer": {
+      "text": "내 작업의 맥락을 한 곳에서샘플 모드 · 실제 프로젝트 정보가 아닙니다 · v0.1.0",
+      "color": "rgb(154, 161, 143)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1165,
+        "height": 54
+      }
+    }
+  },
+  "after": {
+    ".notice.demo": {
+      "text": "가상 프로젝트 샘플직접 작성한 예시입니다. 실제 Orca 조회·AI 요약·개발 위임은 실행되지 않습니다.",
+      "color": "rgb(82, 99, 77)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1069,
+        "height": 47.796875
+      }
+    },
+    ".page-subtitle": {
+      "text": "어디까지 왔는지, 무엇이 남았는지, 지금 판단할 일을 살펴보세요",
+      "color": "rgb(110, 124, 117)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "block",
+      "rect": {
+        "width": 343.703125,
+        "height": 22.09375
+      }
+    },
+    ".observation": {
+      "text": "2개 워크스트림 · 저장소가 아닌 작업 단위샘플 관측 2026. 10. 2. 오전 9:00 UTC",
+      "color": "rgb(138, 148, 138)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1069,
+        "height": 15
+      }
+    },
+    ".app-footer": {
+      "text": "내 작업의 맥락을 한 곳에서샘플 모드 · 실제 프로젝트 정보가 아닙니다 · v0.1.0",
+      "color": "rgb(154, 161, 143)",
+      "opacity": "1",
+      "visibility": "visible",
+      "display": "flex",
+      "rect": {
+        "width": 1165,
+        "height": 54
+      }
+    }
+  }
+}

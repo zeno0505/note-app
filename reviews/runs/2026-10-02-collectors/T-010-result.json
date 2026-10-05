@@ -1,0 +1,175 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T18:14:16.007Z",
+  "codeIdentity": {
+    "commit": "f82220b3694f71a96d79c94ec63ea452bcd1b15f",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "62f574e9594331cdbe0526eb6494e18d6f215a2cfa40a821eaf38514c3d4152f",
+    "files": {
+      "dist/electron-tests/collector-main.cjs": "972788f26dfe05e2adf4a55feb6671963315567dba2461a5dcbeaf60c3382ea6",
+      "dist/electron-tests/collector-main.cjs.map": "10aec1743a65abc5aec694d21df2ba7cfdcd56e8f10b6d735907ecfd6941370c",
+      "dist/electron-tests/polling-main.cjs": "e64be5e02fc317a84d00c323b071b4d41d106906f2239b037c443dfa45dedf87",
+      "dist/electron-tests/polling-main.cjs.map": "6d5781a8ba0cfa6ea63b96741493fb6d59f2fac7a1ec32cc411dac394bc49d7a",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-CUy2PArl.css": "4e2d909978177fe1852d2d20121b1f3a6fb5b3df69424795a7a29d99109fb558",
+      "dist/renderer/assets/index-Ciz47GA1.js": "36373508885f07a555f5366c3c63079f71ad313a93d7b4d6052eb69dafcd1df5",
+      "dist/renderer/index.html": "4cfcf7963b36fbb97979c8f9225f4db0353c118e98650fae95a7513ce7ae5841"
+    }
+  },
+  "samples": [
+    {
+      "stage": "initial",
+      "elapsedMs": 427,
+      "loads": 1,
+      "inflight": 0,
+      "visible": true,
+      "active": true,
+      "freshness": "current",
+      "observedAt": "2026-10-02T18:13:30.961Z",
+      "lastAttempt": {
+        "id": 1,
+        "reason": "initial",
+        "attemptedAt": "2026-10-02T18:13:30.830Z",
+        "completedAt": "2026-10-02T18:13:30.962Z",
+        "outcome": "success",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:13:30.962Z",
+      "coverage": "unknown",
+      "nextPollAt": "2026-10-02T18:13:50.962Z",
+      "intervalMs": 20000,
+      "staleAfterMs": 40000
+    },
+    {
+      "stage": "active-after-21.5s",
+      "elapsedMs": 21933,
+      "loads": 2,
+      "inflight": 0,
+      "visible": true,
+      "active": true,
+      "freshness": "current",
+      "observedAt": "2026-10-02T18:13:51.104Z",
+      "lastAttempt": {
+        "id": 2,
+        "reason": "poll",
+        "attemptedAt": "2026-10-02T18:13:50.981Z",
+        "completedAt": "2026-10-02T18:13:51.104Z",
+        "outcome": "success",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:13:51.104Z",
+      "coverage": "unknown",
+      "nextPollAt": "2026-10-02T18:14:11.104Z",
+      "intervalMs": 20000,
+      "staleAfterMs": 40000
+    },
+    {
+      "stage": "hidden-start",
+      "elapsedMs": 21960,
+      "loads": 2,
+      "inflight": 0,
+      "visible": false,
+      "active": false,
+      "freshness": "current",
+      "observedAt": "2026-10-02T18:13:51.104Z",
+      "lastAttempt": {
+        "id": 2,
+        "reason": "poll",
+        "attemptedAt": "2026-10-02T18:13:50.981Z",
+        "completedAt": "2026-10-02T18:13:51.104Z",
+        "outcome": "success",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:13:51.104Z",
+      "coverage": "unknown",
+      "nextPollAt": null,
+      "intervalMs": 20000,
+      "staleAfterMs": 40000
+    },
+    {
+      "stage": "hidden-after-22s",
+      "elapsedMs": 43965,
+      "loads": 2,
+      "inflight": 0,
+      "visible": false,
+      "active": false,
+      "freshness": "current",
+      "observedAt": "2026-10-02T18:13:51.104Z",
+      "lastAttempt": {
+        "id": 2,
+        "reason": "poll",
+        "attemptedAt": "2026-10-02T18:13:50.981Z",
+        "completedAt": "2026-10-02T18:13:51.104Z",
+        "outcome": "success",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:13:51.104Z",
+      "coverage": "unknown",
+      "nextPollAt": null,
+      "intervalMs": 20000,
+      "staleAfterMs": 40000
+    },
+    {
+      "stage": "resumed",
+      "elapsedMs": 44117,
+      "loads": 3,
+      "inflight": 0,
+      "visible": true,
+      "active": true,
+      "freshness": "current",
+      "observedAt": "2026-10-02T18:14:14.644Z",
+      "lastAttempt": {
+        "id": 3,
+        "reason": "resume",
+        "attemptedAt": "2026-10-02T18:14:14.513Z",
+        "completedAt": "2026-10-02T18:14:14.644Z",
+        "outcome": "success",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:14:14.644Z",
+      "coverage": "unknown",
+      "nextPollAt": "2026-10-02T18:14:34.644Z",
+      "intervalMs": 20000,
+      "staleAfterMs": 40000
+    },
+    {
+      "stage": "stale-notification-during-pending-read",
+      "elapsedMs": 45316,
+      "loads": 5,
+      "inflight": 1,
+      "visible": true,
+      "active": true,
+      "freshness": "stale",
+      "observedAt": "2026-10-02T18:14:14.844Z",
+      "lastAttempt": {
+        "id": 2,
+        "reason": "manual",
+        "attemptedAt": "2026-10-02T18:14:14.845Z",
+        "completedAt": null,
+        "outcome": "pending",
+        "error": null
+      },
+      "lastSuccessAt": "2026-10-02T18:14:14.844Z",
+      "coverage": "unknown",
+      "nextPollAt": null,
+      "intervalMs": 20000,
+      "staleAfterMs": 1000
+    }
+  ],
+  "checks": [
+    "20-second active cadence observed",
+    "No new collection during 22-second native hidden interval",
+    "Immediate successful refresh on native show/focus; timestamp advanced",
+    "Unknown project coverage preserved",
+    "One-second test-only freshness deadline publishes stale while real synthetic subprocess is pending",
+    "Dispose, temporary fixture cleanup and tracked process exit"
+  ],
+  "scope": "Actual Linux Electron window hide/show with synthetic CLI, real wall-clock waits; not macOS background policy or real Orca",
+  "visualReview": "Pending separate image opening"
+}

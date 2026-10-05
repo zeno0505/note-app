@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.electron-test-profile/
+playwright-report/
+test-results/
+reviews/evidence/*
+!reviews/evidence/.gitkeep
+*.log
+.DS_Store
+
+!reviews/runs/**/*.log

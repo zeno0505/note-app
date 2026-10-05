@@ -1,0 +1,7185 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T18:24:45.853Z",
+  "codeIdentity": {
+    "commit": "f82220b3694f71a96d79c94ec63ea452bcd1b15f",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "62f574e9594331cdbe0526eb6494e18d6f215a2cfa40a821eaf38514c3d4152f",
+    "files": {
+      "dist/electron-tests/collector-main.cjs": "972788f26dfe05e2adf4a55feb6671963315567dba2461a5dcbeaf60c3382ea6",
+      "dist/electron-tests/collector-main.cjs.map": "10aec1743a65abc5aec694d21df2ba7cfdcd56e8f10b6d735907ecfd6941370c",
+      "dist/electron-tests/polling-main.cjs": "e64be5e02fc317a84d00c323b071b4d41d106906f2239b037c443dfa45dedf87",
+      "dist/electron-tests/polling-main.cjs.map": "6d5781a8ba0cfa6ea63b96741493fb6d59f2fac7a1ec32cc411dac394bc49d7a",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-CUy2PArl.css": "4e2d909978177fe1852d2d20121b1f3a6fb5b3df69424795a7a29d99109fb558",
+      "dist/renderer/assets/index-Ciz47GA1.js": "36373508885f07a555f5366c3c63079f71ad313a93d7b4d6052eb69dafcd1df5",
+      "dist/renderer/index.html": "4cfcf7963b36fbb97979c8f9225f4db0353c118e98650fae95a7513ce7ae5841"
+    }
+  },
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "release": "6.18.44",
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9,
+    "totalMemoryBytes": 10451464192
+  },
+  "startup": [
+    {
+      "profile": "fresh",
+      "sample": 1,
+      "elapsedMs": 486.31195
+    },
+    {
+      "profile": "fresh",
+      "sample": 2,
+      "elapsedMs": 441.22683400000005
+    },
+    {
+      "profile": "fresh",
+      "sample": 3,
+      "elapsedMs": 438.4858570000001
+    },
+    {
+      "profile": "fresh",
+      "sample": 4,
+      "elapsedMs": 404.1036409999999
+    },
+    {
+      "profile": "fresh",
+      "sample": 5,
+      "elapsedMs": 445.4616420000002
+    },
+    {
+      "profile": "reused",
+      "sample": 1,
+      "elapsedMs": 429.507932
+    },
+    {
+      "profile": "reused",
+      "sample": 2,
+      "elapsedMs": 442.1221340000002
+    },
+    {
+      "profile": "reused",
+      "sample": 3,
+      "elapsedMs": 402.6436639999997
+    },
+    {
+      "profile": "reused",
+      "sample": 4,
+      "elapsedMs": 410.33722000000034
+    },
+    {
+      "profile": "reused",
+      "sample": 5,
+      "elapsedMs": 426.61542199999985
+    }
+  ],
+  "activeSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.029519837781184628,
+    "cpuPercentMax": 0.5531345960661553,
+    "aggregateWorkingSetKiBMean": 602104.0666666667,
+    "aggregateWorkingSetKiBMax": 614056
+  },
+  "hiddenSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.018452555667521176,
+    "cpuPercentMax": 0.11086665014753579,
+    "aggregateWorkingSetKiBMean": 596951.2,
+    "aggregateWorkingSetKiBMax": 597676
+  },
+  "active": [
+    {
+      "observedAt": "2026-10-02T18:21:56.225Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 240320,
+            "peakWorkingSetSize": 240320
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 124624,
+            "peakWorkingSetSize": 124624
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 162432,
+            "peakWorkingSetSize": 162432
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:21:57.229Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 240304,
+            "peakWorkingSetSize": 240304
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 124624,
+            "peakWorkingSetSize": 124624
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 162432,
+            "peakWorkingSetSize": 162432
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:21:58.234Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 240304,
+            "peakWorkingSetSize": 240304
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 124624,
+            "peakWorkingSetSize": 124624
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 157984,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:21:59.237Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240324,
+            "peakWorkingSetSize": 240324
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:00.242Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240324,
+            "peakWorkingSetSize": 240324
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:01.246Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240324,
+            "peakWorkingSetSize": 240324
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:02.249Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240324,
+            "peakWorkingSetSize": 240324
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86680,
+            "peakWorkingSetSize": 86680
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:03.252Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.33,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 7
+          },
+          "memory": {
+            "workingSetSize": 240324,
+            "peakWorkingSetSize": 240324
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:04.255Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0.11081943435987592,
+            "idleWakeupsPerSecond": 4
+          },
+          "memory": {
+            "workingSetSize": 240328,
+            "peakWorkingSetSize": 240328
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:05.259Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240328,
+            "peakWorkingSetSize": 240328
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:06.262Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240332,
+            "peakWorkingSetSize": 240332
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:07.267Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 12
+          },
+          "memory": {
+            "workingSetSize": 240728,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120532,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:08.271Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 5
+          },
+          "memory": {
+            "workingSetSize": 240596,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:09.273Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.34,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 240632,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:10.277Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.35,
+            "percentCPUUsage": 0.11073858650610457,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240632,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:11.280Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0.1107409042681427,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240632,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:12.282Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240632,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:13.286Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240636,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:14.290Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240636,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:15.295Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240636,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:16.298Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240636,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:17.302Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240636,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:18.308Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240660,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:19.312Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240664,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:20.316Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240664,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:21.320Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240664,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:22.325Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.36,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240664,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.23,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 157996,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:23.329Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.37,
+            "percentCPUUsage": 0.11062788849416857,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240664,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.27,
+            "percentCPUUsage": 0.44250670757198673,
+            "idleWakeupsPerSecond": 10
+          },
+          "memory": {
+            "workingSetSize": 152604,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:24.333Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.37,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 240672,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0.11066226496441545,
+            "idleWakeupsPerSecond": 5
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:25.337Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.38,
+            "percentCPUUsage": 0.11069412633719888,
+            "idleWakeupsPerSecond": 12
+          },
+          "memory": {
+            "workingSetSize": 239236,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:26.340Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.4,
+            "percentCPUUsage": 0.2215579913641126,
+            "idleWakeupsPerSecond": 11
+          },
+          "memory": {
+            "workingSetSize": 239108,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:27.344Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.4,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239164,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:28.347Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.4,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239216,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:29.351Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.4,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239268,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:30.355Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0.11071706906231832,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239316,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:31.358Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239368,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:32.361Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239420,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:33.363Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239472,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:34.367Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239524,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:35.370Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239572,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:36.374Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239624,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:37.377Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239676,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:38.380Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239724,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:39.384Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239780,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:40.388Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239832,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:41.394Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.41,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239880,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:42.397Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0.11070471410562935,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239936,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:43.401Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239956,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:44.404Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240004,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:45.407Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240056,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:46.410Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240104,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:47.413Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240140,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:48.417Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240140,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:49.421Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.42,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 240140,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:50.425Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.43,
+            "percentCPUUsage": 0.11068585605215871,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239532,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:51.429Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.43,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239532,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:52.433Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.43,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239544,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120540,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86748,
+            "peakWorkingSetSize": 86748
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 151548,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:53.437Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0.11073472378496602,
+            "idleWakeupsPerSecond": 5
+          },
+          "memory": {
+            "workingSetSize": 238752,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120296,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 151324,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:54.439Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238880,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120296,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151324,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:55.443Z",
+      "visible": true,
+      "focused": true,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238932,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120296,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.28,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151324,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    }
+  ],
+  "hidden": [
+    {
+      "observedAt": "2026-10-02T18:22:56.449Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 5
+          },
+          "memory": {
+            "workingSetSize": 239148,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 120348,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:57.453Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239088,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:58.457Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239212,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:22:59.460Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.44,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239264,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:00.464Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0.11071111186394668,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239312,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:01.466Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239284,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:02.470Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239352,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:03.473Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239380,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:04.477Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238808,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:05.481Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238768,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:06.484Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.45,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238792,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:07.488Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.46,
+            "percentCPUUsage": 0.1106994199682492,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238824,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:08.492Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.46,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238876,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:09.495Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.46,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238900,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:10.499Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.46,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238976,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:11.502Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0.11074244949673648,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239028,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151304,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:12.506Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239088,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151308,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:13.510Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239072,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151308,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:14.514Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239144,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151308,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:15.517Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239192,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151308,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:16.521Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239288,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.1,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:17.523Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239264,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0.11086665014753579,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:18.527Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239312,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:19.529Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239312,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:20.533Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.47,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238728,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:21.537Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.48,
+            "percentCPUUsage": 0.11066942941830266,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238688,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:22.542Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238724,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:23.546Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238776,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151312,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:24.549Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238828,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:25.552Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.48,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238856,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:26.556Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.49,
+            "percentCPUUsage": 0.1106870689499638,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238928,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:27.560Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.49,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238988,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:28.564Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.49,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239032,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:29.567Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.49,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 3
+          },
+          "memory": {
+            "workingSetSize": 239080,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:30.571Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.49,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239156,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 151068,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:31.575Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0.11064209925238028,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239204,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:32.578Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239256,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:33.581Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239308,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:34.584Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239376,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:35.589Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239512,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:36.593Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.5,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238900,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:37.597Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0.11073571703037813,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238716,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:38.601Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238756,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:39.605Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238804,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:40.609Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238856,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:41.613Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 238880,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:42.617Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238956,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:43.623Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239016,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:44.628Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239112,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:45.631Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239108,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:46.636Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239180,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:47.640Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.51,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239232,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:48.643Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.52,
+            "percentCPUUsage": 0.11068784080786184,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239276,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:49.647Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.52,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 239300,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:50.649Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.52,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 239328,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:51.653Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.52,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238764,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:52.657Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.53,
+            "percentCPUUsage": 0.11071155311591578,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238792,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 120336,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:53.661Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.53,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 5
+          },
+          "memory": {
+            "workingSetSize": 238844,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 2
+          },
+          "memory": {
+            "workingSetSize": 121012,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:54.664Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.53,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238920,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 121012,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    },
+    {
+      "observedAt": "2026-10-02T18:23:55.667Z",
+      "visible": false,
+      "focused": false,
+      "processes": [
+        {
+          "pid": 40804,
+          "type": "Browser",
+          "cpu": {
+            "cumulativeCPUUsage": 0.53,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 1
+          },
+          "memory": {
+            "workingSetSize": 238980,
+            "peakWorkingSetSize": 240864
+          }
+        },
+        {
+          "pid": 40834,
+          "type": "GPU",
+          "cpu": {
+            "cumulativeCPUUsage": 0.11,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 121012,
+            "peakWorkingSetSize": 123728
+          }
+        },
+        {
+          "pid": 40838,
+          "type": "Utility",
+          "cpu": {
+            "cumulativeCPUUsage": 0.04,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 86656,
+            "peakWorkingSetSize": 86656
+          }
+        },
+        {
+          "pid": 40856,
+          "type": "Tab",
+          "cpu": {
+            "cumulativeCPUUsage": 0.29,
+            "percentCPUUsage": 0,
+            "idleWakeupsPerSecond": 0
+          },
+          "memory": {
+            "workingSetSize": 150344,
+            "peakWorkingSetSize": 161264
+          }
+        }
+      ]
+    }
+  ],
+  "scope": "Shared cloud Linux development Electron, synthetic fixture overview, no live collectors/model. Fresh vs reused application profiles; no OS disk-cache flush. Main/renderer/GPU/utility working-set sum may double-count shared pages, not unique physical memory. Automation overhead included in startup. Not macOS or large-DAG performance acceptance.",
+  "visualReview": "Pending separate image opening"
+}

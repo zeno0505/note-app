@@ -1,0 +1,26 @@
+import {_electron as electron} from '@playwright/test';
+import {mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
+import {tmpdir,cpus,totalmem,release,platform,arch} from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {buildIdentity,assertTrackedProcessesExit} from '../../tests/electron/evidence.mjs';
+const evidence=path.resolve('reviews/evidence');await mkdir(evidence,{recursive:true});
+const root=await mkdtemp(path.join(tmpdir(),'note-app-resource-'));
+let running=null;const startup=[];
+async function launch(profile){const started=performance.now();running=await electron.launch({chromiumSandbox:true,args:[path.resolve('.'),'--user-data-dir='+profile],timeout:30000});const page=await running.firstWindow();await page.getByRole('heading',{name:'아직 연결된 데이터가 없어요'}).waitFor();return {page,elapsedMs:performance.now()-started};}
+async function close(){if(!running)return;const pids=await running.evaluate(({app})=>app.getAppMetrics().map(metric=>metric.pid));await running.close();running=null;await assertTrackedProcessesExit(pids);}
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+try{
+ for(let i=0;i<5;i++){const result=await launch(path.join(root,'fresh-'+i));startup.push({profile:'fresh',sample:i+1,elapsedMs:result.elapsedMs});await close();}
+ for(let i=0;i<5;i++){const result=await launch(path.join(root,'reused'));startup.push({profile:'reused',sample:i+1,elapsedMs:result.elapsedMs});await close();}
+ const {page}=await launch(path.join(root,'idle'));await page.getByRole('button',{name:'샘플로 살펴보기',exact:true}).click();await page.locator('.workstream-card').first().waitFor();
+ const sample=()=>running.evaluate(({app,BrowserWindow})=>({observedAt:new Date().toISOString(),visible:BrowserWindow.getAllWindows()[0].isVisible(),focused:BrowserWindow.getAllWindows()[0].isFocused(),processes:app.getAppMetrics().map(({pid,type,cpu,memory})=>({pid,type,cpu,memory}))}));
+ await pause(2000);await sample();const active=[];for(let i=0;i<60;i++){await pause(1000);active.push(await sample());}
+ await running.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());await sample();const hidden=[];for(let i=0;i<60;i++){await pause(1000);hidden.push(await sample());}
+ assert(active.every(s=>s.visible));assert(hidden.every(s=>!s.visible));
+ await running.evaluate(({BrowserWindow})=>{const window=BrowserWindow.getAllWindows()[0];window.show();window.focus();});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));console.log('READY_NATIVE_BEFORE_CAPTURE');await pause(30000);await page.screenshot({path:path.join(evidence,'T-002-longrestore-screen.png'),fullPage:true});console.log('READY_NATIVE_AFTER_CAPTURE');await pause(20000);
+ await close();
+ const summarize=samples=>{const cpu=samples.map(s=>s.processes.reduce((sum,p)=>sum+p.cpu.percentCPUUsage,0));const rss=samples.map(s=>s.processes.reduce((sum,p)=>sum+p.memory.workingSetSize,0));return {samples:samples.length,cpuPercentMean:cpu.reduce((a,b)=>a+b,0)/cpu.length,cpuPercentMax:Math.max(...cpu),aggregateWorkingSetKiBMean:rss.reduce((a,b)=>a+b,0)/rss.length,aggregateWorkingSetKiBMax:Math.max(...rss)};};
+ const result={status:'passed',observedAt:new Date().toISOString(),codeIdentity:await buildIdentity(),environment:{platform:platform(),arch:arch(),release:release(),cpuModel:cpus()[0]?.model??'unknown',logicalCpus:cpus().length,totalMemoryBytes:totalmem()},startup,activeSummary:summarize(active),hiddenSummary:summarize(hidden),active,hidden,scope:'Shared cloud Linux development Electron, synthetic fixture overview, no live collectors/model. Fresh vs reused application profiles; no OS disk-cache flush. Main/renderer/GPU/utility working-set sum may double-count shared pages, not unique physical memory. Automation overhead included in startup. Not macOS or large-DAG performance acceptance.',visualReview:'Pending separate image opening'};
+ await writeFile(path.join(evidence,'T-002-longrestore.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({status:result.status,observedAt:result.observedAt,environment:result.environment,startup,activeSummary:result.activeSummary,hiddenSummary:result.hiddenSummary,scope:result.scope},null,2));
+}finally{await close();await rm(root,{recursive:true,force:true});}

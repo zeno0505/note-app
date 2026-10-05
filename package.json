@@ -1,0 +1,47 @@
+{
+  "name": "note-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local project progress workspace",
+  "type": "module",
+  "main": "dist/main/index.cjs",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup:electron": "install-electron",
+    "build": "node scripts/build.mjs",
+    "start": "electron .",
+    "dev": "npm run build && npm start",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run --root . tests/unit",
+    "test:electron:harness": "node tests/electron/launch-smoke.mjs",
+    "test:electron": "node tests/electron/app-smoke.mjs",
+    "check": "npm run typecheck && npm test && npm run build",
+    "test:electron:collectors": "node scripts/build-collector-test.mjs && node tests/electron/collector-smoke.mjs",
+    "test:electron:polling": "node scripts/build-collector-test.mjs && node tests/electron/polling-smoke.mjs",
+    "benchmark:electron": "node tests/electron/resource-baseline.mjs",
+    "test:electron:summary": "node scripts/build-summary-test.mjs && node tests/electron/summary-smoke.mjs",
+    "test:electron:read-model": "node scripts/build-read-model-test.mjs && node tests/electron/read-model-smoke.mjs",
+    "test:electron:cache": "node scripts/build-cache-test.mjs && node tests/electron/cache-smoke.mjs",
+    "test:electron:live": "node scripts/build-live-test.mjs && node tests/electron/live-smoke.mjs",
+    "test:electron:phase1": "node scripts/build-phase1-test.mjs && node tests/electron/phase1-smoke.mjs"
+  },
+  "dependencies": {
+    "@primeuix/themes": "3.0.1",
+    "primevue": "4.5.5",
+    "vue": "3.5.43",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.1",
+    "@vitejs/plugin-vue": "6.0.9",
+    "electron": "44.5.1",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "vite": "7.3.6",
+    "vitest": "4.1.11",
+    "vue-tsc": "3.3.12"
+  }
+}

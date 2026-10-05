@@ -1,0 +1,226 @@
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T20:47:15.098Z",
+  "codeIdentity": {
+    "commit": "b18742a9dcf472c5eedf00e1b8ecdd677dda1a87",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "9967be62a964c18d2aae76d3c0df119ff15b25754baa710e5a5f2814f9a1834b",
+    "files": {
+      "dist/electron-tests/cache-main.cjs": "3ba19e9b119fddf38aa8b0da9b633980d007c4842ec4bd4c9e161651276d4d22",
+      "dist/electron-tests/cache-main.cjs.map": "5026ece535cbca031863c6e0041b69722d0571de57745aa3d45acfa67e732a70",
+      "dist/electron-tests/cache-preload.cjs": "b38a1e5f590ba620bae8e16e0d1682b28e3e3d987c3f507704218a4f9e7a0f37",
+      "dist/electron-tests/collector-main.cjs": "972788f26dfe05e2adf4a55feb6671963315567dba2461a5dcbeaf60c3382ea6",
+      "dist/electron-tests/collector-main.cjs.map": "10aec1743a65abc5aec694d21df2ba7cfdcd56e8f10b6d735907ecfd6941370c",
+      "dist/electron-tests/polling-main.cjs": "e64be5e02fc317a84d00c323b071b4d41d106906f2239b037c443dfa45dedf87",
+      "dist/electron-tests/polling-main.cjs.map": "6d5781a8ba0cfa6ea63b96741493fb6d59f2fac7a1ec32cc411dac394bc49d7a",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/electron-tests/read-model-main.cjs": "2274e11c1c9a5fc4ec641865abb26fca398d8cf5d4fa8c1b32a958f6179ba7fe",
+      "dist/electron-tests/read-model-main.cjs.map": "7870c129837b6e8eff560592d51a333b2423bcde8b87ccf5a8ebba8c90a6345d",
+      "dist/electron-tests/read-model-preload.cjs": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "dist/electron-tests/summary-main.cjs": "85b27f8a1b2997a1f69195c9ede69f0a73ca855b7c14eed4cd98117dc636fe4c",
+      "dist/electron-tests/summary-main.cjs.map": "53d309719a6e4148dc5367d2923bc5c64016a2c3b44b397160a688a8b59ba6e4",
+      "dist/electron-tests/summary-preload.cjs": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-91PGfR5s.js": "5562dc772b562bf43ae14ef63b826700cb52a36d5c1537e9d27cc67b800f0ee9",
+      "dist/renderer/assets/index-CUy2PArl.css": "4e2d909978177fe1852d2d20121b1f3a6fb5b3df69424795a7a29d99109fb558",
+      "dist/renderer/index.html": "fd98cb85fa12a18c81c659086f0e47f5c360d048faef257c6c6dc7af256e5197"
+    }
+  },
+  "checks": [
+    "Saved synthetic approval, then verified every tracked Electron process exited before reopening",
+    "New Electron process restored historical local-only approval without calling approve; changed evidence recomputed three stale claims while retaining historical approved text",
+    "Malformed, unsupported, oversized and symlink cache files rejected for reads and writes; stale revision and pre-aborted writes preserved prior bytes; safe cleanup verified",
+    "Fixed scenario IPC rejects unknown, missing, extra arguments and foreign renderer; sandbox and context isolation verified"
+  ],
+  "results": {
+    "save": {
+      "scenario": "save",
+      "status": "Synthetic approval saved",
+      "revision": 1,
+      "approvalId": "synthetic-cache-approval",
+      "candidateHash": "sha256:0e97d6417dfafc396e88fc09445e718242e26f18c5ff19caa8cb30a360502dcd",
+      "approvalEventsThisScenario": 1,
+      "provenance": "Historical synthetic approval; local-only provenance, not authenticated user consent"
+    },
+    "restore": {
+      "scenario": "restore",
+      "status": "Historical approval restored",
+      "revision": 1,
+      "approvalId": "synthetic-cache-approval",
+      "candidateHash": "sha256:0e97d6417dfafc396e88fc09445e718242e26f18c5ff19caa8cb30a360502dcd",
+      "approvedText": "Synthetic source a: work is running.",
+      "freshness": [
+        {
+          "claimId": "goal",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "implemented",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "remaining",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "current",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "next",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "blockers",
+          "freshness": "current",
+          "reasons": []
+        }
+      ],
+      "approvalEventsThisScenario": 0,
+      "provenance": "Historical synthetic approval; local-only provenance, not authenticated user consent"
+    },
+    "changed-evidence": {
+      "scenario": "changed-evidence",
+      "status": "Changed evidence marks claims stale",
+      "revision": 1,
+      "approvalId": "synthetic-cache-approval",
+      "candidateHash": "sha256:0e97d6417dfafc396e88fc09445e718242e26f18c5ff19caa8cb30a360502dcd",
+      "approvedText": "Synthetic source a: work is running.",
+      "freshness": [
+        {
+          "claimId": "goal",
+          "freshness": "stale",
+          "reasons": [
+            "a:changed",
+            "a:extraction-changed"
+          ]
+        },
+        {
+          "claimId": "implemented",
+          "freshness": "stale",
+          "reasons": [
+            "a:changed",
+            "a:extraction-changed"
+          ]
+        },
+        {
+          "claimId": "remaining",
+          "freshness": "stale",
+          "reasons": [
+            "a:changed",
+            "a:extraction-changed"
+          ]
+        },
+        {
+          "claimId": "current",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "next",
+          "freshness": "current",
+          "reasons": []
+        },
+        {
+          "claimId": "blockers",
+          "freshness": "current",
+          "reasons": []
+        }
+      ],
+      "approvalEventsThisScenario": 0,
+      "provenance": "Historical synthetic approval; local-only provenance, not authenticated user consent"
+    },
+    "failure-boundaries": {
+      "scenario": "failure-boundaries",
+      "status": "Failure boundaries verified",
+      "outcomes": {
+        "staleRevision": {
+          "rejected": true,
+          "lastGoodPreserved": true,
+          "cleanupVerified": true
+        },
+        "cancelledWrite": {
+          "rejected": true,
+          "lastGoodPreserved": true,
+          "cleanupVerified": true,
+          "observedPhase": "already aborted before write starts",
+          "midWriteAndPostRenameRace": "not exercised; cancellation after commit cannot promise rollback"
+        },
+        "corrupt": {
+          "readRejected": true,
+          "writeRejected": true,
+          "notEmptySuccess": true,
+          "evidencePreserved": true,
+          "cleanupVerified": true
+        },
+        "unsupported-version": {
+          "readRejected": true,
+          "writeRejected": true,
+          "notEmptySuccess": true,
+          "evidencePreserved": true,
+          "cleanupVerified": true
+        },
+        "oversize": {
+          "readRejected": true,
+          "writeRejected": true,
+          "notEmptySuccess": true,
+          "evidencePreserved": true,
+          "cleanupVerified": true
+        },
+        "symlink": {
+          "readRejected": true,
+          "writeRejected": true,
+          "targetUnchanged": true,
+          "linkPreserved": true,
+          "cleanupVerified": true
+        }
+      },
+      "historicalCacheUnchanged": true,
+      "provenance": "Historical synthetic approval; local-only provenance, not authenticated user consent",
+      "cleanupScope": "Owned fixture directories only; no hostile path-swap or cleanup-indeterminate fault injected"
+    }
+  },
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "foreignSenderRejected": true
+  },
+  "processRuns": [
+    {
+      "pids": [
+        73814,
+        73844,
+        73847,
+        73868
+      ],
+      "allExited": true
+    },
+    {
+      "pids": [
+        73917,
+        73947,
+        73951,
+        73961
+      ],
+      "allExited": true
+    }
+  ],
+  "scope": "Actual Linux Electron harness using synthetic cache data and historical synthetic approval only. Temporary main-owned root; no actual userData, vault, provider, production persistence UI, power-loss durability or macOS claim.",
+  "cancellationScope": "Deterministic pre-aborted write only; mid-write/post-rename race not exercised. No claim that cancellation rolls back a committed write.",
+  "visualReview": "Pending separate screenshot opening",
+  "cleanup": {
+    "state": "removed",
+    "ownedTemporaryRootRemoved": true
+  }
+}

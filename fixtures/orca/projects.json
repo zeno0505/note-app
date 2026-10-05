@@ -1,0 +1,1 @@
+{"id":"synthetic-project-request","ok":true,"result":{"projects":[{"id":"github:example/demo","displayName":"demo","kind":"git","sourceRepoIds":["repo-synthetic"],"createdAt":1700000000000,"updatedAt":1700000000000}]},"_meta":{"runtimeId":"runtime-synthetic"}}

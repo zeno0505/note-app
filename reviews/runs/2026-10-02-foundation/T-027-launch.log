@@ -1,0 +1,63 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 test:electron:harness
+> node tests/electron/launch-smoke.mjs
+
+{
+  "status": "passed",
+  "pid": 13288,
+  "observedAt": "2026-10-02T17:16:30.468Z",
+  "launchAndInteractionMs": 440.186453,
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "versions": {
+      "node": "24.21.0",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "149",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.7",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2025c",
+      "undici": "7.29.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.2.124.28-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "44.5.1",
+      "chrome": "152.0.7977.130"
+    },
+    "argv": [
+      "/workspace/scratch/5a42b5329b35/note-app/node_modules/electron/dist/electron",
+      "/workspace/scratch/5a42b5329b35/note-app/tests/electron/fixture/main.cjs"
+    ]
+  },
+  "screenshot": "T-027-electron-smoke.png",
+  "visuallyReviewed": false,
+  "scope": "Actual Linux Electron development shell; not macOS or product feature QA",
+  "trackedPids": [
+    13288,
+    13319,
+    13322,
+    13346
+  ],
+  "closed": true
+}

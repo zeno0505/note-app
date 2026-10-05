@@ -1,0 +1,81 @@
+READY_NATIVE_BEFORE_CAPTURE
+READY_NATIVE_AFTER_CAPTURE
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T18:24:45.853Z",
+  "environment": {
+    "platform": "linux",
+    "arch": "x64",
+    "release": "6.18.44",
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "logicalCpus": 9,
+    "totalMemoryBytes": 10451464192
+  },
+  "startup": [
+    {
+      "profile": "fresh",
+      "sample": 1,
+      "elapsedMs": 486.31195
+    },
+    {
+      "profile": "fresh",
+      "sample": 2,
+      "elapsedMs": 441.22683400000005
+    },
+    {
+      "profile": "fresh",
+      "sample": 3,
+      "elapsedMs": 438.4858570000001
+    },
+    {
+      "profile": "fresh",
+      "sample": 4,
+      "elapsedMs": 404.1036409999999
+    },
+    {
+      "profile": "fresh",
+      "sample": 5,
+      "elapsedMs": 445.4616420000002
+    },
+    {
+      "profile": "reused",
+      "sample": 1,
+      "elapsedMs": 429.507932
+    },
+    {
+      "profile": "reused",
+      "sample": 2,
+      "elapsedMs": 442.1221340000002
+    },
+    {
+      "profile": "reused",
+      "sample": 3,
+      "elapsedMs": 402.6436639999997
+    },
+    {
+      "profile": "reused",
+      "sample": 4,
+      "elapsedMs": 410.33722000000034
+    },
+    {
+      "profile": "reused",
+      "sample": 5,
+      "elapsedMs": 426.61542199999985
+    }
+  ],
+  "activeSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.029519837781184628,
+    "cpuPercentMax": 0.5531345960661553,
+    "aggregateWorkingSetKiBMean": 602104.0666666667,
+    "aggregateWorkingSetKiBMax": 614056
+  },
+  "hiddenSummary": {
+    "samples": 60,
+    "cpuPercentMean": 0.018452555667521176,
+    "cpuPercentMax": 0.11086665014753579,
+    "aggregateWorkingSetKiBMean": 596951.2,
+    "aggregateWorkingSetKiBMax": 597676
+  },
+  "scope": "Shared cloud Linux development Electron, synthetic fixture overview, no live collectors/model. Fresh vs reused application profiles; no OS disk-cache flush. Main/renderer/GPU/utility working-set sum may double-count shared pages, not unique physical memory. Automation overhead included in startup. Not macOS or large-DAG performance acceptance."
+}

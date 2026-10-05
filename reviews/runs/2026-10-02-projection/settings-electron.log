@@ -1,0 +1,158 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 test:electron
+> node tests/electron/app-smoke.mjs
+
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T20:16:22.876Z",
+  "codeIdentity": {
+    "commit": "c2d496b9fa2384ea61236b0ac8ec07f0870b37a1",
+    "workingTreeClean": false,
+    "workingTreeStatus": "M docs/context-pack.md\n?? src/summary/context/projection.ts\n?? tests/unit/context-projection.test.ts",
+    "buildHash": "4f73ae12d62b1a1f2eb9d21cfd1eca132986164a8915b86b1d09925b68e4598e",
+    "files": {
+      "dist/electron-tests/collector-main.cjs": "972788f26dfe05e2adf4a55feb6671963315567dba2461a5dcbeaf60c3382ea6",
+      "dist/electron-tests/collector-main.cjs.map": "10aec1743a65abc5aec694d21df2ba7cfdcd56e8f10b6d735907ecfd6941370c",
+      "dist/electron-tests/polling-main.cjs": "e64be5e02fc317a84d00c323b071b4d41d106906f2239b037c443dfa45dedf87",
+      "dist/electron-tests/polling-main.cjs.map": "6d5781a8ba0cfa6ea63b96741493fb6d59f2fac7a1ec32cc411dac394bc49d7a",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/electron-tests/read-model-main.cjs": "5dcf99c4d60f6a5c8316224453574c5d3aacabeebe9a46969dbf3f0ee9046c13",
+      "dist/electron-tests/read-model-main.cjs.map": "21a7028f1c85746aa4f7f01cbf777e4a562d5d6133848bc9299458124b040627",
+      "dist/electron-tests/read-model-preload.cjs": "36bd300125326b946b483f72414467be8b296c2f5c9e69eac7e0dd006d95ed50",
+      "dist/electron-tests/summary-main.cjs": "5374c0936af83e5767558460a071a57bf4b478741bfafc3e0113e171da68a066",
+      "dist/electron-tests/summary-main.cjs.map": "6197491deae154fa517583a6627a5bd0d47da41b638d00001945ce8e8acd34c9",
+      "dist/electron-tests/summary-preload.cjs": "9b7e00448c90b580dedb7d284a095615199849c84b5c64056aa589028a57351a",
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-91PGfR5s.js": "5562dc772b562bf43ae14ef63b826700cb52a36d5c1537e9d27cc67b800f0ee9",
+      "dist/renderer/assets/index-CUy2PArl.css": "4e2d909978177fe1852d2d20121b1f3a6fb5b3df69424795a7a29d99109fb558",
+      "dist/renderer/index.html": "fd98cb85fa12a18c81c659086f0e47f5c360d048faef257c6c6dc7af256e5197"
+    }
+  },
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "webSecurity": true,
+    "webviewTag": false,
+    "argv": [
+      "/workspace/scratch/5a42b5329b35/note-app/node_modules/electron/dist/electron",
+      "/workspace/scratch/5a42b5329b35/note-app"
+    ],
+    "versions": {
+      "node": "24.21.0",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "149",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.7",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2025c",
+      "undici": "7.29.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.2.124.28-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "44.5.1",
+      "chrome": "152.0.7977.130"
+    }
+  },
+  "environment": {
+    "version": "0.1.0",
+    "platform": "linux",
+    "dataMode": "disabled",
+    "summaryBackend": "unconfigured",
+    "capabilities": {
+      "realOrca": false,
+      "noteWrites": false,
+      "remoteSummary": false
+    }
+  },
+  "checks": [
+    "Initial state: no real sources, no automatic fixture or summary execution",
+    "Runtime security: sandbox/context isolation on; Node absent; narrow API; malformed and path/command-shaped requests rejected",
+    "Remote fetch/new external windows blocked; real child frame has no IPC bridge; foreign Electron window IPC rejected",
+    "User navigation: 2 connected → 3 nonarchived workstreams; no-result search/clear; detail/evidence/back (Atlas 메모 검색 ↗)",
+    "Synthetic failure keeps last-good workstreams and timestamp, including empty → failure;  normal retry recovers; repeated refreshes stable; explicit empty success separate",
+    "Test-injected unknown connectivity stays unknown; hostile markup renders as plain text without creating an image or running script",
+    "Actual missing IPC handler rejects refresh: visible error/stale state retains prior cards and timestamp",
+    "Exit demo clears state; missing detail safe; re-entry; narrow-window layout without horizontal overflow; reload safe; no renderer exceptions",
+    "Window closes and all main/renderer/GPU/utility processes tracked by Electron metrics exit"
+  ],
+  "metrics": [
+    {
+      "pid": 64944,
+      "type": "Browser",
+      "cpu": {
+        "cumulativeCPUUsage": 0.94,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 244628,
+        "peakWorkingSetSize": 253536
+      }
+    },
+    {
+      "pid": 64974,
+      "type": "GPU",
+      "cpu": {
+        "cumulativeCPUUsage": 0.3,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 120052,
+        "peakWorkingSetSize": 166524
+      }
+    },
+    {
+      "pid": 64977,
+      "type": "Utility",
+      "cpu": {
+        "cumulativeCPUUsage": 0.03,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 81608,
+        "peakWorkingSetSize": 81608
+      }
+    },
+    {
+      "pid": 65015,
+      "type": "Tab",
+      "cpu": {
+        "cumulativeCPUUsage": 1.01,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 212136,
+        "peakWorkingSetSize": 212136
+      }
+    }
+  ],
+  "scope": "Linux development build with synthetic/manual fixture only; not real Orca, notes, macOS native dialogs or packaged .app",
+  "visualReview": "Pending separate image opening"
+}

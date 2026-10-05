@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "authoring": "manual-fixture",
+  "approval": "not-requested",
+  "workstreams": [
+    {
+      "id": "atlas-search",
+      "goal": "여러 메모에서 원하는 내용을 빠르게 찾기",
+      "implemented": "검색 입력과 결과 목록의 초기 화면을 준비했습니다.",
+      "remaining": "검색 결과에서 원문 위치로 이동하는 흐름과 실제 데이터 연결이 남아 있습니다.",
+      "next": "원문 이동 흐름을 작은 예시 데이터로 먼저 확인합니다.",
+      "blocker": "검색 결과 표시 방식에 대한 사용자 판단이 필요합니다."
+    },
+    {
+      "id": "beacon-export",
+      "goal": "메모를 읽기 쉬운 문서로 내보내기",
+      "remaining": "내보내기 대상과 문서 형식을 정한 뒤 구현할 계획입니다.",
+      "next": "필요한 문서 형식을 먼저 선택합니다.",
+      "blocker": "문서 형식이 아직 정해지지 않았습니다."
+    },
+    {
+      "id": "unmapped-work",
+      "goal": "노트 연결을 확인한 뒤 작업 맥락을 읽기",
+      "next": "이 worktree에 연결할 노트를 사용자가 선택합니다."
+    }
+  ]
+}

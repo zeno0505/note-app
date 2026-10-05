@@ -1,0 +1,152 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 test:electron
+> node tests/electron/app-smoke.mjs
+
+{
+  "status": "passed",
+  "observedAt": "2026-10-02T18:13:27.977Z",
+  "codeIdentity": {
+    "commit": "f82220b3694f71a96d79c94ec63ea452bcd1b15f",
+    "workingTreeClean": true,
+    "workingTreeStatus": "",
+    "buildHash": "62f574e9594331cdbe0526eb6494e18d6f215a2cfa40a821eaf38514c3d4152f",
+    "files": {
+      "dist/electron-tests/collector-main.cjs": "972788f26dfe05e2adf4a55feb6671963315567dba2461a5dcbeaf60c3382ea6",
+      "dist/electron-tests/collector-main.cjs.map": "10aec1743a65abc5aec694d21df2ba7cfdcd56e8f10b6d735907ecfd6941370c",
+      "dist/electron-tests/polling-main.cjs": "e64be5e02fc317a84d00c323b071b4d41d106906f2239b037c443dfa45dedf87",
+      "dist/electron-tests/polling-main.cjs.map": "6d5781a8ba0cfa6ea63b96741493fb6d59f2fac7a1ec32cc411dac394bc49d7a",
+      "dist/electron-tests/polling-preload.cjs": "0aefa78fb2da0cc5eeb54e7868a6b61f2147d4b51380bfebc376d79b54754547",
+      "dist/electron-tests/preload.cjs": "4f0ff583c843bcb1784e44cdc0f82e357a7468039aeb4db916e570a08889a49f",
+      "dist/main/index.cjs": "a2470b168a51009c8a60942255623125dc5df01f0a459fe54210224790a44688",
+      "dist/main/index.cjs.map": "53ea0b965651701c2e60666d3e941d84c4e07cb88e309dcb1297ec7cc0d2dc0c",
+      "dist/preload/index.cjs": "60afd8e01dc17d65080bfad1a599a47fe0fbe6eb851aa1be2b95e8051c9e9a35",
+      "dist/preload/index.cjs.map": "cbdecdf8e8a578dd0df2b15dfc12b2d632faee96da47a5c8a41cf2673f1e4fe3",
+      "dist/renderer/assets/index-CUy2PArl.css": "4e2d909978177fe1852d2d20121b1f3a6fb5b3df69424795a7a29d99109fb558",
+      "dist/renderer/assets/index-Ciz47GA1.js": "36373508885f07a555f5366c3c63079f71ad313a93d7b4d6052eb69dafcd1df5",
+      "dist/renderer/index.html": "4cfcf7963b36fbb97979c8f9225f4db0353c118e98650fae95a7513ce7ae5841"
+    }
+  },
+  "security": {
+    "sandbox": true,
+    "contextIsolation": true,
+    "nodeIntegration": false,
+    "webSecurity": true,
+    "webviewTag": false,
+    "argv": [
+      "/workspace/scratch/5a42b5329b35/note-app/node_modules/electron/dist/electron",
+      "/workspace/scratch/5a42b5329b35/note-app"
+    ],
+    "versions": {
+      "node": "24.21.0",
+      "acorn": "8.18.0",
+      "ada": "4.0.0",
+      "amaro": "1.1.11",
+      "ares": "1.34.8",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.2",
+      "llhttp": "9.4.3",
+      "merve": "1.2.2",
+      "modules": "149",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.70.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "0.0.0",
+      "simdjson": "4.6.7",
+      "simdutf": "7.7.0",
+      "sqlite": "3.53.4",
+      "tz": "2025c",
+      "undici": "7.29.1",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "15.2.124.28-electron.0",
+      "zlib": "1.3.2.1-motley",
+      "zstd": "1.6.0",
+      "electron": "44.5.1",
+      "chrome": "152.0.7977.130"
+    }
+  },
+  "environment": {
+    "version": "0.1.0",
+    "platform": "linux",
+    "dataMode": "disabled",
+    "summaryBackend": "unconfigured",
+    "capabilities": {
+      "realOrca": false,
+      "noteWrites": false,
+      "remoteSummary": false
+    }
+  },
+  "checks": [
+    "Initial state: no real sources, no automatic fixture or summary execution",
+    "Runtime security: sandbox/context isolation on; Node absent; narrow API; malformed and path/command-shaped requests rejected",
+    "Remote fetch/new external windows blocked; real child frame has no IPC bridge; foreign Electron window IPC rejected",
+    "User navigation: 2 connected → 3 nonarchived workstreams; no-result search/clear; detail/evidence/back (Atlas 메모 검색 ↗)",
+    "Synthetic failure keeps last-good workstreams and timestamp, including empty → failure;  normal retry recovers; repeated refreshes stable; explicit empty success separate",
+    "Test-injected unknown connectivity stays unknown; hostile markup renders as plain text without creating an image or running script",
+    "Actual missing IPC handler rejects refresh: visible error/stale state retains prior cards and timestamp",
+    "Exit demo clears state; missing detail safe; re-entry; narrow-window layout without horizontal overflow; reload safe; no renderer exceptions",
+    "Window closes and all main/renderer/GPU/utility processes tracked by Electron metrics exit"
+  ],
+  "metrics": [
+    {
+      "pid": 37459,
+      "type": "Browser",
+      "cpu": {
+        "cumulativeCPUUsage": 0.94,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 240092,
+        "peakWorkingSetSize": 248996
+      }
+    },
+    {
+      "pid": 37489,
+      "type": "GPU",
+      "cpu": {
+        "cumulativeCPUUsage": 0.35,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 120428,
+        "peakWorkingSetSize": 167056
+      }
+    },
+    {
+      "pid": 37492,
+      "type": "Utility",
+      "cpu": {
+        "cumulativeCPUUsage": 0.02,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 81344,
+        "peakWorkingSetSize": 81344
+      }
+    },
+    {
+      "pid": 37514,
+      "type": "Tab",
+      "cpu": {
+        "cumulativeCPUUsage": 1.03,
+        "percentCPUUsage": 0,
+        "idleWakeupsPerSecond": 0
+      },
+      "memory": {
+        "workingSetSize": 215260,
+        "peakWorkingSetSize": 215260
+      }
+    }
+  ],
+  "scope": "Linux development build with synthetic/manual fixture only; not real Orca, notes, macOS native dialogs or packaged .app",
+  "visualReview": "Pending separate image opening"
+}

@@ -1,0 +1,532 @@
+{
+  "schemaVersion": 1,
+  "mode": "synthetic-fixture",
+  "observedAt": "2026-10-02T09:00:00.000Z",
+  "freshness": "stale",
+  "lastAttempt": {
+    "observedAt": "2026-10-02T09:05:00.000Z",
+    "outcome": "error",
+    "reason": "가상 갱신 실패입니다. 마지막 성공 내용을 유지하며 실제 Orca 명령은 실행하지 않았습니다."
+  },
+  "coverage": {
+    "complete": true,
+    "truncated": false,
+    "totalCount": 4,
+    "omittedHostIds": []
+  },
+  "workstreams": [
+    {
+      "id": "atlas-search",
+      "title": "Atlas 메모 검색",
+      "goal": {
+        "id": "atlas-goal",
+        "text": "여러 메모에서 원하는 내용을 빠르게 찾기",
+        "kind": "fact",
+        "sources": [
+          {
+            "sourceId": "source-manual",
+            "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+          }
+        ],
+        "observedAt": "2026-10-02T09:00:00.000Z",
+        "reviewedAt": null,
+        "freshness": "stale",
+        "approval": "not-requested",
+        "evidence": "manual-description"
+      },
+      "summary": {
+        "implemented": [
+          {
+            "id": "atlas-implemented",
+            "text": "검색 입력과 결과 목록의 초기 화면을 준비했습니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "remaining": [
+          {
+            "id": "atlas-remaining",
+            "text": "검색 결과에서 원문 위치로 이동하는 흐름과 실제 데이터 연결이 남아 있습니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "current": [
+          {
+            "id": "atlas-current",
+            "text": "터미널은 연결되어 있습니다. 에이전트는 작업을 마친 상태로 표시되지만, 전체 작업 계획에는 진행 중인 일이 있습니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              },
+              {
+                "sourceId": "source-atlas-dag",
+                "sourceHash": "sha256:b16db7b60a435840865e1e737c9d4dc25f426120b9cf28bc423bee724091c52d"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "source-declaration"
+          },
+          {
+            "id": "atlas-tests",
+            "text": "테스트 통과와 배포 여부는 아직 확인하지 않았습니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-atlas-dag",
+                "sourceHash": "sha256:b16db7b60a435840865e1e737c9d4dc25f426120b9cf28bc423bee724091c52d"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ],
+        "next": [
+          {
+            "id": "atlas-next",
+            "text": "원문 이동 흐름을 작은 예시 데이터로 먼저 확인합니다.",
+            "kind": "inference",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "blockers": [
+          {
+            "id": "atlas-blocker",
+            "text": "검색 결과 표시 방식에 대한 사용자 판단이 필요합니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ]
+      },
+      "canonicalDagPath": "/synthetic/notes/atlas/dag.yaml",
+      "dagState": "running",
+      "worktrees": [
+        {
+          "id": "wt-atlas-build",
+          "title": "Atlas 구현",
+          "repositoryId": "repo-synthetic-shared",
+          "isArchived": false,
+          "isSelected": false,
+          "terminalConnected": true,
+          "terminalCount": 1,
+          "agentState": "done",
+          "agentObservedAt": "2026-10-02T09:00:00.000Z",
+          "lastOutputAt": "2026-10-02T08:55:00.000Z"
+        },
+        {
+          "id": "wt-atlas-review",
+          "title": "Atlas 검토",
+          "repositoryId": "repo-synthetic-shared",
+          "isArchived": false,
+          "isSelected": true,
+          "terminalConnected": false,
+          "terminalCount": 0,
+          "agentState": "idle",
+          "agentObservedAt": "2026-10-02T09:00:00.000Z",
+          "lastOutputAt": null
+        }
+      ],
+      "noteMapping": {
+        "status": "mapped",
+        "notePath": "/synthetic/notes/atlas",
+        "reason": null
+      },
+      "sources": [
+        {
+          "id": "source-orca",
+          "kind": "orca-fixture",
+          "locator": "fixtures/sources/orca-public-response.json",
+          "hash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        },
+        {
+          "id": "source-atlas-dag",
+          "kind": "dag-fixture",
+          "locator": "fixtures/sources/atlas-dag.json",
+          "hash": "sha256:b16db7b60a435840865e1e737c9d4dc25f426120b9cf28bc423bee724091c52d",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        },
+        {
+          "id": "source-manual",
+          "kind": "manual-fixture",
+          "locator": "fixtures/sources/manual-summaries.json",
+          "hash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "beacon-export",
+      "title": "Beacon 문서 내보내기",
+      "goal": {
+        "id": "beacon-goal",
+        "text": "메모를 읽기 쉬운 문서로 내보내기",
+        "kind": "fact",
+        "sources": [
+          {
+            "sourceId": "source-manual",
+            "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+          }
+        ],
+        "observedAt": "2026-10-02T09:00:00.000Z",
+        "reviewedAt": null,
+        "freshness": "stale",
+        "approval": "not-requested",
+        "evidence": "manual-description"
+      },
+      "summary": {
+        "implemented": [
+          {
+            "id": "beacon-implemented",
+            "text": "완료된 구현 범위는 아직 확인하지 않았습니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-beacon-dag",
+                "sourceHash": "sha256:daf4ebb4e7f2c2a138cd74f425e36f639acdac7503bf33db168fb7a6d00af745"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ],
+        "remaining": [
+          {
+            "id": "beacon-remaining",
+            "text": "내보내기 대상과 문서 형식을 정한 뒤 구현할 계획입니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "current": [
+          {
+            "id": "beacon-current",
+            "text": "터미널 연결 없이 에이전트가 작업 중인 것으로 관측됐습니다. 작업 계획의 항목들은 아직 대기 중으로 기록되어 있습니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              },
+              {
+                "sourceId": "source-beacon-dag",
+                "sourceHash": "sha256:daf4ebb4e7f2c2a138cd74f425e36f639acdac7503bf33db168fb7a6d00af745"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "source-declaration"
+          }
+        ],
+        "next": [
+          {
+            "id": "beacon-next",
+            "text": "필요한 문서 형식을 먼저 선택합니다.",
+            "kind": "inference",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "blockers": [
+          {
+            "id": "beacon-blocker",
+            "text": "문서 형식이 아직 정해지지 않았습니다.",
+            "kind": "fact",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          },
+          {
+            "id": "beacon-approval",
+            "text": "의존 작업이 충족돼도 실행 승인이나 우선순위는 확인된 것이 아닙니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-beacon-dag",
+                "sourceHash": "sha256:daf4ebb4e7f2c2a138cd74f425e36f639acdac7503bf33db168fb7a6d00af745"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ]
+      },
+      "canonicalDagPath": "/synthetic/notes/beacon/dag.yaml",
+      "dagState": "pending",
+      "worktrees": [
+        {
+          "id": "wt-beacon-build",
+          "title": "Beacon 구현",
+          "repositoryId": "repo-synthetic-shared",
+          "isArchived": false,
+          "isSelected": false,
+          "terminalConnected": false,
+          "terminalCount": 0,
+          "agentState": "working",
+          "agentObservedAt": "2026-10-02T09:00:00.000Z",
+          "lastOutputAt": "2026-10-02T08:58:00.000Z"
+        }
+      ],
+      "noteMapping": {
+        "status": "mapped",
+        "notePath": "/synthetic/notes/beacon",
+        "reason": null
+      },
+      "sources": [
+        {
+          "id": "source-orca",
+          "kind": "orca-fixture",
+          "locator": "fixtures/sources/orca-public-response.json",
+          "hash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        },
+        {
+          "id": "source-beacon-dag",
+          "kind": "dag-fixture",
+          "locator": "fixtures/sources/beacon-dag.json",
+          "hash": "sha256:daf4ebb4e7f2c2a138cd74f425e36f639acdac7503bf33db168fb7a6d00af745",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        },
+        {
+          "id": "source-manual",
+          "kind": "manual-fixture",
+          "locator": "fixtures/sources/manual-summaries.json",
+          "hash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "unmapped-work",
+      "title": "노트 연결 미확인",
+      "goal": {
+        "id": "unmapped-goal",
+        "text": "노트 연결을 확인한 뒤 작업 맥락을 읽기",
+        "kind": "fact",
+        "sources": [
+          {
+            "sourceId": "source-manual",
+            "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+          }
+        ],
+        "observedAt": "2026-10-02T09:00:00.000Z",
+        "reviewedAt": null,
+        "freshness": "stale",
+        "approval": "not-requested",
+        "evidence": "manual-description"
+      },
+      "summary": {
+        "implemented": [
+          {
+            "id": "unmapped-implemented",
+            "text": "노트를 찾지 못해 구현 범위를 확인할 수 없습니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ],
+        "remaining": [
+          {
+            "id": "unmapped-remaining",
+            "text": "DAG가 연결되기 전에는 남은 작업 수를 알 수 없습니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ],
+        "current": [
+          {
+            "id": "unmapped-current",
+            "text": "터미널은 연결되어 있습니다. 에이전트 상태와 DAG 진행 상태는 미확인입니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ],
+        "next": [
+          {
+            "id": "unmapped-next",
+            "text": "이 worktree에 연결할 노트를 사용자가 선택합니다.",
+            "kind": "inference",
+            "sources": [
+              {
+                "sourceId": "source-manual",
+                "sourceHash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "manual-description"
+          }
+        ],
+        "blockers": [
+          {
+            "id": "unmapped-blocker",
+            "text": "노트 매핑이 없어 작업 내용을 읽을 수 없습니다.",
+            "kind": "unknown",
+            "sources": [
+              {
+                "sourceId": "source-orca",
+                "sourceHash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+              }
+            ],
+            "observedAt": "2026-10-02T09:00:00.000Z",
+            "reviewedAt": null,
+            "freshness": "stale",
+            "approval": "not-requested",
+            "evidence": "none"
+          }
+        ]
+      },
+      "canonicalDagPath": null,
+      "dagState": "unknown",
+      "worktrees": [
+        {
+          "id": "wt-unmapped",
+          "title": "노트 연결 미확인",
+          "repositoryId": "repo-synthetic-unmapped",
+          "isArchived": false,
+          "isSelected": false,
+          "terminalConnected": true,
+          "terminalCount": 1,
+          "agentState": "unknown",
+          "agentObservedAt": null,
+          "lastOutputAt": null
+        }
+      ],
+      "noteMapping": {
+        "status": "missing",
+        "notePath": null,
+        "reason": "이 가상 worktree에 연결된 노트를 아직 찾지 못했습니다."
+      },
+      "sources": [
+        {
+          "id": "source-orca",
+          "kind": "orca-fixture",
+          "locator": "fixtures/sources/orca-public-response.json",
+          "hash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        },
+        {
+          "id": "source-manual",
+          "kind": "manual-fixture",
+          "locator": "fixtures/sources/manual-summaries.json",
+          "hash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91",
+          "observedAt": "2026-10-02T09:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

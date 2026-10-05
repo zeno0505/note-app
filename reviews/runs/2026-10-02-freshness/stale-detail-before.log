@@ -1,0 +1,21 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> note-app@0.1.0 test:electron
+> node tests/electron/app-smoke.mjs
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+locator.waitFor: Timeout 3000ms exceeded.
+Call log:
+[2m  - waiting for getByText('갱신 실패 · 이전 내용 유지', { exact: true }) to be visible[22m
+
+    at /workspace/scratch/5a42b5329b35/note-app/tests/electron/app-smoke.mjs:71:57 {
+  log: [
+    "  - waiting for getByText('갱신 실패 · 이전 내용 유지', { exact: true }) to be visible"
+  ],
+  name: 'TimeoutError'
+}
+
+Node.js v24.19.0
