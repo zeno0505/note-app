@@ -1,5 +1,6 @@
 import {appendFile,readFile} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
+import path from 'node:path';
 import {ASPECTS,bindSummaryContext,type SummaryResponse} from '../../../src/summary/claims';
 import type {SyntheticSummaryTransport} from '../../../src/summary/workflow/transport';
 
@@ -7,6 +8,7 @@ import type {SyntheticSummaryTransport} from '../../../src/summary/workflow/tran
 export function fixtureTransport(controlPath:string,logPath:string):SyntheticSummaryTransport {
   const pause=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));
   return {kind:'synthetic-test-only',async run(request,emit){
+    if(JSON.stringify(request.prompt).includes(path.dirname(controlPath)))throw new Error('Local fixture paths must not enter the bounded model prompt');
     const runId=randomUUID();
     const log=(event:Record<string,unknown>)=>appendFile(logPath,JSON.stringify({at:new Date().toISOString(),...event,ticketId:request.ticketId,runId})+'\n');
     const control=JSON.parse(await readFile(controlPath,'utf8')) as {mode:string;submittedDelayMs:number;waitingDelayMs:number;responseDelayMs:number};

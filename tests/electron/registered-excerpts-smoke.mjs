@@ -26,7 +26,14 @@ const state=()=>page.evaluate(()=>window.noteApp.getLiveState());
 const view=ticket=>page.evaluate(id=>window.__excerptViews?.findLast(v=>v.ticketId===id)??null,ticket);
 const waitView=(ticket,predicate,label)=>waitUntil(()=>view(ticket),v=>v?.ticketId===ticket&&predicate(v),label);
 function noPrivate(value){const serialized=JSON.stringify(value);assert(!serialized.includes(PRIVATE_MARKER),'Unselected source body escaped');assert(!serialized.includes(fixture.scope),'Local source paths escaped');}
-async function capture(name){await page.getByTestId('summary-context').scrollIntoViewIfNeeded();const filename=`T-excerpts-${name}.png`;await page.screenshot({path:path.join(evidence,filename),fullPage:false});screenshots.push(filename);}
+async function capture(name){
+  if(name==='fresh-source-blocks-stale-approval')await page.getByTestId('summary-status').scrollIntoViewIfNeeded();
+  else{
+    const context=page.getByTestId('summary-context'),details=context.locator('details').last();
+    if(!await details.evaluate(el=>el.open))await details.locator('summary').click();
+    await context.locator('.context-record').filter({hasText:'목표 발췌문'}).scrollIntoViewIfNeeded();
+  }
+  const filename=`T-excerpts-${name}.png`;await page.screenshot({path:path.join(evidence,filename),fullPage:false});screenshots.push(filename);}
 async function close(){if(!app)return;const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);}
 async function launch(synthetic){
   app=await electron.launch({chromiumSandbox:true,args:[path.resolve(synthetic?'dist/main/phase1-test.cjs':'.')],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
@@ -59,7 +66,21 @@ try{
 
   fixture.config.summarySelections[0].excerpts=registrations.filter(r=>r.kind!=='document');await writeFile(fixture.configPath,JSON.stringify(fixture.config));await launch(true);prepared=await prepare();assert.equal(prepared.preview.recordCount,3);assert.equal(prepared.preview.absentSourceIds.length,1);assert.equal(prepared.canApprove,false);assert.equal(prepared.canRun,true);candidate=await run(prepared);assert.equal(candidate.canApprove,true);assert.equal(candidate.approvedCandidateHash,approvalHash);await capture('registration-change-refreshable');assert.deepEqual(await sourceSnapshot(),before);
   checks.push('Removing an exact document registration after restart surfaces the absent source and still permits a new synthetic candidate; no old candidate is silently rebound, approved or stranded. Source files remain unchanged by app operations.');
-  noPrivate(await page.content());assert.deepEqual(rendererErrors,[]);for(const row of (await fixture.logs()).filter(r=>r.kind==='orca'))assert(ORCA_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)));
+  // Registered note-link targets are deliberately disclosed for human link review.
+  // Excerpt provenance paths are forbidden in the summary subtree and DTOs, while
+  // the whole page must still exclude every unselected source-body marker.
+  noPrivate(await page.getByTestId('summary-journey').evaluate(el=>el.outerHTML));
+  assert(!(await page.content()).includes(PRIVATE_MARKER),'Unselected source body escaped anywhere in the page');
+  const pathLocations=await page.evaluate(scope=>{
+    const matches=[];const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;
+    while((node=walker.nextNode()))if(node.textContent.includes(scope))matches.push({tag:node.parentElement?.tagName,allowed:node.parentElement?.matches('[data-testid="note-link-scope"] > option')===true&&node.textContent===scope});
+    const attributeMatches=[...document.querySelectorAll('*')].flatMap(el=>[...el.attributes].filter(a=>a.value.includes(scope)).map(a=>({tag:el.tagName,attribute:a.name})));
+    return {matches,attributeMatches};
+  },fixture.scope);
+  assert(pathLocations.matches.length>0,'Expected explicit note-link target option');
+  assert(pathLocations.matches.every(match=>match.allowed),'A source path escaped outside the explicit note-link target option');assert.deepEqual(pathLocations.attributeMatches,[]);
+  checks.push('Live DOM inspection confines the deliberately disclosed project path to the exact registered note-link target option; summary HTML/DTOs contain no local paths, and the complete page contains no unselected source-body marker.');
+  assert.deepEqual(rendererErrors,[]);for(const row of (await fixture.logs()).filter(r=>r.kind==='orca'))assert(ORCA_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)));
   const runs=(await fixture.transportCalls()).filter(row=>row.event==='run');assert.equal(runs.length,3);assert.equal(new Set(runs.map(row=>row.ticketId)).size,runs.length);await close();cleanup=await fixture.cleanup();
   const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity,checks,screenshots,rendererErrors,cleanup,syntheticRequests:runs.length,realProviderCalls:0,actualUserApprovals:0,successfulAutomatedUiApprovals:1,staleAutomatedUiApprovalsRejected:1,visualReview:'Pending separate screenshot inspection',scope:'Actual Linux Electron production host/preload/renderer with exact synthetic registered note sources. Candidate execution uses the isolated Phase1 synthetic transport only. No real notes, model call, terminal transport schema, macOS or packaging validation.'};
   await writeFile(path.join(evidence,'T-excerpts-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
