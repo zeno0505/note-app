@@ -45,3 +45,11 @@ describe('explicit startup configuration',()=>{
     await writeFile(filename,'not json');expect((await loadLiveConfiguration(filename)).view.state).toBe('invalid');
   });
 });
+
+it('accepts exact bounded excerpt registrations only within a registered summary DAG selection',()=>{
+  const excerpt={id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:1,endLine:3};
+  const configured={...scoped,summarySelections:[{...scoped.summarySelections[0],excerpts:[excerpt]}]};
+  expect(parseLiveConfiguration(configured).summarySelections[0].excerpts).toEqual([excerpt]);
+  for(const invalid of [{...excerpt,relativePath:'../vault.md'},{...excerpt,endLine:0},{...excerpt,command:'cat'},{...excerpt,kind:'source-code'}])
+    expect(()=>parseLiveConfiguration({...scoped,summarySelections:[{...scoped.summarySelections[0],excerpts:[invalid]}]})).toThrow();
+});

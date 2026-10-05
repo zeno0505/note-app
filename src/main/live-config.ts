@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { AllowedNoteScope } from '../collector/notes';
 import type { LiveConfiguration, LoadedLiveConfiguration } from './live-config-types';
 import { boundedStartup } from './startup-boundary';
+import { parseExcerptRegistrations } from '../summary/context/registered';
 
 const MAX_CONFIG_BYTES = 65536;
 function fail(): never { throw new Error('Invalid local startup configuration'); }
@@ -48,13 +49,14 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
   const localHostId=v.localHostId===undefined?undefined:text(v.localHostId,256);
   if(noteScopes.length && (!localHostId || noteScopes.some(s=>s.hostId!==localHostId))) fail();
   const summarySelections=list(v.summarySelections??[],8).map(raw=>{
-    const s=fields(raw,['scopeId','dagRelativePath','taskIds'],['scopeId','dagRelativePath','taskIds']);
+    const s=fields(raw,['scopeId','dagRelativePath','taskIds','excerpts'],['scopeId','dagRelativePath','taskIds']);
     const scopeId=text(s.scopeId,128), dagRelativePath=relative(s.dagRelativePath);
     const taskIds=list(s.taskIds,32).map(id=>text(id));
     if(!taskIds.length || new Set(taskIds).size!==taskIds.length || !noteScopes.some(scope=>scope.scopeId===scopeId&&scope.dagRelativePaths.includes(dagRelativePath))) fail();
-    return {scopeId,dagRelativePath,taskIds};
+    return {scopeId,dagRelativePath,taskIds,...(s.excerpts===undefined?{}:{excerpts:parseExcerptRegistrations(s.excerpts)})};
   });
   if(new Set(summarySelections.map(s=>JSON.stringify([s.scopeId,s.dagRelativePath]))).size!==summarySelections.length) fail();
+  if(new Set(summarySelections.flatMap(s=>(s.excerpts??[]).map(e=>JSON.stringify([s.scopeId,e.relativePath])))).size>8) fail();
   let dagQuery: LiveConfiguration['dagQuery'];
   if(v.dagQuery!==undefined){const q=fields(v.dagQuery,['pythonPath','queryScriptPath'],['pythonPath','queryScriptPath']);dagQuery={pythonPath:absolute(q.pythonPath),queryScriptPath:absolute(q.queryScriptPath)};}
   if(summarySelections.length&&!dagQuery) fail();
