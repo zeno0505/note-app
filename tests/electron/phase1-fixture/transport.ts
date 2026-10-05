@@ -15,22 +15,24 @@ export function fixtureTransport(controlPath:string,logPath:string):SyntheticSum
     if(control.mode==='submission-unknown'){await emit({type:'submission-unknown',retryRequestId:'fictional-submission-handle'});await log({event:'submission-unknown'});return;}
     await emit({type:'waiting'});await log({event:'waiting'});await pause(control.waitingDelayMs);
     await emit({type:'tui-idle'});await log({event:'tui-idle'});await pause(control.responseDelayMs);
-    const pack=request.prompt.pack,source=pack.records[0];
+    const pack=request.prompt.pack,source=pack.records.find(record=>record.sourceId.startsWith('projection-v1-'));
     if(!source)throw new Error('Synthetic fixture requires one supplied source');
     const artifact=JSON.parse(source.text) as {declaration:string};
     const declaration=JSON.parse(artifact.declaration) as {taskId?:string;title?:string;declaredStatusRaw?:string};
     const label=declaration.title??declaration.taskId??'선택한 가상 작업';
+    const goalSource=pack.records.find(record=>record.sourceId.startsWith('registered-v1-')&&JSON.parse(record.text).sourceType==='goal-document-excerpt');
+    const goalText=goalSource?(JSON.parse(goalSource.text) as {excerpt:string}).excerpt.trim():null;
     const textByAspect={
-      goal:'목표 문서가 제공되지 않아 프로젝트의 전체 목표는 확인할 수 없습니다.',
+      goal:goalText?`등록된 목표 발췌문은 다음 목표를 제시합니다: ${goalText}`:'목표 문서가 제공되지 않아 프로젝트의 전체 목표는 확인할 수 없습니다.',
       implemented:`${label}의 선언 상태는 ${declaration.declaredStatusRaw??'미확인'}입니다. 이 기록만으로 테스트나 배포 완료를 판단하지 않습니다.`,
       remaining:'남은 구현 범위는 이 작업 조각만으로 확정할 수 없습니다. 관련 작업과 검증 기록을 함께 확인해야 합니다.',
       current:`현재 검토 범위는 선택한 작업 ${pack.records.length}개 근거입니다. 실제 에이전트가 작업 중인지는 확인되지 않았습니다.`,
       next:'다음 단계 제안: 선언된 상태와 검증 근거를 사람이 확인하세요. 이 제안은 실행 승인이 아닙니다.',
       blockers:source.dependencies.length?'직접 의존성 선언이 있습니다. 외부 또는 미확인 의존성의 충족 여부는 별도로 확인해야 합니다.':'이 근거에 직접 의존성은 선언되지 않았습니다. 다른 차단 요인이 없다는 뜻은 아닙니다.',
     };
-    const claims=ASPECTS.map(aspect=>({claimId:aspect,aspect,kind:aspect==='goal'?'unknown' as const:'inference' as const,
+    const claims=ASPECTS.map(aspect=>({claimId:aspect,aspect,kind:aspect==='goal'&&!goalSource?'unknown' as const:'inference' as const,
       text:textByAspect[aspect],intent:aspect==='next'?'proposal' as const:'informational' as const,
-      citations:aspect==='goal'?[]:[{sourceId:source.sourceId,sourceHash:source.sourceHash,observedAt:source.observedAt,quote:source.text}],
+      citations:aspect==='goal'?(goalSource?[{sourceId:goalSource.sourceId,sourceHash:goalSource.sourceHash,observedAt:goalSource.observedAt,quote:goalSource.text}]:[]):[{sourceId:source.sourceId,sourceHash:source.sourceHash,observedAt:source.observedAt,quote:source.text}],
       assertions:aspect==='goal'?[]:[{type:'declared-status' as const,sourceId:source.sourceId,status:source.declaredStatus}]}));
     const response:SummaryResponse={schemaVersion:1,...bindSummaryContext(pack),generatedAt:new Date().toISOString(),claims:request.claimIds?claims.filter(claim=>request.claimIds!.includes(claim.claimId)):claims};
     if(control.mode==='invalid-citation')response.claims.find(claim=>claim.citations.length)!.citations[0].quote='This sentence is not in the supplied source.';

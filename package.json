@@ -25,7 +25,8 @@
     "test:electron:read-model": "node scripts/build-read-model-test.mjs && node tests/electron/read-model-smoke.mjs",
     "test:electron:cache": "node scripts/build-cache-test.mjs && node tests/electron/cache-smoke.mjs",
     "test:electron:live": "node scripts/build-live-test.mjs && node tests/electron/live-smoke.mjs",
-    "test:electron:phase1": "node scripts/build-phase1-test.mjs && node tests/electron/phase1-smoke.mjs"
+    "test:electron:phase1": "node scripts/build-phase1-test.mjs && node tests/electron/phase1-smoke.mjs",
+    "test:electron:excerpts": "node scripts/build-phase1-test.mjs && node tests/electron/registered-excerpts-smoke.mjs"
   },
   "dependencies": {
     "@primeuix/themes": "3.0.1",
