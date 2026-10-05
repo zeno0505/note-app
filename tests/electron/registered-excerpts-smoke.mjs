@@ -34,7 +34,7 @@ async function capture(name){
     await context.locator('.context-record').filter({hasText:'목표 발췌문'}).scrollIntoViewIfNeeded();
   }
   const filename=`T-excerpts-${name}.png`;await page.screenshot({path:path.join(evidence,filename),fullPage:false});screenshots.push(filename);}
-async function close(){if(!app)return;const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);}
+async function close(){if(!app)return;const views=page&&!page.isClosed()?await page.evaluate(()=>window.__excerptViews??[]):[];const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);noPrivate(views);}
 async function launch(synthetic){
   app=await electron.launch({chromiumSandbox:true,args:[path.resolve(synthetic?'dist/main/phase1-test.cjs':'.')],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
   page=await app.firstWindow();page.on('pageerror',error=>rendererErrors.push(String(error)));await page.getByTestId('live-connect').waitFor();
