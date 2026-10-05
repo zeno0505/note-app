@@ -1,9 +1,9 @@
-# Contributing and reviewing
+# 기여 및 리뷰 안내
 
-Use the [logical review guide](docs/review-guide.md) to explain a change's intent,
-affected contracts, evidence and review order. It includes a small optional note
-template for a commit, branch/compare description or PR; a PR is not required.
+[변경 의도 중심 리뷰 가이드](docs/review-guide.md)를 참고해 변경의 목적,
+영향받는 인터페이스 계약, 검증 근거와 리뷰 순서를 설명합니다.
+커밋 본문, 브랜치·변경 비교 설명 또는 PR에 필요한 부분만 골라 쓸 수 있는
+짧은 양식도 포함되어 있습니다. PR 작성은 필수가 아닙니다.
 
-Follow the [run and verification instructions](README.md),
-[application boundaries](app/README.md) and
-[public-repository data limits](decisions/repository.md).
+[실행 및 검증 방법](README.md), [애플리케이션 경계](app/README.md),
+[공개 저장소에 포함할 수 있는 데이터의 범위](decisions/repository.md)를 따릅니다.
