@@ -156,7 +156,52 @@ describe('cache safety and honest write ambiguity', () => {
   it('rejects corrupt cache without overwriting or showing empty-success', async () => {const f=await setup();await candidate(f);const filename=path.join(f.root,contextScopeId('synthetic-dag'),'summary-cache-v1.json');await fs.writeFile(filename,'corrupt');const p=await f.prepare();expect(p.state).toBe('error');expect(await fs.readFile(filename,'utf8')).toBe('corrupt');expect(p.canRun).toBe(false);});
   it('rejects symlink roots and scope children', async () => {const f=await setup();const alias=path.join(f.root,'alias');await fs.symlink(f.root,alias);const w=createSummaryWorkflow({cacheRoot:alias,resolveSource:async()=>source()});workflows.push(w);expect((await w.prepare({workstreamId:'w',taskIds:['A'],provider:'auto'})).state).toBe('error');const scope=path.join(f.root,contextScopeId('synthetic-dag'));await fs.symlink(f.root,scope);expect((await f.prepare()).state).toBe('error');});
   it('detects concurrent edit by revision and retains the saved approval honestly', async () => {const f=await setup();const c=await candidate(f);const cache=createLocalSummaryCache({directory:path.join(f.root,contextScopeId('synthetic-dag')),codec:summaryCacheCodec});const old=(await cache.read())!;await cache.write(old.payload,old.revision);const a=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(a.state).toBe('error');expect(a.persistence.state).toBe('failed');expect(a.approvedClaims).toEqual([]);expect((await cache.read())!.revision).toBe(2);});
-  it('labels a deadline during atomic rename as unknown, then reports the actual late commit without rollback', async () => {const f=await setup(successful,{ioDeadlineMs:40});const c=await candidate(f);const reached=deferred();const release=deferred();fault.beforeRename=async()=>{reached.resolve();await release.promise;};const pending=f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});await reached.promise;const timed=await pending;expect(timed.state).toBe('error');expect(timed.persistence.state).toBe('commit-unknown');expect(timed.approvedClaims).toEqual([]);release.resolve();fault.beforeRename=null;await vi.waitFor(async()=>expect((await f.workflow.read({ticketId:c.ticketId})).persistence.state).toBe('committed-after-cancel'));const late=await f.workflow.read({ticketId:c.ticketId});expect(late.approvedClaims).toHaveLength(6);expect(late.canApprove).toBe(false);const cache=createLocalSummaryCache({directory:path.join(f.root,contextScopeId('synthetic-dag')),codec:summaryCacheCodec});expect((await cache.read())!.revision).toBe(2);});
+  it('labels a deadline during atomic rename as unknown, then reports the actual late commit without rollback', async () => {
+    const f = await setup();
+    const c = await candidate(f);
+    expect(c).toMatchObject({ state: 'candidate', canApprove: true, persistence: { state: 'candidate-saved', revision: 1 } });
+    const cache = createLocalSummaryCache({ directory: path.join(f.root, contextScopeId('synthetic-dag')), codec: summaryCacheCodec });
+    const reached = deferred();
+    const release = deferred();
+    fault.beforeRename = async () => { reached.resolve(); await release.promise; };
+    // Keep real filesystem work independent of wall-clock latency. Expire only the
+    // approval write, after it has reached the atomic rename commit boundary.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const pending = f.workflow.approve({ ticketId: c.ticketId, candidateHash: c.candidateHash });
+      await Promise.race([
+        reached.promise,
+        pending.then(view => { throw new Error(`Approval settled before atomic rename: ${view.state} / ${view.persistence.state}`); }),
+      ]);
+      expect((await f.workflow.read({ ticketId: c.ticketId })).persistence.state).toBe('saving-approval');
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersToNextTimerAsync();
+      const timed = await pending;
+      expect(timed).toMatchObject({ state: 'error', canRun: false, canApprove: false, canReject: false,
+        persistence: { state: 'commit-unknown', revision: 1 } });
+      expect(timed.approvedClaims).toEqual([]);
+      const beforeCommit = await cache.read();
+      expect(beforeCommit!.revision).toBe(1);
+      expect(beforeCommit!.payload.state.approved).toBeNull();
+      release.resolve();
+      fault.beforeRename = null;
+      vi.useRealTimers();
+      await vi.waitFor(async () => expect((await f.workflow.read({ ticketId: c.ticketId })).persistence.state).toBe('committed-after-cancel'));
+      const late = await f.workflow.read({ ticketId: c.ticketId });
+      expect(late.sequence).toBeGreaterThan(timed.sequence);
+      expect(late.approvedClaims).toHaveLength(6);
+      expect(late).toMatchObject({ state: 'error', canRun: false, canApprove: false, canReject: false,
+        persistence: { state: 'committed-after-cancel', revision: 2 } });
+      const committed = await cache.read();
+      expect(committed!.revision).toBe(2);
+      expect(committed!.payload.state.approved!.summary.candidateHash).toBe(c.candidateHash);
+      await expect(f.workflow.approve({ ticketId: c.ticketId, candidateHash: c.candidateHash })).rejects.toMatchObject({ code: 'stale-ticket' });
+    } finally {
+      release.resolve();
+      fault.beforeRename = null;
+      vi.useRealTimers();
+    }
+  });
   it('reports post-commit cleanup failure without a false rollback or duplicate approval', async () => {const f=await setup();const c=await candidate(f);fault.beforeUnlink=()=>{throw new Error('Synthetic cleanup failure');};const a=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(a.state).toBe('error');expect(a.persistence.state).toBe('commit-unknown');expect(a.canApprove).toBe(false);fault.beforeUnlink=null;const cache=createLocalSummaryCache({directory:path.join(f.root,contextScopeId('synthetic-dag')),codec:summaryCacheCodec});expect((await cache.read())!.payload.state.approved).not.toBeNull();});
 });
 
