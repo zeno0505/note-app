@@ -34,7 +34,7 @@ onUnmounted(actions.dispose);
 <template>
   <section class="phase1-journey summary-journey" data-testid="summary-journey" :aria-busy="busy">
     <div class="section-heading"><div><p class="eyebrow">SUMMARY REVIEW</p><h3>작업 요약 · 검토</h3></div><span class="state-badge">승인은 실행 권한이 아닙니다</span></div>
-    <p class="journey-intro">선택한 작업과 직접 의존성만 읽어 요약의 근거를 준비합니다. 실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.</p>
+    <p class="journey-intro">선택한 작업·직접 의존성과 명시적으로 등록된 목표·문서·인박스 발췌문으로 요약의 근거를 준비합니다. 실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.</p>
     <LiveSummary v-if="!view" :summary="dag.summary" :historical="!current"/>
     <template v-if="view">
       <p class="journey-status" data-testid="summary-status" role="status">{{states[view.state]}}</p>
@@ -60,11 +60,13 @@ onUnmounted(actions.dispose);
       <p>선택 작업 {{view.preview.selectedTaskCount}}개 · 근거 {{view.preview.recordCount}}개 · {{view.preview.bytes.toLocaleString('ko-KR')}} bytes</p>
       <p class="muted">요청 전체 {{view.preview.inputBytes.toLocaleString('ko-KR')}} bytes · 약 {{view.preview.approximateTokens.toLocaleString('ko-KR')}} 토큰 (바이트 기반 추정, 모델 토크나이저 아님) · 응답 상한 {{view.preview.maxResponseBytes.toLocaleString('ko-KR')}} bytes</p>
       <p v-if="view.preview.truncated" class="notice warning">입력 상한에 따라 일부 근거가 제외되었습니다. 제외 항목을 확인해 주세요.</p>
+      <p class="muted">{{view.preview.checkpoint==='saved-summary'?'저장된 요약의 근거와 비교합니다.':'저장된 비교 기록이 없어 현재 근거를 새 기준으로 표시합니다.'}}</p>
+      <p v-if="view.preview.absentSourceIds?.length" class="notice warning">이전 근거 중 현재 선택에서 확인되지 않은 항목 {{view.preview.absentSourceIds.length}}개가 있습니다. 이전 요약은 기록으로 유지됩니다.</p>
       <p class="muted">명시된 목표가 없으면 추측해 채우지 않습니다. 선택하지 않은 파일과 임의의 소스 코드 본문을 추가하지 않습니다.</p>
       <ul v-if="view.preview.unknowns.length" class="journey-notices"><li v-for="(unknown,index) in view.preview.unknowns" :key="index">{{unknown}}</li></ul>
       <p v-if="view.preview.unresolvedDependencyIds.length" class="warning-text">확인되지 않은 의존성: {{view.preview.unresolvedDependencyIds.join(', ')}}</p>
       <details v-if="view.preview.exclusions.length" class="context-details"><summary>제외한 근거 {{view.preview.exclusions.length}}개</summary><ul><li v-for="(excluded,index) in view.preview.exclusions" :key="index">{{excluded.sourceId}} · {{excluded.reason}}</li></ul></details>
-      <details class="context-details"><summary>실제로 포함된 읽기 근거 {{view.preview.records.length}}개</summary><article v-for="(record,index) in view.preview.records" :key="index" class="context-record"><strong>{{record.taskId??record.sourceId}} · {{record.title??'제목 미선언'}}</strong><p>{{record.selection==='selected-task'?'선택 작업':'직접 의존성'}} · {{record.declaredStatus??'상태 미선언'}}</p><pre>{{record.suppliedText}}</pre></article></details>
+      <details class="context-details"><summary>실제로 포함된 읽기 근거 {{view.preview.records.length}}개</summary><article v-for="(record,index) in view.preview.records" :key="index" class="context-record"><strong>{{record.taskId??record.sourceId}} · {{record.title??'제목 미선언'}}</strong><p>{{record.selection==='selected-task'?'선택 작업':record.selection==='direct-dependency'?'직접 의존성':record.selection==='goal-document'?'목표 발췌문':record.selection==='inbox'?'인박스 발췌문':'문서 발췌문'}} · {{record.change==='changed'?'저장된 근거에서 변경됨':record.change==='unchanged'?'저장된 근거와 같음':'새 근거'}} · {{record.declaredStatus??'상태 미선언'}}</p><p v-if="record.excerpt" class="muted">{{record.excerpt.lineStart}}–{{record.excerpt.lineEnd}}행 · 바이트 [{{record.excerpt.byteStart}}, {{record.excerpt.byteEnd}})</p><pre>{{record.suppliedText}}</pre></article></details>
     </section>
     <section v-if="view" class="journey-step" data-testid="summary-budget"><h4>3. 제공자 · 비용 · 쿼터 확인</h4>
       <p>선택: {{view.providerChoice==='auto'?'자동 판단':view.providerChoice}} · 이번 요청 제공자: {{view.selectedProvider??'결정되지 않음'}}</p>

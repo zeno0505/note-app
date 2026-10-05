@@ -11,7 +11,9 @@ export interface SummaryReviewRequest extends SummaryTicketRequest { candidateHa
 export interface SummaryContextRecordView {
   sourceId: string;
   taskId: string | null;
-  selection: 'selected-task' | 'direct-dependency';
+  selection: 'selected-task' | 'direct-dependency' | 'goal-document' | 'document' | 'inbox';
+  change?: 'new' | 'changed' | 'unchanged';
+  excerpt?: { byteStart: number; byteEnd: number; lineStart: number; lineEnd: number };
   title: string | null;
   declaredStatus: string | null;
   e2eCoverage: string | null;
@@ -34,6 +36,8 @@ export interface SummaryContextPreview {
   exclusions: {sourceId: string; reason: string}[];
   unknowns: string[];
   unresolvedDependencyIds: string[];
+  checkpoint?: 'saved-summary' | 'new-baseline';
+  absentSourceIds?: string[];
 }
 export type SummaryWorkflowState = 'preparing' | 'prepared' | 'blocked' | 'submitting' | 'submitted' | 'waiting' | 'candidate' | 'approving' | 'approved' | 'rejected' | 'error' | 'cancelled';
 export type SummaryPersistenceState = 'not-saved' | 'restored' | 'saving-candidate' | 'candidate-saved' | 'saving-approval' | 'approval-saved' | 'rejection-saved' | 'failed' | 'commit-unknown' | 'committed-after-cancel';

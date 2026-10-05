@@ -113,3 +113,20 @@ failures, stale revision, concurrent writer exclusion, partial write failure,
 pre-commit cancellation, cancellation after rename begins, symlink rejection,
 private provenance separation and no arbitrary stale-lock/temporary-file cleanup.
 Electron wiring and real application UI adoption are separate integration work.
+
+## Registered excerpt checkpoint extension
+
+Projection contexts may carry `provenance.excerpts`, a validated local-only
+registered excerpt manifest. `registered-v1-` records cannot be restored without
+matching exact selected text, opaque identity, hash, time and byte/line evidence.
+The top-level `{state, projectionContexts}` contract remains unchanged and older
+DAG-only caches remain readable. No raw unselected file body is persisted.
+
+The saved state's current pack supplies the next preparation's comparison
+checkpoint. Candidate save, approval and rejection remain the only writes;
+preparation alone creates no saved baseline. A new process with an unsaved
+preparation starts fresh. Original per-claim historical evidence is retained.
+Any candidate bound to an older semantic pack cannot be newly approved, even
+when all its claims are unknown or the changed source was uncited. If no claim
+was individually affected, a full replacement request remains possible after
+restart instead of leaving an unapprovable, unrefreshable candidate.

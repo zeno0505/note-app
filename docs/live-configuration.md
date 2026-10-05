@@ -87,9 +87,10 @@ existing candidate. The request control remains disabled in production while the
 transport gate is unresolved. Claude/Codex help text alone does not prove
 bounded filesystem access, and a read-only sandbox does not prove read confinement.
 
-Configured selections prepare bounded local task projections and direct
-dependency status only. No document, inbox or vault text is automatically read
-for an agent. Missing goal excerpts remain unknown. Unselected task content is
+Configured selections prepare bounded local task projections, direct dependency
+status, and optional explicitly registered goal/document/inbox line excerpts as
+described below. No source is discovered by directory crawling. Missing goal
+excerpts remain unknown. Unselected task content is
 excluded from the summary context. The complete local provenance manifest and
 runtime approval/request tokens never cross renderer IPC.
 
@@ -103,7 +104,7 @@ These files use the existing strict [summary storage contract](summary-storage.m
 The application does not import a renderer/model-supplied cache or create fabricated
 summaries when a cache is missing. An existing valid candidate can be explicitly
 approved or rejected through a main-owned ticket; the source mapping and selected
-DAG are freshly reread before approval. A test-only synthetic transport exercises
+DAG and configured excerpt files are freshly reread before approval. A test-only synthetic transport exercises
 new candidate persistence without activating any production provider. Historical candidate and approval states are distinct,
 and current evidence changes mark affected retained claims stale. Cache integrity
 does not authenticate the historical human approval. A missing cache is empty;
@@ -161,3 +162,48 @@ remain blocked. Source strings are rendered as text. Connecting collectors does
 not write notes or execute providers. The separately confirmed setup operation
 changes only the previewed local link/exclude, and summary review writes only the
 private app-owned cache. No public upload is part of these flows.
+
+## Explicit registered excerpt selections (reconstructed increment B)
+
+Each `summarySelections` entry may additionally supply `excerpts`. This is trusted
+startup configuration only; the renderer cannot provide paths or expand it:
+
+```json
+"excerpts": [
+  {"id":"goal","kind":"goal-document","relativePath":"goal.md","startLine":2,"endLine":4},
+  {"id":"decision","kind":"document","relativePath":"decisions/review.md","startLine":7,"endLine":8},
+  {"id":"inbox-item","kind":"inbox","relativePath":"inbox/selected-item.md","startLine":1,"endLine":2}
+]
+```
+
+Paths are exact registrations relative to the selected project scope, and must
+also remain inside its mapped note directory. The scope and all source path
+components must be canonical real directories/files, not symlinks. A whole-vault
+root, traversal, glob, recursive search, arbitrary code file discovery, hardlink,
+special file, invalid UTF-8 or unstable read fails closed. Line ranges are
+inclusive and 1-based; newline bytes are retained. Byte ranges shown in the
+preview use a zero-based inclusive start and exclusive end. Missing or blank
+selected lines fail rather than silently choosing another range.
+
+Bounds: eight registered files across configuration, 32 excerpt selections per
+summary scope, 128 KiB per file, 512 KiB aggregate file bytes per read, 2 KiB per
+excerpt and 12 KiB total selected text. Multiple registered ranges may share one
+file read. Only bounded selected text reaches the context/preview. Local canonical
+paths, whole-file hashes and lineage remain in the private cache manifest. These
+bounds constrain bytes, not the truth or completeness of source content.
+
+Both the reader and live runtime bound pending responses to five seconds. A
+cancelled/timed-out reader lifetime is retired; it retains ownership of late
+kernel I/O and descriptor cleanup, and is never replaced during that runtime.
+Restart is required after such a timeout. No app read writes to source notes.
+
+Source selection IDs bind the exact registration; source hashes bind selected
+UTF-8 bytes. An edit outside the selected lines leaves the selected-text hash
+unchanged, while its local file hash/byte offsets can change. Changed selected
+bytes and registration additions/removals require a new candidate review.
+A saved candidate/approval cache supplies the comparison checkpoint after restart.
+Preparation alone saves no checkpoint, so an unsaved restart establishes a new
+baseline. The UI distinguishes new, changed, unchanged and no-longer-observed
+sources. Approval rereads mappings, selected DAG and registered files; unavailable
+or changed current evidence blocks approval while preserving historical approval.
+Production agent execution remains hard-blocked throughout.

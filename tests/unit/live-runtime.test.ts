@@ -62,7 +62,7 @@ function persisted(model = dag()): SummaryCacheRecord<SummaryCachePayload> {
   return {revision:7,payload:summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[projection]})};
 }
 const runtimes: ReturnType<typeof createLiveRuntime>[] = [];
-function setup(config = configuration(), cacheAvailable = true) {
+function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {}) {
   const collect = vi.fn<OrcaAdapter['collect']>(async()=>({ok:true,value:observation()}));
   const mapNotes = vi.fn<LiveRuntimeDependencies['mapNotes']>(async request=>mapping(request));
   const readDag = vi.fn<ReturnType<LiveRuntimeDependencies['dagReader']>['read']>(async()=>({ok:true,value:dag(),unchanged:false}));
@@ -72,7 +72,7 @@ function setup(config = configuration(), cacheAvailable = true) {
   const summaryCache = vi.fn<LiveRuntimeDependencies['summaryCache']>(()=>({read:cacheRead}));
   const orca = vi.fn<LiveRuntimeDependencies['orca']>(()=>({collect,read:vi.fn()}));
   const codeburn = vi.fn<LiveRuntimeDependencies['codeburn']>(()=>({read:codeRead}));
-  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache}});
+  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
   runtimes.push(runtime);
   return {runtime,collect,mapNotes,readDag,dagReader,codeRead,cacheRead,summaryCache,orca,codeburn};
 }
@@ -277,4 +277,38 @@ describe('main-owned live read-only orchestration',()=>{
     expect(x.dagReader).toHaveBeenCalledTimes(8);expect(x.runtime.getState().dags[0].reason).toContain('lifetime DAG registration limit');
   });
 
+});
+
+import { registeredExcerptId, type RegisteredExcerptContext } from '../../src/summary/context/registered';
+import { createHash } from 'node:crypto';
+it('production-wires trusted registered excerpt reads on polling and fresh review validation only',async()=>{
+  const config=configuration();const registration={id:'goal',kind:'goal-document' as const,relativePath:'goal.md',startLine:1,endLine:1};config.configuration!.summarySelections[0].excerpts=[registration];
+  const content='목표: 명시적으로 선택한 근거',sourceHash=`sha256:${createHash('sha256').update(content).digest('hex')}`;
+  const id=registeredExcerptId(DAG,registration),observedAt=new Date().toISOString();
+  const excerptContext:RegisteredExcerptContext={schemaVersion:1,scopeDagId:DAG,excerpts:[{scopeDagId:DAG,id,kind:'goal-document',text:content,sourceHash,observedAt}],provenance:[{excerptId:id,kind:'goal-document',sourceHash,observedAt,registration,canonicalPath:'/synthetic/vault/project/goal.md',fileHash:sourceHash,fileBytes:Buffer.byteLength(content),byteStart:0,byteEnd:Buffer.byteLength(content),lineStart:1,lineEnd:1}]};
+  const read=vi.fn(async()=>structuredClone(excerptContext));const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));
+  const f=setup(config,true,{excerptReader});expect(read).not.toHaveBeenCalled();const view=await f.runtime.connect();
+  expect(view.dags[0].summary.context?.recordCount).toBe(2);expect(excerptReader).toHaveBeenCalledTimes(1);
+  expect(excerptReader.mock.calls[0][0]).toMatchObject({dagId:DAG,canonicalScopePath:'/synthetic/vault/project',canonicalNotePath:'/synthetic/vault/project',registrations:[registration]});
+  const firstCalls=read.mock.calls.length;const source=await f.runtime.resolveSummarySource(view.workstreams[0].id);expect(read.mock.calls.length).toBe(firstCalls+1);expect(source.registeredExcerpts?.excerpts[0].text).toBe(content);
+  expect(JSON.stringify(f.runtime.getState())).not.toContain('goal.md');expect(JSON.stringify(f.runtime.getState())).not.toContain(content);
+  read.mockRejectedValueOnce(new Error('Synthetic excerpt unavailable'));await expect(f.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow();
+});
+
+it('bounds a stalled registered excerpt read and retires its lifetime after timeout',async()=>{
+  const config=configuration();config.configuration!.summarySelections[0].excerpts=[{id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:1,endLine:1}];
+  let finish!:(value:RegisteredExcerptContext)=>void;const pendingRead=new Promise<RegisteredExcerptContext>(resolve=>{finish=resolve;});
+  const read=vi.fn((..._args:Parameters<ReturnType<LiveRuntimeDependencies['excerptReader']>['read']>)=>pendingRead),excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});
+  const connecting=f.runtime.connect();await vi.waitFor(()=>expect(read).toHaveBeenCalledTimes(1));await vi.advanceTimersByTimeAsync(5_000);const view=await connecting;
+  expect(view.dags[0].summary.state).toBe('error');expect(read.mock.calls[0][1]?.aborted).toBe(true);
+  finish({schemaVersion:1,scopeDagId:DAG,excerpts:[],provenance:[]});await flush();await f.runtime.refresh();
+  expect(read).toHaveBeenCalledTimes(1);expect(excerptReader).toHaveBeenCalledTimes(1);expect(f.runtime.getState().dags[0].summary.state).toBe('error');
+});
+it('releases a pending excerpt response on disconnect and ignores late completion after reconnect',async()=>{
+  const config=configuration();config.configuration!.summarySelections[0].excerpts=[{id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:1,endLine:1}];
+  let finish!:(value:RegisteredExcerptContext)=>void;const read=vi.fn((..._args:Parameters<ReturnType<LiveRuntimeDependencies['excerptReader']>['read']>)=>new Promise<RegisteredExcerptContext>(resolve=>{finish=resolve;}));
+  const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});
+  const connecting=f.runtime.connect();await vi.waitFor(()=>expect(read).toHaveBeenCalledTimes(1));await f.runtime.disconnect();await connecting;
+  expect(read.mock.calls[0][1]?.aborted).toBe(true);finish({schemaVersion:1,scopeDagId:DAG,excerpts:[],provenance:[]});await flush();await f.runtime.connect();
+  expect(read).toHaveBeenCalledTimes(1);expect(excerptReader).toHaveBeenCalledTimes(1);expect(f.runtime.getState().dags[0].summary.state).toBe('error');
 });

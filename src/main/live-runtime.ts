@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createOrcaAdapter, type OrcaObservation } from '../collector/orca';
-import { mapWorktreesToNotes, type NoteMapping, type NoteWorktree } from '../collector/notes';
+import { mapWorktreesToNotes, type NoteMapping, type NoteWorktree, type ResolvedNoteMapping } from '../collector/notes';
 import { createSnapshotStore, type SnapshotClock } from '../collector/snapshot';
 import { createDagReader, type DagReadModel } from '../facts/dag-read-model';
 import { createCodeBurnReader, type CodeBurnQuery, type CodeBurnResult } from '../summary/budget/codeburn';
@@ -9,6 +9,7 @@ import { createSummaryStore, restoreSummaryStoreFromLocalCache, type ClaimView }
 import { buildContextPack } from '../summary/context';
 import { contextScopeId } from '../summary/context/extract';
 import { extractProjectionContext } from '../summary/context/projection';
+import { createRegisteredExcerptReader, parseExcerptRegistrations, type RegisteredExcerptContext } from '../summary/context/registered';
 import { createLocalSummaryCache } from '../summary/storage';
 import { summaryCacheCodec, type SummaryCachePayload } from '../summary/storage/payload';
 import type { SummaryCacheRecord } from '../summary/storage';
@@ -38,6 +39,7 @@ export interface LiveRuntimeDependencies {
   summaryCache(options: {directory: string; codec: typeof summaryCacheCodec}): {
     read(signal?: AbortSignal): Promise<SummaryCacheRecord<SummaryCachePayload> | null>;
   };
+  excerptReader: typeof createRegisteredExcerptReader;
   clock: SnapshotClock;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null}
@@ -76,6 +78,7 @@ export function createLiveRuntime(options: {
   const codeburn = config?.codeburnExecutablePath
     ? (deps.codeburn ?? createCodeBurnReader)({ executablePath: config.codeburnExecutablePath }) : null;
   const dagSessions = new Map<string, DagSession>();
+  const excerptReaders = new Map<string, { identity: string; reader: ReturnType<typeof createRegisteredExcerptReader>; retired: boolean }>();
   const codeburnLastGood = new Map<CodeBurnQuery, CodeBurnResult>();
   let codeburnResults: CodeBurnResult[] = [];
   let connected = false;
@@ -149,15 +152,53 @@ export function createLiveRuntime(options: {
     } catch { mappingRetired = true; throw new Error('Mapping unavailable'); }
   }
 
-  async function readSummary(dag: DagReadModel, session: DagSession, taskIds: string[] | undefined, signal: AbortSignal): Promise<LiveSummaryView> {
+  async function readRegistered(mapping: ResolvedNoteMapping | undefined, signal: AbortSignal): Promise<RegisteredExcerptContext | undefined> {
+    if (!mapping || !config) throw new Error('Verified excerpt scope unavailable');
+    const scope = config.noteScopes.find(s => s.scopeId === mapping.scopeId);
+    if (!scope) throw new Error('Registered excerpt scope unavailable');
+    const selections = config.summarySelections.filter(s => s.scopeId === scope.scopeId && path.join(scope.scopePath, s.dagRelativePath) === mapping.canonicalDagPath);
+    if (!selections.length && config.summarySelections.some(s => s.scopeId === scope.scopeId && s.excerpts?.length)) throw new Error('Configured excerpt selection could not be verified');
+    const registrations = parseExcerptRegistrations(selections.flatMap(s => s.excerpts ?? []));
+    if (!registrations.length) return undefined;
+    const identity = JSON.stringify([mapping.dagId, scope.scopePath, mapping.canonicalNotePath, registrations]);
+    let entry = excerptReaders.get(mapping.dagId);
+    if (entry && entry.identity !== identity) throw new Error('Registered excerpt identity changed');
+    if (!entry) {
+      if (excerptReaders.size >= MAX_DAGS) throw new Error('Registered excerpt reader limit reached');
+      entry = { identity, retired: false, reader: (deps.excerptReader ?? createRegisteredExcerptReader)({ dagId: mapping.dagId, canonicalScopePath: scope.scopePath, canonicalNotePath: mapping.canonicalNotePath, registrations, now }) };
+      excerptReaders.set(mapping.dagId, entry);
+    }
+    if (entry.retired || signal.aborted) throw new Error('Registered excerpt reader retired');
+    const owned = entry;
+    const deadline = new AbortController(); const combined = AbortSignal.any([signal, deadline.signal]);
+    return await new Promise<RegisteredExcerptContext>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => deadline.abort(), 5_000);
+      const cleanup = () => { clearTimeout(timer); combined.removeEventListener('abort', abort); };
+      const abort = () => { if (settled) return; settled = true; owned.retired = true; cleanup(); reject(new Error('Registered excerpt response unavailable')); };
+      combined.addEventListener('abort', abort, { once: true });
+      if (combined.aborted) { abort(); return; }
+      void Promise.resolve().then(() => {
+        if (combined.aborted) throw new Error('Registered excerpt read cancelled');
+        return owned.reader.read(mapping.dagId, combined);
+      }).then(value => { if (settled) return; settled = true; cleanup(); resolve(value); }, error => {
+        if (settled) return; settled = true; cleanup();
+        if (combined.aborted || (error && typeof error === 'object' && 'code' in error && ['timeout', 'cancelled', 'retired'].includes(String(error.code)))) owned.retired = true;
+        reject(new Error('Registered excerpt read failed'));
+      });
+    });
+  }
+
+  async function readSummary(dag: DagReadModel, session: DagSession, taskIds: string[] | undefined, signal: AbortSignal, mapping: ResolvedNoteMapping | undefined): Promise<LiveSummaryView> {
     if (!taskIds) return session.store
       ? { ...session.summary, state: 'error', reason: 'The explicit summary selection could not be verified; retained claims are historical and current evidence is unavailable.' }
       : summaryUnavailable('No explicit summary task selection resolves to this canonical DAG.');
     if (taskIds.length > 32) return { ...session.summary, state: 'error', reason: 'The combined explicit selection exceeds the 32-task context limit; current evidence is unavailable.' };
     let context: LiveSummaryView['context'] = session.summary.context;
     try {
+      const registeredExcerpts = await readRegistered(mapping, signal);
       const projected = extractProjectionContext({ schemaVersion: 1, dagId: dag.dagId, dag,
-        requestedTaskIds: taskIds, excerpts: [], previousSources: [], priorApprovedSummary: null, limits: CONTEXT_LIMITS });
+        requestedTaskIds: taskIds, excerpts: registeredExcerpts?.excerpts ?? [], previousSources: [], priorApprovedSummary: null, limits: CONTEXT_LIMITS }, registeredExcerpts);
       const pack = buildContextPack(projected.input);
       context = { selectedTaskCount: taskIds.length, recordCount: pack.records.length, bytes: pack.usage.bytes,
         truncated: pack.truncated, unknowns: [...pack.coverage.unknowns] };
@@ -273,7 +314,7 @@ export function createLiveRuntime(options: {
           else if (!result.ok) reason = `DAG observation could not be refreshed (${result.error.kind}).`;
         } catch { reason = 'DAG observation could not be refreshed.'; }
       } else if (!reason) reason = 'DAG reader could not be initialized.';
-      if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal);
+      if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
       dags.push({ dagId: mapping.dagId, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
@@ -374,10 +415,11 @@ export function createLiveRuntime(options: {
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new Error('Source mapping changed');
       const currentDag=await session.reader.read(mapping.dagId!,{signal});
       if(!currentDag.ok||signal.aborted)throw new Error('Current DAG could not be verified');
+      const registeredExcerpts=await readRegistered(currentMapping,signal);
       const after=store.getState();
       if(disposed||!connected||after.refreshing||after.freshness!=='current'||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new Error('Source changed during validation');
       session.model=currentDag.value;
-      return {dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults)};
+      return {dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
     resolveNoteSelection(worktreeId: string, scopeId: string) {
       const snapshot=store.getState();

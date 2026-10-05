@@ -120,3 +120,10 @@ describe('registered provenance persistence and uncited changes',()=>{
     store.updateContext(buildContextPack(without.input));expect(store.beginUpdate()).not.toBeNull();
   });
 });
+
+it('bounds a stalled open response and cleans the late descriptor without starting another reader',async()=>{
+  const f=await fixture();const original=fs.open.bind(fs);let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});const closed=vi.fn();let reached!:()=>void;const reachedOpen=new Promise<void>(resolve=>{reached=resolve;});
+  vi.spyOn(fs,'open').mockImplementation(async(...args)=>{const handle=await original(...args);const close=handle.close.bind(handle);handle.close=async()=>{closed();await close();};reached();await gate;return handle;});
+  const reader=createRegisteredExcerptReader({...f.options,timeoutMs:30});const pending=reader.read('dag-test');await reachedOpen;
+  await expect(pending).rejects.toMatchObject({code:'timeout'});await expect(reader.read('dag-test')).rejects.toMatchObject({code:'retired'});release();await vi.waitFor(()=>expect(closed).toHaveBeenCalledTimes(1));
+});

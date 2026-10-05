@@ -205,3 +205,39 @@ it('read-only cache validation never creates a missing scope or follows a foreig
   await expect(assertPrivateSummaryCachePath(f.root,directory)).rejects.toMatchObject({code:'ENOENT'});expect(await fs.readdir(f.root)).toEqual([]);
   await expect(assertPrivateSummaryCachePath(f.root,path.join(f.root,'..','outside'))).rejects.toMatchObject({code:'unsafe-cache'});
 });
+
+import { createRegisteredExcerptReader } from '../../src/summary/context/registered';
+async function withRegisteredSource(f: Awaited<ReturnType<typeof setup>>) {
+  const notes=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'synthetic-summary-excerpts-')));directories.push(notes);
+  const filename=path.join(notes,'goal.md');await fs.writeFile(filename,'PRIVATE HEADER\n목표: 근거가 있는 요약\nPRIVATE TAIL');
+  const reader=createRegisteredExcerptReader({dagId:'synthetic-dag',canonicalScopePath:notes,canonicalNotePath:notes,registrations:[{id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:2,endLine:2}],now:()=>now});
+  f.resolveSource.mockImplementation(async()=>({...f.source(),registeredExcerpts:await reader.read('synthetic-dag')}));
+  return {notes,filename};
+}
+describe('registered source workflow and saved checkpoint',()=>{
+  it('shows bounded excerpts and byte/line provenance while preserving the production transport gate',async()=>{
+    const f=await setup(null),files=await withRegisteredSource(f);const p=await f.prepare();
+    const excerpt=p.preview?.records.find(r=>r.selection==='goal-document');expect(excerpt).toMatchObject({change:'new',excerpt:{lineStart:2,lineEnd:2}});
+    expect(excerpt?.suppliedText).toContain('목표: 근거가 있는 요약');expect(JSON.stringify(p)).not.toContain(files.notes);expect(JSON.stringify(p)).not.toContain('PRIVATE HEADER');
+    expect(p.preview?.checkpoint).toBe('new-baseline');expect(p.canRun).toBe(false);expect(p.transport).toBe('blocked');
+  });
+  it('blocks changed registered source approval, keeps prior approval history and restores changes after restart',async()=>{
+    const f=await setup(),files=await withRegisteredSource(f);const c=await candidate(f);const approved=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(approved.state).toBe('approved');
+    await fs.writeFile(files.filename,'PRIVATE HEADER\n목표: 바뀐 요약 목표\nPRIVATE TAIL');f.workflow.dispose();
+    const restarted=createSyntheticSummaryWorkflowForTests({cacheRoot:f.root,resolveSource:f.resolveSource,now:()=>now,transport:successful});workflows.push(restarted);
+    const p=await restarted.prepare({workstreamId:'worktree-test',taskIds:['A'],provider:'claude'});
+    expect(p.preview?.checkpoint).toBe('saved-summary');expect(p.preview?.records.find(r=>r.selection==='goal-document')?.change).toBe('changed');
+    expect(p.approvedCandidateHash).toBe(approved.approvedCandidateHash);expect(p.canApprove).toBe(false);expect(p.canRun).toBe(true);
+    const next=await restarted.run({ticketId:p.ticketId,provider:'claude'});expect(next.state).toBe('candidate');expect(next.canApprove).toBe(true);
+    await fs.writeFile(files.filename,'PRIVATE HEADER\n목표: 검토 후 다시 변경됨\nPRIVATE TAIL');
+    const stale=await restarted.approve({ticketId:next.ticketId,candidateHash:next.candidateHash});expect(stale.state).toBe('error');expect(stale.canApprove).toBe(false);expect(stale.approvedCandidateHash).toBe(approved.approvedCandidateHash);
+  });
+  it('starts a new baseline after unsaved preparation and preserves unchanged-source semantics after saved restart',async()=>{
+    const f=await setup(),files=await withRegisteredSource(f);await f.prepare();f.workflow.dispose();await fs.writeFile(files.filename,'HEADER\n목표: 저장 전 변경\nTAIL');
+    const restarted=createSyntheticSummaryWorkflowForTests({cacheRoot:f.root,resolveSource:f.resolveSource,now:()=>now,transport:successful});workflows.push(restarted);
+    const p=await restarted.prepare({workstreamId:'worktree-test',taskIds:['A'],provider:'claude'});expect(p.preview?.checkpoint).toBe('new-baseline');expect(p.preview?.records.find(r=>r.selection==='goal-document')?.change).toBe('new');
+    const c=await restarted.run({ticketId:p.ticketId,provider:'claude'});expect(c.state).toBe('candidate');restarted.dispose();
+    const again=createSyntheticSummaryWorkflowForTests({cacheRoot:f.root,resolveSource:f.resolveSource,now:()=>now,transport:successful});workflows.push(again);
+    const restored=await again.prepare({workstreamId:'worktree-test',taskIds:['A'],provider:'claude'});expect(restored.preview?.checkpoint).toBe('saved-summary');expect(restored.preview?.records.every(r=>r.change==='unchanged')).toBe(true);expect(restored.candidateHash).toBe(c.candidateHash);expect(restored.canApprove).toBe(true);
+  });
+});

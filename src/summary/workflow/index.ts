@@ -3,8 +3,9 @@ import type { DagReadModel } from '../../facts/dag-read-model';
 import type { CodeBurnResult } from '../budget/codeburn';
 import type { AgentProvider } from '../budget';
 import { createSummaryStore, restoreSummaryStoreFromLocalCache } from '../claims';
-import { buildContextPack } from '../context';
-import { extractProjectionContext, type ProjectionContext } from '../context/projection';
+import { buildContextPack, type SourceRef } from '../context';
+import type { RegisteredExcerptContext } from '../context/registered';
+import { extractProjectionContext, validateProjectionContext, type ProjectionContext } from '../context/projection';
 import { compileSummaryPrompt, type SummaryPrompt } from '../instructions';
 import { createLocalSummaryCache, SummaryCacheError, type SummaryCacheRecord } from '../storage';
 import { summaryCacheCodec, type SummaryCachePayload } from '../storage/payload';
@@ -22,6 +23,8 @@ export interface SummaryWorkflowSource {
   /** Binds canonical path, mapped scope and live workstream identity. Local only. */
   mappingIdentity: string;
   codeburn: CodeBurnResult[];
+  /** Exact bounded excerpts plus LOCAL-only integrity/byte/line provenance. */
+  registeredExcerpts?: RegisteredExcerptContext;
 }
 export interface SummaryWorkflowOptions {
   /** Existing canonical private app-owned root. Not a vault, note directory or renderer setting. */
@@ -37,6 +40,7 @@ interface Session {
   id: string; request: SummaryPrepareRequest; controller: AbortController; view: SummaryWorkflowView;
   mappingIdentity: string | null; projection: ProjectionContext | null; prompt: SummaryPrompt | null;
   store: Store | null; manifests: ProjectionContext[]; cache: Cache | null; scopeId: string | null;
+  checkpointSources: SourceRef[] | null;
   operation: boolean; runUsed: boolean; reviewUsed: boolean; retired: boolean; sourceVerified: boolean;
 }
 const CONTEXT_LIMITS = Object.freeze({ maxBytes: 32_768, maxApproxTokens: 32_768, maxRecords: 64 });
@@ -117,7 +121,7 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
     const known = new Set(source.dag.tasks.map(task => task.id));
     if (s.request.taskIds.some(id => !known.has(id))) throw new SummaryWorkflowError('invalid-request', 'A selected task is not in the verified workstream.');
     const projection = extractProjectionContext({ schemaVersion: 1, dagId: source.dag.dagId, dag: source.dag,
-      requestedTaskIds: s.request.taskIds, excerpts: [], previousSources: [], priorApprovedSummary: null, limits: CONTEXT_LIMITS });
+      requestedTaskIds: s.request.taskIds, excerpts: source.registeredExcerpts?.excerpts ?? [], previousSources: s.checkpointSources ?? [], priorApprovedSummary: null, limits: CONTEXT_LIMITS }, source.registeredExcerpts);
     const prompt = compileSummaryPrompt(projection.input, PROMPT_LIMITS);
     return { source: clone(source), projection, prompt };
   }
@@ -133,14 +137,14 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
     s.sourceVerified = true; refreshBudget(s, source, s.view.providerChoice);
     const changed = s.store!.updateContext(prompt.pack).changed;
     if (changed) {
-      s.projection = projection; s.prompt = prompt; s.view.preview = contextPreview(prompt, projection, s.request.taskIds.length);
+      s.projection = projection; s.prompt = prompt; s.view.preview = contextPreview(prompt, projection, s.request.taskIds.length, s.checkpointSources);
       s.manifests.push(projection); s.retired = true;
       throw new SummaryWorkflowError('stale-ticket', 'Selected context changed. Prepare a new review.');
     }
   }
   function payload(s: Session, store: Store): SummaryCachePayload {
     const state = store.exportState();
-    const needed = new Map(state.packs.flatMap(pack => pack.records.filter(r => r.sourceId.startsWith('projection-v1-')).map(record => [JSON.stringify(record), record] as const)));
+    const needed = new Map(state.packs.flatMap(pack => pack.records.filter(r => r.sourceId.startsWith('projection-v1-') || r.sourceId.startsWith('registered-v1-')).map(record => [JSON.stringify(record), record] as const)));
     const projectionContexts: ProjectionContext[] = [];
     for (const context of s.manifests) {
       if (!context.provenance.entries.length || !context.input.records.every(record => state.packs.some(pack => pack.sources.some(source => source.sourceId === record.sourceId && source.sourceHash === record.sourceHash)))) continue;
@@ -198,13 +202,13 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
       }
       const id = `summary-${randomUUID()}`;
       const s: Session = { id, request, controller: new AbortController(), mappingIdentity: null, projection: null, prompt: null, store: null,
-        manifests: [], cache: null, scopeId: null, operation: true, runUsed: false, reviewUsed: false, retired: false, sourceVerified: false,
+        manifests: [], cache: null, scopeId: null, checkpointSources: null, operation: true, runUsed: false, reviewUsed: false, retired: false, sourceVerified: false,
         view: { ticketId: id, sequence: 0, workstreamId: request.workstreamId, taskIds: request.taskIds, state: 'preparing', message: 'Preparing the explicit bounded task slice.', providerChoice: request.provider,
           selectedProvider: null, transport: transport ? 'synthetic-test-only' : 'blocked', executionAuthorized: false, preview: null, budget: null, codeburn: [],
           candidateHash: null, approvedCandidateHash: null, candidateClaims: [], approvedClaims: [], approvedAt: null, persistence: { state: 'not-saved', revision: null, message: 'No summary has been saved by this preparation.' }, canRun: false, canApprove: false, canReject: false, canCancel: true } };
       sessions.set(id, s); current.set(request.workstreamId, id); publish(s);
       try {
-        const { source, projection, prompt } = await resolve(s);
+        let { source, projection, prompt } = await resolve(s);
         s.sourceVerified = true; s.mappingIdentity = source.mappingIdentity; s.scopeId = prompt.pack.scopeId; s.projection = projection; s.prompt = prompt; s.manifests = [projection];
         s.view.preview = contextPreview(prompt, projection, request.taskIds.length); refreshBudget(s, source, request.provider);
         if (retiredScopes.has(s.scopeId)) throw new SummaryWorkflowError('cache-failed', 'The scope has an unsettled cache operation.');
@@ -214,6 +218,14 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
         try { cached = await bounded(s, signal => s.cache!.read(signal), timeout); }
         catch (error) { if (error instanceof SummaryWorkflowError && ['deadline', 'cancelled'].includes(error.code)) retiredScopes.add(s.scopeId); throw error; }
         assertActive(s);
+        if (cached) {
+          const checkpoint = cached.payload.state.packs.find(pack => pack.packHash === cached!.payload.state.currentPackHash)!;
+          s.checkpointSources = checkpoint.sources.map(({ sourceId, sourceHash }) => ({ sourceId, sourceHash }));
+          projection = validateProjectionContext({ ...projection, input: { ...projection.input, previousSources: s.checkpointSources } });
+          prompt = compileSummaryPrompt(projection.input, PROMPT_LIMITS);
+          s.projection = projection; s.prompt = prompt;
+          s.view.preview = contextPreview(prompt, projection, request.taskIds.length, s.checkpointSources);
+        }
         s.store = cached ? restoreSummaryStoreFromLocalCache(cached.payload.state, prompt.pack) : createSummaryStore(prompt.pack);
         if (cached) {
           s.manifests = [...cached.payload.projectionContexts, projection];
@@ -222,7 +234,7 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
           const binding = s.store.snapshot().binding;
           if (binding.packHash !== prompt.pack.packHash) {
             const prior = s.manifests.find(context => buildContextPack(context.input).packHash === binding.packHash);
-            if (prior) { s.projection = prior; s.prompt = compileSummaryPrompt(prior.input, PROMPT_LIMITS); s.view.preview = contextPreview(s.prompt, prior, request.taskIds.length); }
+            if (prior) { s.projection = prior; s.prompt = compileSummaryPrompt(prior.input, PROMPT_LIMITS); s.view.preview = contextPreview(s.prompt, prior, request.taskIds.length, s.checkpointSources); }
           }
         }
         s.view.state = 'prepared'; s.view.message = transport ? 'Bounded synthetic test context is ready for review.' : SUMMARY_TRANSPORT_GATE.reason;

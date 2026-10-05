@@ -105,3 +105,29 @@ Legacy IDs are never rewritten in old approvals or source manifests. Supply prio
 Artifacts are retained exactly in the returned in-memory local manifest only. There is no durable content-addressed archive, disk persistence, retention/eviction policy, authenticated approval-event storage, artifact retrieval after restart, or real agent transport in this adapter. A production host must preserve exact cited artifacts and the appropriate upstream manifest under an explicit storage/privacy policy before claiming durable historical evidence. It must never overwrite historical artifacts merely because a later observation shares the same task ID. Hash validation and typed source declarations do not prove tests ran, commits exist, deployments occurred, or free-text summaries are semantically correct. Human review and runtime/Electron integration remain separate gates.
 
 Synthetic tests in `tests/unit/context-projection.test.ts` demonstrate exact artifact hashing, local upstream lineage, unrelated-edit/no-op behavior, task/dependency-specific claim invalidation, aggregate invalidation, conservative excerpts, legacy migration, bounds and tampering rejection. They provide no real-source or model-quality evidence.
+
+## Registered exact excerpt source contract
+
+`src/summary/context/registered.ts` adds the bounded main-only filesystem reader
+specified in [live configuration](live-configuration.md#explicit-registered-excerpt-selections-reconstructed-increment-b).
+`extractProjectionContext(request, registeredContext)` validates the reader's
+local manifest and emits `registered-v1-` source IDs. The manifest binds each
+exact selected UTF-8 excerpt to its registration, byte/line range, observed time,
+canonical file and whole-file hash. The model pack contains selected text and
+opaque source identities/hashes only. Every registered record requires its exact
+local manifest during cache validation; deleting the manifest is invalid.
+Legacy supplied `ScopedExcerpt` inputs keep their existing independent contract.
+
+Registered IDs include selection kind, explicit registration ID, relative file
+and inclusive line range, framed with the DAG identity before hashing. The hash
+of a registered source is the hash of the selected bytes, not the whole file.
+Whole-file lineage and byte positions may change without changing those selected
+bytes. This is intentionally slice-level semantic invalidation, with fresh full
+bounded file checks before every new approval. Hash IDs are not anonymization.
+
+The preview compares current source hashes with the current pack in the saved
+summary cache. With no saved cache it labels a new baseline; merely preparing a
+context does not persist one. A restored cache preserves original claim bases,
+observation times and approval history. Uncited semantic changes that would
+otherwise leave an old candidate on an unapprovable pack request a full replacement.
+No registration or source change silently rebinds or approves historical prose.

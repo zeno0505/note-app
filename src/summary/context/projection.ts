@@ -128,8 +128,12 @@ export function validateProjectionContext(value: unknown): ProjectionContext {
 /** Versioned opt-in adapter. Legacy extraction keeps its original whole-DAG hash semantics. */
 export function extractProjectionContext(request: ContextExtractionRequest, registeredExcerpts?: RegisteredExcerptContext): ProjectionContext {
   const excerpts = registeredExcerpts ? validateRegisteredExcerptContext(registeredExcerpts) : undefined;
-  if (excerpts && (excerpts.scopeDagId !== request.dagId || JSON.stringify(excerpts.excerpts) !== JSON.stringify(request.excerpts))) fail('Registered excerpts do not match supplied context');
+  if (excerpts && excerpts.scopeDagId !== request.dagId) fail('Registered excerpts do not match supplied scope');
   const legacy = extractContextInput(request);
+  if (excerpts && (excerpts.excerpts.length !== request.excerpts.length || excerpts.excerpts.some(e => {
+    const r = request.excerpts.find(r => r.id === e.id);
+    return !r || r.scopeDagId !== e.scopeDagId || r.kind !== e.kind || r.sourceHash !== e.sourceHash || r.observedAt !== e.observedAt || r.text !== e.text;
+  }))) fail('Registered excerpts do not match supplied context');
   // IDs only, from the same bounded in-memory projection already validated by the legacy selector.
   const identities = new Map(request.dag.tasks.map(t => [taskContextSourceId(request.dagId, t.id), t.id]));
   const entries: ProjectionProvenanceEntry[] = [];

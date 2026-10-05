@@ -16,7 +16,7 @@ export interface ExcerptProvenance {
 }
 export interface RegisteredExcerptContext { schemaVersion: 1; scopeDagId: string; excerpts: ScopedExcerpt[]; provenance: ExcerptProvenance[] }
 export class ExcerptReadError extends Error {
-  constructor(readonly code: 'invalid-registration' | 'unsafe-source' | 'source-limit' | 'source-changed' | 'source-unavailable' | 'cancelled' | 'busy' | 'retired') { super(`Registered excerpt read failed (${code}).`); }
+  constructor(readonly code: 'invalid-registration' | 'unsafe-source' | 'source-limit' | 'source-changed' | 'source-unavailable' | 'cancelled' | 'timeout' | 'busy' | 'retired') { super(`Registered excerpt read failed (${code}).`); }
 }
 function fail(code: ExcerptReadError['code']): never { throw new ExcerptReadError(code); }
 const hash = (value: string | Buffer): string => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -60,14 +60,14 @@ async function checkedPath(filename: string, active: () => void, finalFile: bool
   if (!last || await fs.realpath(filename) !== filename) fail('unsafe-source'); active(); return last;
 }
 /** Main-only source reader. A cancelled in-flight read keeps ownership until cleanup settles. */
-export function createRegisteredExcerptReader(options: { dagId: string; canonicalScopePath: string; canonicalNotePath: string; registrations: ExcerptRegistration[]; now?: () => number }) {
+export function createRegisteredExcerptReader(options: { dagId: string; canonicalScopePath: string; canonicalNotePath: string; registrations: ExcerptRegistration[]; now?: () => number; timeoutMs?: number }) {
   const dagId = text(options.dagId, 1024), scope = absolute(options.canonicalScopePath), note = absolute(options.canonicalNotePath);
   if (note !== scope && !inside(scope, note)) fail('invalid-registration');
   const registrations = parseExcerptRegistrations(options.registrations);
   for (const r of registrations) if (!inside(note, path.join(scope, r.relativePath))) fail('invalid-registration');
+  const timeoutMs = options.timeoutMs ?? 5_000; integer(timeoutMs, 1, 60_000);
   let busy = false; let retired = false;
-  return {
-    async read(requestedDagId: string, signal?: AbortSignal): Promise<RegisteredExcerptContext> {
+  const readOnce = async (requestedDagId: string, signal?: AbortSignal): Promise<RegisteredExcerptContext> => {
       if (requestedDagId !== dagId) fail('invalid-registration');
       if (retired) fail('retired'); if (busy) fail('busy');
       const active = () => { if (signal?.aborted) { retired = true; fail('cancelled'); } };
@@ -111,6 +111,24 @@ export function createRegisteredExcerptReader(options: { dagId: string; canonica
         active(); return validateRegisteredExcerptContext({ schemaVersion: 1, scopeDagId: dagId, excerpts, provenance });
       } catch (error) { if (signal?.aborted) { retired = true; fail('cancelled'); } if (error instanceof ExcerptReadError) throw error; fail('source-unavailable'); }
       finally { busy = false; }
+  };
+  return {
+    async read(requestedDagId: string, signal?: AbortSignal): Promise<RegisteredExcerptContext> {
+      if (requestedDagId !== dagId) fail('invalid-registration');
+      if (retired) fail('retired'); if (busy) fail('busy');
+      if (signal?.aborted) { retired = true; fail('cancelled'); }
+      const deadline = new AbortController();
+      const combined = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
+      const timer = setTimeout(() => deadline.abort(), timeoutMs);
+      let stop: (() => void) | undefined;
+      const stopped = new Promise<never>((_, reject) => {
+        stop = () => { retired = true; reject(new ExcerptReadError(deadline.signal.aborted ? 'timeout' : 'cancelled')); };
+        combined.addEventListener('abort', stop, { once: true });
+        if (combined.aborted) stop();
+      });
+      try { return await Promise.race([readOnce(requestedDagId, combined), stopped]); }
+      finally { clearTimeout(timer); if (stop) combined.removeEventListener('abort', stop); }
+      // readOnce retains busy ownership and eventual descriptor cleanup after this response.
     },
   };
 }
