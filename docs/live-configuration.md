@@ -207,3 +207,9 @@ baseline. The UI distinguishes new, changed, unchanged and no-longer-observed
 sources. Approval rereads mappings, selected DAG and registered files; unavailable
 or changed current evidence blocks approval while preserving historical approval.
 Production agent execution remains hard-blocked throughout.
+
+An exact registered DAG alias is matched through the existing scoped mapper,
+never by guessing a path suffix. A sibling DAG with no applicable excerpt
+registration keeps an empty excerpt selection. Source-file and scope-directory
+aliases remain unsupported by the excerpt reader and surface as an error; they
+are not silently treated as absent registrations.

@@ -156,7 +156,21 @@ export function createLiveRuntime(options: {
     if (!mapping || !config) throw new Error('Verified excerpt scope unavailable');
     const scope = config.noteScopes.find(s => s.scopeId === mapping.scopeId);
     if (!scope) throw new Error('Registered excerpt scope unavailable');
-    const selections = config.summarySelections.filter(s => s.scopeId === scope.scopeId && path.join(scope.scopePath, s.dagRelativePath) === mapping.canonicalDagPath);
+    const selections: typeof config.summarySelections = [];
+    for (const selection of config.summarySelections.filter(s => s.scopeId === scope.scopeId && s.excerpts?.length)) {
+      if (path.join(scope.scopePath, selection.dagRelativePath) === mapping.canonicalDagPath) { selections.push(selection); continue; }
+      // Configured DAG/scope aliases need the mapper's exact selection resolution.
+      // A sibling DAG outside this note is simply inapplicable; a failed applicable
+      // registration must never silently become an empty excerpt selection.
+      const verified = await readMapping({ localHostId: config.localHostId!, scopes: [scope], signal,
+        worktrees: [{ worktreeId: mapping.worktreeId, hostId: mapping.hostId, worktreePath: mapping.canonicalWorktreePath, selectedDagRelativePath: selection.dagRelativePath }] });
+      const resolved = verified.mappings[0];
+      if (resolved?.state === 'resolved') {
+        if (resolved.dagId === mapping.dagId && resolved.canonicalDagPath === mapping.canonicalDagPath) selections.push(selection);
+      } else if (verified.scopeIssues.length || !resolved || !['dag-not-registered', 'dag-outside-note', 'invalid-dag-selection'].includes(resolved.reason)) {
+        throw new Error('Configured excerpt selection could not be verified');
+      }
+    }
     const registrations = parseExcerptRegistrations(selections.flatMap(s => s.excerpts ?? []));
     if (!registrations.length) return undefined;
     const identity = JSON.stringify([mapping.dagId, scope.scopePath, mapping.canonicalNotePath, registrations]);

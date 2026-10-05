@@ -317,7 +317,22 @@ it('does not borrow or require a sibling DAG excerpt registration for an unconfi
   const config=configuration();config.configuration!.noteScopes[0].dagRelativePaths=['a/dag.yaml','b/dag.yaml'];
   config.configuration!.summarySelections=[{scopeId:'scope-one',dagRelativePath:'a/dag.yaml',taskIds:['T-0'],excerpts:[{id:'goal-a',kind:'goal-document',relativePath:'a/goal.md',startLine:1,endLine:1}]}];
   const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>();const f=setup(config,true,{excerptReader});
-  f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved'){m.canonicalNotePath='/synthetic/vault/project/b';m.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';}for(const d of result.dags)d.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';return result;});
+  f.mapNotes.mockImplementation(async request=>{const result=mapping(request);if(request.worktrees.some(w=>w.selectedDagRelativePath==='a/dag.yaml'))return {...result,mappings:request.worktrees.map(w=>({state:'unresolved' as const,worktreeId:w.worktreeId,hostId:w.hostId,reason:'dag-outside-note' as const,stage:'dag' as const})),dags:[]};for(const m of result.mappings)if(m.state==='resolved'){m.canonicalNotePath='/synthetic/vault/project/b';m.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';}for(const d of result.dags)d.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';return result;});
   const view=await f.runtime.connect();const source=await f.runtime.resolveSummarySource(view.workstreams[0].id);
   expect(source.dag.dagId).toBe(DAG);expect(source.registeredExcerpts).toBeUndefined();expect(excerptReader).not.toHaveBeenCalled();
+});
+
+it('resolves exact registered DAG aliases through the mapper before selecting excerpts',async()=>{
+  const config=configuration();config.configuration!.noteScopes[0].dagRelativePaths=['dag-alias.yaml'];config.configuration!.summarySelections[0].dagRelativePath='dag-alias.yaml';
+  config.configuration!.summarySelections[0].excerpts=[{id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:1,endLine:1}];
+  const read=vi.fn(async()=>({schemaVersion:1 as const,scopeDagId:DAG,excerpts:[],provenance:[]}));const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});
+  const view=await f.runtime.connect();expect(excerptReader).toHaveBeenCalledTimes(1);expect(read).toHaveBeenCalled();
+  f.mapNotes.mockClear();const source=await f.runtime.resolveSummarySource(view.workstreams[0].id);expect(source.registeredExcerpts).toBeDefined();expect(f.mapNotes.mock.calls.some(([r])=>r.worktrees[0].selectedDagRelativePath==='dag-alias.yaml')).toBe(true);
+});
+it('surfaces an unsupported scope alias instead of dropping its explicitly configured excerpts',async()=>{
+  const config=configuration();config.configuration!.noteScopes[0].scopePath='/synthetic/vault/project-alias';
+  config.configuration!.summarySelections[0].excerpts=[{id:'goal',kind:'goal-document',relativePath:'goal.md',startLine:1,endLine:1}];
+  const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>{throw new Error('Synthetic unsupported alias');});const f=setup(config,true,{excerptReader});
+  const view=await f.runtime.connect();expect(view.dags[0].summary.state).toBe('error');expect(excerptReader).toHaveBeenCalled();
+  await expect(f.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow('Synthetic unsupported alias');
 });
