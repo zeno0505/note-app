@@ -1,8 +1,8 @@
 [
   {
     "path": "README.md",
-    "bytes": 2929,
-    "sha256": "0e4c2e4fa26bbf0f78ae7041cc8e1bcae6b547f4d0b6ff93ae8f16b971f747f0"
+    "bytes": 3786,
+    "sha256": "89ea667fa688d712b1eba127bb7f53c29080b0b6b1da428557127e30e528daf3"
   },
   {
     "path": "T-007-narrow.png",
@@ -90,6 +90,11 @@
     "sha256": "9a75f592dc56b53ddf8c967a1076436ef8c6be093eb3f80ab52a0cc9f700e7db"
   },
   {
+    "path": "aggregate-result.json",
+    "bytes": 1036,
+    "sha256": "c74346072ee0d4d4504ea44f5806978b7252c1a35ebaa78447197d7555ad2645"
+  },
+  {
     "path": "corrected-build-identity.json",
     "bytes": 3096,
     "sha256": "76965d5b7b6b7cc81d8c94ba5ccfcf437671fabf92ed72562a6dcdd7a8a97f6a"
@@ -105,9 +110,14 @@
     "sha256": "c55031649d7b3997a0b4765302fe75278b1a2aad7f689cf0b8f0027c4e533791"
   },
   {
-    "path": "final-check.log",
+    "path": "final-check-c63708b.log",
     "bytes": 1696,
     "sha256": "2dad0d79fe8dad7bbf1f5ca39bc4d84a77239ae179de4b3a95dfb3800145ce38"
+  },
+  {
+    "path": "final-check.log",
+    "bytes": 1696,
+    "sha256": "5402f33a9f52a1623e95156a4598d5ae6c3f58582ae64d74b36773b60d5f230f"
   },
   {
     "path": "initial-build-identity.json",

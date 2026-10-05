@@ -19,9 +19,14 @@ npm warn Unknown env config "http-proxy". This will stop working in the next maj
 
  Test Files  28 passed (28)
       Tests  721 passed (721)
-   Start at  23:15:08
-   Duration  7.03s (transform 2.45s, setup 0ms, import 2.99s, tests 26.02s, environment 12ms)
+   Start at  23:01:56
+   Duration  7.09s (transform 3.53s, setup 0ms, import 4.02s, tests 26.76s, environment 13ms)
 
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
 npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 
 > note-app@0.1.0 build
@@ -35,12 +40,7 @@ computing gzip size...
 ../../dist/renderer/index.html                   0.60 kB │ gzip:   0.40 kB
 ../../dist/renderer/assets/index-zfa8Kg1_.css   19.50 kB │ gzip:   5.08 kB
 ../../dist/renderer/assets/index-_g_GvVqa.js   411.19 kB │ gzip: 106.42 kB
-✓ built in 1.42s
-npm notice
-npm notice New major version of npm available! 11.9.0 -> 12.2.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
-npm notice To update run: npm install -g npm@12.2.0
-npm notice
+✓ built in 1.37s
 npm notice
 npm notice New major version of npm available! 11.9.0 -> 12.2.0
 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0

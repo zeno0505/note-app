@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "sourceCommit": "16d40d935383b7565db1cf99e82cf15ddda9eb09",
+  "productionSourceUnchangedSince": "24664a99cac692aa20abb0d57ee2f6a7d4e0a96c",
+  "recordedAt": "2026-10-05T14:16:51.312997+00:00",
+  "command": "npm run check",
+  "typecheck": "passed",
+  "unitTests": {
+    "passed": 721,
+    "skipped": 0,
+    "failed": 0,
+    "filesPassed": 28
+  },
+  "build": "passed",
+  "privateQueryConfigured": true,
+  "privateQuerySha256": "23d00c96beb0661bb7da064d7dd83566ea754f75165bb9790831dabc25887d47",
+  "log": "final-check.log",
+  "logSha256": "5402f33a9f52a1623e95156a4598d5ae6c3f58582ae64d74b36773b60d5f230f",
+  "deadlineRegression": {
+    "change": "Test-only; normal setup deadlines and controlled timer expiry after atomic rename reached",
+    "focusedTestsPassed": 46,
+    "focusedRepetitionsPassed": 20,
+    "slowSetupFailureReproduced": true,
+    "slowSetupAfterFix": "passed",
+    "earlyApprovalRejection": "prompt handled failure; no hang or unhandled rejection",
+    "productionDeadlineChanged": false
+  }
+}
