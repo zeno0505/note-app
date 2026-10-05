@@ -74,6 +74,7 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
     s.view.canApprove = active(s) && !s.operation && !s.reviewUsed && unapproved && saved && s.sourceVerified && snapshot!.candidate!.packHash === snapshot!.binding.packHash && !snapshot!.candidateClaims.some(c => c.claim.kind !== 'unknown' && c.freshness !== 'current');
     s.view.canReject = active(s) && !s.operation && !s.reviewUsed && unapproved && saved;
     s.view.canCancel = active(s) && (ACTIVE.has(s.view.state) || ['prepared', 'blocked', 'candidate'].includes(s.view.state));
+    s.view.sequence++;
     return clone(s.view);
   }
   function publish(s: Session): SummaryWorkflowView {
@@ -198,7 +199,7 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
       const id = `summary-${randomUUID()}`;
       const s: Session = { id, request, controller: new AbortController(), mappingIdentity: null, projection: null, prompt: null, store: null,
         manifests: [], cache: null, scopeId: null, operation: true, runUsed: false, reviewUsed: false, retired: false, sourceVerified: false,
-        view: { ticketId: id, workstreamId: request.workstreamId, taskIds: request.taskIds, state: 'preparing', message: 'Preparing the explicit bounded task slice.', providerChoice: request.provider,
+        view: { ticketId: id, sequence: 0, workstreamId: request.workstreamId, taskIds: request.taskIds, state: 'preparing', message: 'Preparing the explicit bounded task slice.', providerChoice: request.provider,
           selectedProvider: null, transport: transport ? 'synthetic-test-only' : 'blocked', executionAuthorized: false, preview: null, budget: null, codeburn: [],
           candidateHash: null, approvedCandidateHash: null, candidateClaims: [], approvedClaims: [], approvedAt: null, persistence: { state: 'not-saved', revision: null, message: 'No summary has been saved by this preparation.' }, canRun: false, canApprove: false, canReject: false, canCancel: true } };
       sessions.set(id, s); current.set(request.workstreamId, id); publish(s);
@@ -243,7 +244,7 @@ function createWorkflow(options: SummaryWorkflowOptions, transport: SyntheticSum
         if (!s.prompt || ticket.binding.packHash !== s.prompt.pack.packHash) throw new SummaryWorkflowError('stale-ticket', 'The exact reviewed prompt binding is unavailable.');
         s.view.state = 'submitting'; s.view.message = 'Submitting a synthetic test request.'; publish(s);
         let responseAccepted = false; let submissionUnknown = false;
-        await bounded(s, signal => transport.run({ provider: request.provider as AgentProvider, prompt: clone(s.prompt!), claimIds: ticket.claimIds, signal }, async event => {
+        await bounded(s, signal => transport.run({ ticketId: s.id, provider: request.provider as AgentProvider, prompt: clone(s.prompt!), claimIds: ticket.claimIds, signal }, async event => {
           if (!active(s) || signal.aborted || responseAccepted || submissionUnknown) return;
           if (event.type === 'submitted') { if (s.view.state !== 'submitting') throw new Error('Unexpected synthetic submission.'); s.view.state = 'submitted'; s.view.message = 'Submission acknowledged; no semantic response has been accepted.'; publish(s); }
           else if (event.type === 'waiting' || event.type === 'tui-idle') {

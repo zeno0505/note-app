@@ -1,5 +1,5 @@
 import {beforeEach,afterEach,describe,it,expect,vi} from 'vitest';
-import {createSSRApp,type InjectionKey} from 'vue';
+import {createSSRApp,createRenderer,h,nextTick,shallowReactive,ssrContextKey,type InjectionKey} from 'vue';
 import {renderToString} from 'vue/server-renderer';
 import {boundedTaskSelection,createSummaryActions,createNoteLinkActions,summaryActionsKey,noteLinkActionsKey} from '../../src/renderer/phase1-actions';
 import type {SummaryWorkflowBridge,SummaryWorkflowView} from '../../src/shared/summary-workflow';
@@ -10,11 +10,11 @@ import type {LiveDagView} from '../../src/shared/live';
 const deferred=<T>()=>{let resolve!:(value:T)=>void;let reject!:(reason:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const request={workstreamId:'work-one',taskIds:['T-1'],provider:'auto' as const};
 function summary(overrides:Partial<SummaryWorkflowView>={}):SummaryWorkflowView {
-  return {ticketId:'ticket-one',workstreamId:'work-one',taskIds:['T-1'],state:'prepared',message:'Prepared bounded context',providerChoice:'auto',selectedProvider:null,transport:'blocked',executionAuthorized:false,preview:{selectedTaskCount:1,recordCount:1,bytes:24,inputBytes:500,approximateTokens:125,maxResponseBytes:4096,accountingMethod:'utf8-byte-proxy-not-model-tokenizer',truncated:false,records:[],exclusions:[],unknowns:['Explicit goal is missing'],unresolvedDependencyIds:[]},budget:null,codeburn:[],candidateHash:null,approvedCandidateHash:null,candidateClaims:[],approvedClaims:[],approvedAt:null,persistence:{state:'not-saved',revision:null,message:'No write'},canRun:true,canApprove:false,canReject:false,canCancel:true,...overrides};
+  return {ticketId:'ticket-one',sequence:1,workstreamId:'work-one',taskIds:['T-1'],state:'prepared',message:'Prepared bounded context',providerChoice:'auto',selectedProvider:null,transport:'blocked',executionAuthorized:false,preview:{selectedTaskCount:1,recordCount:1,bytes:24,inputBytes:500,approximateTokens:125,maxResponseBytes:4096,accountingMethod:'utf8-byte-proxy-not-model-tokenizer',truncated:false,records:[],exclusions:[],unknowns:['Explicit goal is missing'],unresolvedDependencyIds:[]},budget:null,codeburn:[],candidateHash:null,approvedCandidateHash:null,candidateClaims:[],approvedClaims:[],approvedAt:null,persistence:{state:'not-saved',revision:null,message:'No write'},canRun:true,canApprove:false,canReject:false,canCancel:true,...overrides};
 }
 let listener:((view:SummaryWorkflowView)=>void)|undefined;
 function summaryBridge():SummaryWorkflowBridge {
-  return {prepareSummary:vi.fn().mockResolvedValue(summary()),runSummary:vi.fn().mockResolvedValue(summary({state:'blocked',canRun:false})),readSummary:vi.fn().mockResolvedValue(summary()),approveSummary:vi.fn().mockResolvedValue(summary({state:'approved',canApprove:false})),rejectSummary:vi.fn().mockResolvedValue(summary({state:'rejected',canReject:false})),cancelSummary:vi.fn().mockResolvedValue(summary({state:'cancelled',canCancel:false})),onSummary:vi.fn(callback=>{listener=callback;return vi.fn();})};
+  return {prepareSummary:vi.fn().mockResolvedValue(summary()),runSummary:vi.fn().mockResolvedValue(summary({sequence:2,state:'blocked',canRun:false})),readSummary:vi.fn().mockResolvedValue(summary({sequence:2})),approveSummary:vi.fn().mockResolvedValue(summary({sequence:2,state:'approved',canApprove:false})),rejectSummary:vi.fn().mockResolvedValue(summary({sequence:2,state:'rejected',canReject:false})),cancelSummary:vi.fn().mockResolvedValue(summary({sequence:3,state:'cancelled',canCancel:false})),onSummary:vi.fn(callback=>{listener=callback;return vi.fn();})};
 }
 const options:Phase1Options={noteLinkConfigured:true,noteLinkMessage:'Registered scope only',noteScopes:[{scopeId:'scope-one',scopePath:'/vault/one'}],summaryTransport:'blocked'};
 function proposal(overrides:Partial<NoteLinkProposal>={}):NoteLinkProposal {
@@ -43,24 +43,62 @@ describe('summary renderer action ownership',()=>{
     const bridge=summaryBridge();const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.prepareSummary).mockReturnValue(pending.promise);const actions=createSummaryActions(bridge);
     const preparing=actions.prepare(request);actions.dismiss();pending.resolve(summary());await preparing;expect(actions.view.value).toBeNull();expect(bridge.cancelSummary).toHaveBeenCalledWith({ticketId:'ticket-one'});expect(actions.busy.value).toBe(false);
   });
+  it('orders early events against the prepare RPC only after its ticket ownership is known',async()=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();
+    const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.prepareSummary).mockReturnValue(pending.promise);
+    const preparing=actions.prepare(request);
+    listener!(summary({sequence:3,state:'cancelled',canCancel:false}));listener!(summary({sequence:2}));
+    listener!(summary({sequence:99,ticketId:'other-ticket',state:'error'}));
+    expect(actions.view.value).toBeNull();pending.resolve(summary({sequence:2}));await preparing;
+    expect(actions.view.value).toMatchObject({ticketId:'ticket-one',sequence:3,state:'cancelled'});actions.dispose();
+  });
   it('keeps a newer selection when an older preparation completes afterward',async()=>{
     const bridge=summaryBridge();const old=deferred<SummaryWorkflowView>();vi.mocked(bridge.prepareSummary).mockReturnValueOnce(old.promise).mockResolvedValueOnce(summary({ticketId:'new',taskIds:['T-2']}));const actions=createSummaryActions(bridge);
     const pending=actions.prepare(request);actions.dismiss();await actions.prepare({...request,taskIds:['T-2']});old.resolve(summary());await pending;expect(actions.view.value?.ticketId).toBe('new');expect(bridge.cancelSummary).toHaveBeenCalledWith({ticketId:'ticket-one'});actions.dispose();
   });
   it('ignores unmatched and older RPC observations after a current event',async()=>{
     const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();actions.subscribe();await actions.prepare(request);const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.runSummary).mockReturnValue(pending.promise);
-    const running=actions.run('codex');listener!(summary({ticketId:'elsewhere',message:'ignore'}));expect(actions.view.value?.message).not.toBe('ignore');listener!(summary({state:'candidate',message:'new event',candidateHash:'newhash'}));pending.resolve(summary({state:'waiting',message:'old RPC'}));await running;expect(actions.view.value?.message).toBe('new event');expect(bridge.onSummary).toHaveBeenCalledTimes(1);actions.dispose();
+    const running=actions.run('codex');listener!(summary({ticketId:'elsewhere',message:'ignore'}));expect(actions.view.value?.message).not.toBe('ignore');listener!(summary({sequence:3,state:'candidate',message:'new event',candidateHash:'newhash'}));pending.resolve(summary({sequence:2,state:'waiting',message:'old RPC'}));await running;expect(actions.view.value?.message).toBe('new event');expect(bridge.onSummary).toHaveBeenCalledTimes(1);actions.dispose();
+  });
+  it('accepts a newer RPC after an event and ignores subsequently delivered older or duplicate events',async()=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();await actions.prepare(request);
+    const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.runSummary).mockReturnValue(pending.promise);
+    const running=actions.run();listener!(summary({sequence:2,state:'waiting'}));pending.resolve(summary({sequence:4,state:'candidate',message:'latest RPC'}));await running;
+    for(const sequence of [1,2,3,4,NaN])listener!(summary({sequence,state:'waiting',message:'delayed event'}));
+    expect(actions.view.value).toMatchObject({sequence:4,state:'candidate',message:'latest RPC'});actions.dispose();
+  });
+  it.each(['commit-unknown','committed-after-cancel'] as const)('keeps a late %s event visible while the older cancellation RPC is still pending',async state=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();await actions.prepare(request);
+    const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.cancelSummary).mockReturnValue(pending.promise);
+    const cancelling=actions.cancel();listener!(summary({sequence:3,state:'cancelled',canCancel:false}));
+    listener!(summary({sequence:4,state:'error',canRun:false,canCancel:false,persistence:{state,revision:2,message:'Late cache outcome'}}));
+    pending.resolve(summary({sequence:3,state:'cancelled',canCancel:false}));await cancelling;
+    expect(actions.view.value).toMatchObject({sequence:4,state:'error',persistence:{state,revision:2}});expect(actions.busy.value).toBe(false);actions.dispose();
+  });
+  it('accepts a newer late run RPC after cancellation without requiring event delivery',async()=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);await actions.prepare(request);
+    const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.runSummary).mockReturnValue(pending.promise);
+    const running=actions.run();await actions.cancel();
+    pending.resolve(summary({sequence:4,state:'error',canRun:false,canCancel:false,persistence:{state:'committed-after-cancel',revision:1,message:'Late commit'}}));await running;
+    expect(actions.view.value).toMatchObject({sequence:4,state:'error',persistence:{state:'committed-after-cancel'}});actions.dispose();
+  });
+  it('ignores a late cache outcome after explicit dismissal or ticket replacement',async()=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();await actions.prepare(request);actions.dismiss();
+    const late=summary({sequence:99,state:'error',persistence:{state:'committed-after-cancel',revision:2,message:'Old ticket'}});
+    listener!(late);expect(actions.view.value).toBeNull();
+    vi.mocked(bridge.prepareSummary).mockResolvedValue(summary({ticketId:'new-ticket'}));await actions.prepare(request);listener!(late);
+    expect(actions.view.value?.ticketId).toBe('new-ticket');actions.dispose();
   });
   it('coalesces repeated review and binds approval to the exact displayed candidate hash',async()=>{
     const bridge=summaryBridge();vi.mocked(bridge.prepareSummary).mockResolvedValue(summary({state:'candidate',candidateHash:'hash-one',canApprove:true,canReject:true}));const actions=createSummaryActions(bridge);await actions.prepare(request);const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.approveSummary).mockReturnValue(pending.promise);
-    const approving=actions.approve();await actions.approve();await actions.reject();expect(bridge.approveSummary).toHaveBeenCalledExactlyOnceWith({ticketId:'ticket-one',candidateHash:'hash-one'});expect(bridge.rejectSummary).not.toHaveBeenCalled();pending.resolve(summary({state:'approved',canApprove:false}));await approving;expect(actions.view.value?.state).toBe('approved');actions.dispose();
+    const approving=actions.approve();await actions.approve();await actions.reject();expect(bridge.approveSummary).toHaveBeenCalledExactlyOnceWith({ticketId:'ticket-one',candidateHash:'hash-one'});expect(bridge.rejectSummary).not.toHaveBeenCalled();pending.resolve(summary({sequence:2,state:'approved',canApprove:false}));await approving;expect(actions.view.value?.state).toBe('approved');actions.dispose();
   });
   it('does not call disabled run or review methods and never invents a candidate',async()=>{
     const bridge=summaryBridge();vi.mocked(bridge.prepareSummary).mockResolvedValue(summary({state:'blocked',canRun:false,canCancel:false,message:'Filesystem isolation is unverified'}));const actions=createSummaryActions(bridge);await actions.prepare(request);await actions.run();await actions.approve();await actions.reject();expect(bridge.runSummary).not.toHaveBeenCalled();expect(bridge.approveSummary).not.toHaveBeenCalled();expect(actions.view.value?.candidateClaims).toEqual([]);actions.dismiss();expect(bridge.cancelSummary).not.toHaveBeenCalled();
   });
   it('preempts running work with one cancel and drops late run responses/events',async()=>{
     const bridge=summaryBridge();const actions=createSummaryActions(bridge);actions.subscribe();await actions.prepare(request);const run=deferred<SummaryWorkflowView>();const cancelled=deferred<SummaryWorkflowView>();vi.mocked(bridge.runSummary).mockReturnValue(run.promise);vi.mocked(bridge.cancelSummary).mockReturnValue(cancelled.promise);
-    const running=actions.run();const cancelling=actions.cancel();await actions.cancel();expect(bridge.cancelSummary).toHaveBeenCalledTimes(1);cancelled.resolve(summary({state:'cancelled',canCancel:false}));await cancelling;listener!(summary({state:'candidate'}));run.resolve(summary({state:'candidate'}));await running;expect(actions.view.value?.state).toBe('cancelled');actions.dispose();
+    const running=actions.run();const cancelling=actions.cancel();await actions.cancel();expect(bridge.cancelSummary).toHaveBeenCalledTimes(1);cancelled.resolve(summary({sequence:3,state:'cancelled',canCancel:false}));await cancelling;listener!(summary({state:'candidate'}));run.resolve(summary({state:'candidate'}));await running;expect(actions.view.value?.state).toBe('cancelled');actions.dispose();
   });
   it('unsubscribes on disposal and ignores delayed failures after navigation',async()=>{
     const bridge=summaryBridge();const stop=vi.fn();vi.mocked(bridge.onSummary).mockReturnValue(stop);const pending=deferred<SummaryWorkflowView>();vi.mocked(bridge.prepareSummary).mockReturnValue(pending.promise);const actions=createSummaryActions(bridge);actions.subscribe();const preparing=actions.prepare(request);actions.dispose();pending.reject(new Error('late'));await preparing;expect(stop).toHaveBeenCalledOnce();expect(actions.error.value).toBeNull();expect(actions.view.value).toBeNull();
@@ -104,9 +142,53 @@ async function render<T>(component:import('vue').Component,props:Record<string,u
   const app=createSSRApp(component,props);if(key&&actions) app.provide(key,actions);return renderToString(app);
 }
 
+// A tiny in-memory Vue host exercises mounted prop/watch lifecycles without a browser.
+interface TestNode {children:TestNode[];parent:TestNode|null}
+const node=():TestNode=>({children:[],parent:null});
+const mountedRenderer=createRenderer<TestNode,TestNode>({
+  createElement:node,createText:node,createComment:node,patchProp:()=>{},setText:()=>{},setElementText:()=>{},
+  parentNode:node=>node.parent,nextSibling:node=>node.parent?.children[node.parent.children.indexOf(node)+1]??null,
+  insert(child,parent,anchor){if(child.parent)child.parent.children.splice(child.parent.children.indexOf(child),1);child.parent=parent;const index=anchor?parent.children.indexOf(anchor):-1;if(index<0)parent.children.push(child);else parent.children.splice(index,0,child);},
+  remove(child){if(child.parent)child.parent.children.splice(child.parent.children.indexOf(child),1);child.parent=null;},
+});
+
+describe('mounted summary identity and live refresh',()=>{
+  it.each(['prepared','pending','waiting'] as const)('retains a %s review when polling replaces the DAG with the same identity',async phase=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);const pending=deferred<SummaryWorkflowView>();
+    if(phase==='pending')vi.mocked(bridge.prepareSummary).mockReturnValue(pending.promise);
+    const preparing=actions.prepare(request);if(phase!=='pending')await preparing;
+    let running:Promise<void>|undefined;
+    if(phase==='waiting'){vi.mocked(bridge.runSummary).mockReturnValue(pending.promise);running=actions.run();}
+    const {default:Summary}=await import('../../src/renderer/components/SummaryJourney.vue');
+    const props=shallowReactive({workstreamId:'work-one',dag:dag(),current:true});
+    const MountedSummary=Object.assign({},Summary,{render:()=>null});
+    const app=mountedRenderer.createApp({render:()=>h(MountedSummary,props)});app.provide(ssrContextKey,{});app.provide(summaryActionsKey,actions);app.mount(node());
+    if(phase==='waiting')listener!(summary({sequence:2,state:'waiting'}));
+    try {
+      props.dag={...dag(),observedAt:'2026-10-03T00:01:00Z'};await nextTick();await nextTick();
+      expect(bridge.cancelSummary).not.toHaveBeenCalled();
+      if(phase==='pending'){expect(actions.busy.value).toBe(true);pending.resolve(summary());await preparing;expect(actions.view.value?.state).toBe('prepared');}
+      else if(phase==='waiting'){expect(actions.view.value?.state).toBe('waiting');expect(actions.busy.value).toBe(true);pending.resolve(summary({sequence:3,state:'candidate'}));await running;expect(actions.view.value?.state).toBe('candidate');}
+      else expect(actions.view.value?.state).toBe('prepared');
+      expect(bridge.cancelSummary).not.toHaveBeenCalled();
+    }finally{app.unmount();}
+  });
+  it.each(['workstream','dag','disconnect'] as const)('still dismisses a review when %s identity/currentness changes',async change=>{
+    const bridge=summaryBridge();const actions=createSummaryActions(bridge);await actions.prepare(request);
+    const {default:Summary}=await import('../../src/renderer/components/SummaryJourney.vue');
+    const props=shallowReactive({workstreamId:'work-one',dag:dag(),current:true});
+    const MountedSummary=Object.assign({},Summary,{render:()=>null});
+    const app=mountedRenderer.createApp({render:()=>h(MountedSummary,props)});app.provide(ssrContextKey,{});app.provide(summaryActionsKey,actions);app.mount(node());
+    try {
+      if(change==='workstream')props.workstreamId='work-two';else if(change==='dag')props.dag={...dag(),dagId:'dag-two'};else props.current=false;
+      await nextTick();expect(actions.view.value).toBeNull();expect(bridge.cancelSummary).toHaveBeenCalledExactlyOnceWith({ticketId:'ticket-one'});
+    }finally{app.unmount();}
+  });
+});
+
 describe('phase 1 journey presentation',()=>{
   it('escapes observed task text and collapses large selection/task lists by default',async()=>{
-    const {default:Summary}=await import('../../src/renderer/components/SummaryJourney.vue');const html=await render(Summary,{workstreamId:'work-one',dag:dag(10),current:true});expect(html).toContain('&lt;img');expect(html).not.toContain('<img');expect(html).toContain('승인은 실행 권한이 아닙니다');expect(html).toMatch(/data-testid="summary-task-selection">/);expect(html).not.toMatch(/data-testid="summary-task-selection" open/);
+    const {default:Summary}=await import('../../src/renderer/components/SummaryJourney.vue');const html=await render(Summary,{workstreamId:'work-one',dag:dag(10),current:true});expect(html).toContain('&lt;img');expect(html).not.toContain('<img');expect(html).toContain('승인은 실행 권한이 아닙니다');expect(html).toContain('작업 선택 0 / 32개');expect(html).toMatch(/data-testid="summary-task-selection">/);expect(html).not.toMatch(/data-testid="summary-task-selection" open/);
     const {default:Dag}=await import('../../src/renderer/components/LiveDag.vue');const dagHtml=await render(Dag,{dag:dag(10)});expect(dagHtml).toMatch(/data-testid="dag-task-details">/);expect(dagHtml.indexOf('저장된 요약')).toBeLessThan(dagHtml.indexOf('선언된 작업 상세'));
   });
   it('shows an exact blocked reason, missing goal and distinct preserved approvals',async()=>{

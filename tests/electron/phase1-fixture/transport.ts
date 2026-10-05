@@ -1,16 +1,18 @@
 import {appendFile,readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 import {ASPECTS,bindSummaryContext,type SummaryResponse} from '../../../src/summary/claims';
 import type {SyntheticSummaryTransport} from '../../../src/summary/workflow/transport';
 
 /** Compiled only into the separate test entry, never the shipped main. */
 export function fixtureTransport(controlPath:string,logPath:string):SyntheticSummaryTransport {
   const pause=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));
-  const log=(event:Record<string,unknown>)=>appendFile(logPath,JSON.stringify({at:new Date().toISOString(),...event})+'\n');
   return {kind:'synthetic-test-only',async run(request,emit){
+    const runId=randomUUID();
+    const log=(event:Record<string,unknown>)=>appendFile(logPath,JSON.stringify({at:new Date().toISOString(),...event,ticketId:request.ticketId,runId})+'\n');
     const control=JSON.parse(await readFile(controlPath,'utf8')) as {mode:string;submittedDelayMs:number;waitingDelayMs:number;responseDelayMs:number};
     await log({event:'run',provider:request.provider,mode:control.mode,selectedRecords:request.prompt.pack.records.length,claimIds:request.claimIds});
     await emit({type:'submitted'});await log({event:'submitted'});await pause(control.submittedDelayMs);
-    if(control.mode==='submission-unknown'){await emit({type:'submission-unknown',retryRequestId:'fictional-submission-handle'});return;}
+    if(control.mode==='submission-unknown'){await emit({type:'submission-unknown',retryRequestId:'fictional-submission-handle'});await log({event:'submission-unknown'});return;}
     await emit({type:'waiting'});await log({event:'waiting'});await pause(control.waitingDelayMs);
     await emit({type:'tui-idle'});await log({event:'tui-idle'});await pause(control.responseDelayMs);
     const pack=request.prompt.pack,source=pack.records[0];

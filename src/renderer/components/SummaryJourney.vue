@@ -24,7 +24,7 @@ function changeTask(id:string,checked:boolean) {
 }
 function changeProvider(event:Event) {provider.value=(event.target as HTMLSelectElement).value as SummaryProviderChoice;actions.dismiss();}
 function prepare() {if(available.value&&selectedCount.value>0) return actions.prepare({workstreamId:props.workstreamId,taskIds:selected.value,provider:provider.value});}
-watch(()=>[props.workstreamId,props.dag.dagId],()=>{actions.dismiss();selected.value=[];});
+watch([()=>props.workstreamId,()=>props.dag.dagId],()=>{actions.dismiss();selected.value=[];});
 watch(()=>props.current,current=>{if(!current) actions.dismiss();});
 watch(()=>props.dag.tasks,()=>{selected.value=boundedTaskSelection(selected.value,props.dag.tasks.map(task=>task.id));});
 watch(()=>props.dag.observedAt,()=>{if(available.value&&view.value) void actions.refresh();});
@@ -49,7 +49,7 @@ onUnmounted(actions.dispose);
     </template>
     <section class="journey-step"><h4>1. 요약에 포함할 작업 선택</h4>
       <p v-if="!available" class="notice warning">현재 연결에서 DAG를 다시 확인해야 요약을 준비할 수 있습니다. 이전 관측만으로 새 요청을 만들지 않습니다.</p>
-      <details class="summary-selection" data-testid="summary-task-selection" :open="dag.tasks.length<=5"><summary>작업 선택 {{selectedCount}} / {{MAX_SUMMARY_TASKS,summaryActionsKey}}개 <span>· 표시된 작업 {{dag.tasks.length}}개</span></summary>
+      <details class="summary-selection" data-testid="summary-task-selection" :open="dag.tasks.length<=5"><summary>작업 선택 {{selectedCount}} / {{MAX_SUMMARY_TASKS}}개 <span>· 표시된 작업 {{dag.tasks.length}}개</span></summary>
         <p v-if="!dag.tasks.length" class="muted">선택할 작업이 없습니다</p>
         <ul v-else class="summary-task-options"><li v-for="task in dag.tasks" :key="task.id"><label><input type="checkbox" :data-testid="'summary-task-'+task.id" :checked="selected.includes(task.id)" :disabled="!available||busy||(!selected.includes(task.id)&&selectedCount>=MAX_SUMMARY_TASKS)" @change="changeTask(task.id,($event.target as HTMLInputElement).checked)"/><span><strong>{{task.id}}</strong> {{task.title??'제목 미선언'}}<small>{{task.status??'상태 미선언'}}</small></span></label></li></ul>
       </details>

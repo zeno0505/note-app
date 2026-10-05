@@ -39,6 +39,8 @@ export type SummaryWorkflowState = 'preparing' | 'prepared' | 'blocked' | 'submi
 export type SummaryPersistenceState = 'not-saved' | 'restored' | 'saving-candidate' | 'candidate-saved' | 'saving-approval' | 'approval-saved' | 'rejection-saved' | 'failed' | 'commit-unknown' | 'committed-after-cancel';
 export interface SummaryWorkflowView {
   ticketId: string;
+  /** Main-issued monotonic observation order within this ticket, shared by events and RPCs. */
+  sequence: number;
   workstreamId: string;
   taskIds: string[];
   state: SummaryWorkflowState;

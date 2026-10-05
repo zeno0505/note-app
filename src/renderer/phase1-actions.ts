@@ -15,23 +15,41 @@ export function createSummaryActions(bridge:SummaryWorkflowBridge|undefined) {
   const error=ref<string|null>(null);
   const technicalError=ref<string|null>(null);
   let generation=0;
-  let observed=0;
   let disposed=false;
   let cancellingTicket:string|null=null;
+  let preparingWorkstream:string|null=null;
+  const pendingViews=new Map<string,SummaryWorkflowView>();
   let unsubscribe:(()=>void)|undefined;
   const retire=async(ticketId:string)=>{try {await bridge?.cancelSummary({ticketId});} catch {/* Best effort on dismissal; never restore dismissed state. */}};
+  function observe(next:SummaryWorkflowView) {
+    const current=view.value;
+    if(disposed||!Number.isSafeInteger(next.sequence)||next.sequence<1) return;
+    if(!current){
+      // The prepare RPC supplies ticket ownership. Retain early events only until
+      // that identity arrives; an event alone cannot create a displayed review.
+      if(next.workstreamId===preparingWorkstream){
+        const prior=pendingViews.get(next.ticketId);
+        if(!prior||next.sequence>prior.sequence){
+          if(!prior&&pendingViews.size>=64)pendingViews.delete(pendingViews.keys().next().value!);
+          pendingViews.set(next.ticketId,next);
+        }
+      }
+      return;
+    }
+    if(next.ticketId!==current.ticketId||next.workstreamId!==current.workstreamId||next.sequence<=current.sequence) return;
+    // Cancellation can be followed by a real late cache outcome. Main's sequence,
+    // not delivery order or a terminal-state filter, decides which observation wins.
+    view.value=next;
+  }
   function subscribe() {
     if(disposed||unsubscribe||!bridge) return;
-    unsubscribe=bridge.onSummary(next=>{
-      if(disposed||!view.value||next.ticketId!==view.value.ticketId||next.workstreamId!==view.value.workstreamId||cancellingTicket===next.ticketId||(view.value.state==='cancelled'&&next.state!=='cancelled')) return;
-      observed++;view.value=next;
-    });
+    unsubscribe=bridge.onSummary(observe);
   }
   async function prepare(request:SummaryPrepareRequest) {
     if(disposed||busy.value) return;
     const previous=view.value;
     const current=++generation;
-    busy.value=true;error.value=null;technicalError.value=null;view.value=null;
+    busy.value=true;error.value=null;technicalError.value=null;view.value=null;pendingViews.clear();preparingWorkstream=request.workstreamId;
     if(previous?.canCancel) void retire(previous.ticketId);
     try {
       if(!bridge) throw new Error('Summary bridge unavailable');
@@ -39,9 +57,10 @@ export function createSummaryActions(bridge:SummaryWorkflowBridge|undefined) {
       if(disposed||current!==generation) {await retire(next.ticketId);return;}
       if(next.workstreamId!==request.workstreamId) {await retire(next.ticketId);throw new Error('Summary selection mismatch');}
       view.value=next;
+      const pending=pendingViews.get(next.ticketId);if(pending)observe(pending);
     } catch(cause) {
       if(!disposed&&current===generation) {error.value='요약 준비를 완료하지 못했습니다. 실제 소스 연결과 선택한 작업을 확인해 주세요.';technicalError.value=technicalMessage(cause);}
-    } finally {if(!disposed&&current===generation) busy.value=false;}
+    } finally {if(!disposed&&current===generation) {busy.value=false;preparingWorkstream=null;pendingViews.clear();}}
   }
   async function act(action:'run'|'read'|'approve'|'reject',provider?:SummaryProviderChoice) {
     const currentView=view.value;
@@ -49,13 +68,12 @@ export function createSummaryActions(bridge:SummaryWorkflowBridge|undefined) {
     if(action==='run'&&!currentView.canRun||action==='approve'&&!currentView.canApprove||action==='reject'&&!currentView.canReject) return;
     if((action==='approve'||action==='reject')&&!currentView.candidateHash) return;
     const current=++generation;
-    const observation=observed;
     busy.value=true;error.value=null;technicalError.value=null;
     try {
       const ticketId=currentView.ticketId;
       const next=await (action==='run'?bridge.runSummary({ticketId,provider:provider??currentView.providerChoice}):action==='read'?bridge.readSummary({ticketId}):action==='approve'?bridge.approveSummary({ticketId,candidateHash:currentView.candidateHash!}):bridge.rejectSummary({ticketId,candidateHash:currentView.candidateHash!}));
       if(next.ticketId!==currentView.ticketId||next.workstreamId!==currentView.workstreamId) throw new Error('Summary ticket mismatch');
-      if(!disposed&&current===generation&&observation===observed) view.value=next;
+      observe(next);
     } catch(cause) {
       if(!disposed&&current===generation) {error.value='요약 요청 결과를 확인하지 못했습니다. 표시된 저장 상태와 기술 정보를 확인해 주세요.';technicalError.value=technicalMessage(cause);}
     } finally {if(!disposed&&current===generation) busy.value=false;}
@@ -69,14 +87,14 @@ export function createSummaryActions(bridge:SummaryWorkflowBridge|undefined) {
     try {
       const next=await bridge.cancelSummary({ticketId:currentView.ticketId});
       if(next.ticketId!==currentView.ticketId||next.workstreamId!==currentView.workstreamId) throw new Error('Summary ticket mismatch');
-      if(!disposed&&current===generation) view.value=next;
+      observe(next);
     } catch(cause) {
       if(!disposed&&current===generation) {error.value='취소 결과를 확인하지 못했습니다. 저장 상태가 확정되지 않았을 수 있습니다.';technicalError.value=technicalMessage(cause);}
     } finally {if(!disposed&&current===generation) {busy.value=false;cancellingTicket=null;}}
   }
   function dismiss() {
     const previous=view.value;
-    generation++;observed++;cancellingTicket=null;view.value=null;busy.value=false;error.value=null;technicalError.value=null;
+    generation++;cancellingTicket=null;preparingWorkstream=null;pendingViews.clear();view.value=null;busy.value=false;error.value=null;technicalError.value=null;
     if(previous?.canCancel) void retire(previous.ticketId);
   }
   function dispose() {dismiss();disposed=true;unsubscribe?.();unsubscribe=undefined;}

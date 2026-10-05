@@ -119,6 +119,17 @@ describe('candidate, user approval, atomic local save and restart', () => {
 });
 
 describe('stale, repeated, cancelled and late operations', () => {
+  it('issues monotonic per-ticket sequences for events and RPC reads without trusting observer mutation', async () => {
+    const f=await setup();const observations:SummaryWorkflowView[]=[];
+    f.workflow.subscribe(view=>{observations.push(structuredClone(view));view.sequence=999_999;});
+    const prepared=await f.prepare();expect(prepared.sequence).toBeGreaterThan(0);
+    const first=await f.workflow.read({ticketId:prepared.ticketId});const second=await f.workflow.read({ticketId:prepared.ticketId});
+    expect(first.sequence).toBeGreaterThan(prepared.sequence);expect(second.sequence).toBeGreaterThan(first.sequence);
+    const result=await f.workflow.run({ticketId:prepared.ticketId,provider:'claude'});
+    expect(result.sequence).toBe(observations.at(-1)!.sequence);expect(result.sequence).toBeLessThan(999_999);
+    expect(observations.every((view,index)=>index===0||view.sequence>observations[index-1].sequence)).toBe(true);
+    const replacement=await f.prepare();expect(replacement.ticketId).not.toBe(prepared.ticketId);expect(replacement.sequence).toBe(2);
+  });
   it.each(['selected','mapping','missing'])('rechecks %s source identity before run', async kind => {const run=vi.fn(successful.run);const f=await setup({...successful,run});const p=await f.prepare();f.change(s=>{if(kind==='selected')s.dag.tasks[0].title='Changed';else if(kind==='mapping')s.mappingIdentity='different';else{s.dag.tasks.shift();s.dag.coverage.tasksTotal=1;}});const r=await f.workflow.run({ticketId:p.ticketId,provider:'claude'});expect(r.state).toBe('error');expect(run).not.toHaveBeenCalled();expect(r.canApprove).toBe(false);});
   it('invalidates candidate approval after selected evidence changes', async () => {const f=await setup();const c=await candidate(f);f.change(s=>{s.dag.tasks[0].status='done';});const a=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(a.state).toBe('error');expect(a.canApprove).toBe(false);expect(a.approvedClaims).toEqual([]);expect(a.persistence.revision).toBe(1);});
   it('preserves exact cited observation and approves after timestamp-only polls or unrelated task edits', async () => {const f=await setup();const c=await candidate(f);f.change(s=>{s.dag.observedAt='2026-10-03T01:30:00.000Z';s.dag.sourceHash='b'.repeat(64);s.dag.tasks[1].title='Unrelated edit';});const a=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(a.state).toBe('approved');expect(a.approvedClaims[0].claim.citations[0].observedAt).toBe(at);});
@@ -129,6 +140,19 @@ describe('stale, repeated, cancelled and late operations', () => {
 });
 
 describe('cache safety and honest write ambiguity', () => {
+  it.each(['committed','cleanup-failed'] as const)('publishes the actual late %s cache outcome after cancellation with a newer sequence', async outcome => {
+    const f=await setup();const c=await candidate(f);const reached=deferred();const release=deferred();const events:SummaryWorkflowView[]=[];
+    f.workflow.subscribe(view=>events.push(view));fault.beforeRename=async()=>{reached.resolve();await release.promise;};
+    if(outcome==='cleanup-failed')fault.beforeUnlink=()=>{throw new Error('Synthetic late cleanup failure');};
+    const pending=f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});await reached.promise;
+    const cancelled=await f.workflow.cancel({ticketId:c.ticketId});const settled=await pending;
+    expect(cancelled.state).toBe('cancelled');expect(settled.persistence.state).toBe('commit-unknown');
+    release.resolve();fault.beforeRename=null;
+    await vi.waitFor(()=>expect(events.some(view=>view.sequence>settled.sequence&&(outcome==='committed'?view.persistence.state==='committed-after-cancel':/committed revision 2/.test(view.persistence.message)))).toBe(true));
+    const late=await f.workflow.read({ticketId:c.ticketId});expect(late.sequence).toBeGreaterThan(cancelled.sequence);expect(late.canRun).toBe(false);expect(late.canApprove).toBe(false);
+    fault.beforeUnlink=null;const cache=createLocalSummaryCache({directory:path.join(f.root,contextScopeId('synthetic-dag')),codec:summaryCacheCodec});
+    expect((await cache.read())!.payload.state.approved).not.toBeNull();
+  });
   it('rejects corrupt cache without overwriting or showing empty-success', async () => {const f=await setup();await candidate(f);const filename=path.join(f.root,contextScopeId('synthetic-dag'),'summary-cache-v1.json');await fs.writeFile(filename,'corrupt');const p=await f.prepare();expect(p.state).toBe('error');expect(await fs.readFile(filename,'utf8')).toBe('corrupt');expect(p.canRun).toBe(false);});
   it('rejects symlink roots and scope children', async () => {const f=await setup();const alias=path.join(f.root,'alias');await fs.symlink(f.root,alias);const w=createSummaryWorkflow({cacheRoot:alias,resolveSource:async()=>source()});workflows.push(w);expect((await w.prepare({workstreamId:'w',taskIds:['A'],provider:'auto'})).state).toBe('error');const scope=path.join(f.root,contextScopeId('synthetic-dag'));await fs.symlink(f.root,scope);expect((await f.prepare()).state).toBe('error');});
   it('detects concurrent edit by revision and retains the saved approval honestly', async () => {const f=await setup();const c=await candidate(f);const cache=createLocalSummaryCache({directory:path.join(f.root,contextScopeId('synthetic-dag')),codec:summaryCacheCodec});const old=(await cache.read())!;await cache.write(old.payload,old.revision);const a=await f.workflow.approve({ticketId:c.ticketId,candidateHash:c.candidateHash});expect(a.state).toBe('error');expect(a.persistence.state).toBe('failed');expect(a.approvedClaims).toEqual([]);expect((await cache.read())!.revision).toBe(2);});

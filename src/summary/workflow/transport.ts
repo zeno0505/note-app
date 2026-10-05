@@ -26,5 +26,5 @@ export type SyntheticSummaryEvent =
 /** Test seam only. Not configurable in the production factory or renderer IPC. */
 export interface SyntheticSummaryTransport {
   kind: 'synthetic-test-only';
-  run(request: { provider: AgentProvider; prompt: SummaryPrompt; claimIds: string[] | null; signal: AbortSignal }, emit: (event: SyntheticSummaryEvent) => Promise<void>): Promise<void>;
+  run(request: { ticketId: string; provider: AgentProvider; prompt: SummaryPrompt; claimIds: string[] | null; signal: AbortSignal }, emit: (event: SyntheticSummaryEvent) => Promise<void>): Promise<void>;
 }
