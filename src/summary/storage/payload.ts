@@ -23,7 +23,7 @@ export const summaryCacheCodec = {
       seen.add(fingerprint);
     }
     for (const pack of state.packs) {
-      for (const record of pack.records.filter(r => r.sourceId.startsWith('projection-v1-'))) {
+      for (const record of pack.records.filter(r => r.sourceId.startsWith('projection-v1-') || r.sourceId.startsWith('registered-v1-'))) {
         if (!projectionContexts.some(context => context.input.scopeId === pack.scopeId && context.input.records.some(r => JSON.stringify(r) === JSON.stringify(record)))) fail();
       }
     }

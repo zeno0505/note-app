@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { extractContextInput, taskContextSourceId, contextScopeId, type ContextExtractionRequest } from './extract';
+import { extractContextInput, taskContextSourceId, excerptContextSourceId, contextScopeId, type ContextExtractionRequest } from './extract';
+import { validateRegisteredExcerptContext, type RegisteredExcerptContext } from './registered';
 import { ContextValidationError, parseContextInput, utf8Bytes, type ContextInput, type ContextRecord } from './index';
 
 export interface ProjectionProvenanceEntry {
@@ -12,8 +13,9 @@ export interface ProjectionProvenanceEntry {
 export interface ProjectionContext {
   input: ContextInput;
   /** LOCAL ONLY: never append this manifest to a model prompt. */
-  provenance: { schemaVersion: 1; sourceType: 'dag-task-projection-v1'; entries: ProjectionProvenanceEntry[] };
+  provenance: { schemaVersion: 1; sourceType: 'dag-task-projection-v1'; entries: ProjectionProvenanceEntry[]; excerpts?: RegisteredExcerptContext };
 }
+export const registeredContextSourceId = (dagId: string, kind: 'goal-document' | 'document' | 'inbox', id: string): string => `registered-v1-${excerptContextSourceId(dagId, kind, id).slice(8)}`;
 const hash = (text: string): string => `sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`;
 function fail(message: string): never { throw new ContextValidationError(message); }
 const remap = (legacyId: string): string => `projection-v1-${hash(JSON.stringify(['dag-task-projection-v1', legacyId])).slice(7)}`;
@@ -83,10 +85,12 @@ function validateDeclaration(serialized: string, expectedStatus: ContextRecord['
 export function validateProjectionContext(value: unknown): ProjectionContext {
   const root = object(value, ['input', 'provenance']);
   const input = parseContextInput(root.input);
-  const manifest = object(root.provenance, ['schemaVersion', 'sourceType', 'entries']);
+  const hasExcerpts = !!root.provenance && typeof root.provenance === 'object' && Object.hasOwn(root.provenance, 'excerpts');
+  const manifest = object(root.provenance, ['schemaVersion', 'sourceType', 'entries', ...(hasExcerpts ? ['excerpts'] : [])]);
+  const excerpts = hasExcerpts ? validateRegisteredExcerptContext(manifest.excerpts) : undefined;
   if (manifest.schemaVersion !== 1 || manifest.sourceType !== 'dag-task-projection-v1' || !Array.isArray(manifest.entries) || manifest.entries.length > 256) fail('Invalid projection manifest');
   const projected = new Map(input.records.filter(r => r.sourceId.startsWith('projection-v1-')).map(r => [r.sourceId, r]));
-  if (input.records.some(r => !r.sourceId.startsWith('projection-v1-') && !r.sourceId.startsWith('excerpt-'))) fail('Unexpected source contract');
+  if (input.records.some(r => !r.sourceId.startsWith('projection-v1-') && !r.sourceId.startsWith('excerpt-') && !r.sourceId.startsWith('registered-v1-'))) fail('Unexpected source contract');
   const entries: ProjectionProvenanceEntry[] = [];
   const seen = new Set<string>();
   for (const item of manifest.entries) {
@@ -110,18 +114,27 @@ export function validateProjectionContext(value: unknown): ProjectionContext {
       upstream: { dagId: upstream.dagId, taskId: upstream.taskId, sourceHash: upstream.sourceHash, observedAt: upstream.observedAt } });
   }
   if (seen.size !== projected.size) fail('Missing projection provenance');
+  const registered = input.records.filter(r => r.sourceId.startsWith('registered-v1-'));
+  if (registered.length !== (excerpts?.excerpts.length ?? 0) || (excerpts && input.scopeId !== contextScopeId(excerpts.scopeDagId))) fail('Missing registered excerpt provenance');
+  for (const excerpt of excerpts?.excerpts ?? []) {
+    const record = registered.find(r => r.sourceId === registeredContextSourceId(excerpt.scopeDagId, excerpt.kind, excerpt.id));
+    const expected = JSON.stringify({ sourceType: `${excerpt.kind}-excerpt`, selection: 'explicit-scoped-excerpt', excerpt: excerpt.text, evidence: 'Supplied excerpt only; not complete document or inbox coverage.' });
+    if (!record || record.sourceHash !== excerpt.sourceHash || record.observedAt !== excerpt.observedAt || record.text !== expected || record.declaredStatus !== 'unknown' || record.dependencies.length) fail('Registered excerpt linkage mismatch');
+  }
   entries.sort((a, b) => a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0);
-  return freeze({ input, provenance: { schemaVersion: 1, sourceType: 'dag-task-projection-v1', entries } });
+  return freeze({ input, provenance: { schemaVersion: 1, sourceType: 'dag-task-projection-v1', entries, ...(excerpts ? { excerpts } : {}) } });
 }
 
 /** Versioned opt-in adapter. Legacy extraction keeps its original whole-DAG hash semantics. */
-export function extractProjectionContext(request: ContextExtractionRequest): ProjectionContext {
+export function extractProjectionContext(request: ContextExtractionRequest, registeredExcerpts?: RegisteredExcerptContext): ProjectionContext {
+  const excerpts = registeredExcerpts ? validateRegisteredExcerptContext(registeredExcerpts) : undefined;
+  if (excerpts && (excerpts.scopeDagId !== request.dagId || JSON.stringify(excerpts.excerpts) !== JSON.stringify(request.excerpts))) fail('Registered excerpts do not match supplied context');
   const legacy = extractContextInput(request);
   // IDs only, from the same bounded in-memory projection already validated by the legacy selector.
   const identities = new Map(request.dag.tasks.map(t => [taskContextSourceId(request.dagId, t.id), t.id]));
   const entries: ProjectionProvenanceEntry[] = [];
   const records = legacy.records.map(record => {
-    if (!record.sourceId.startsWith('task-')) return record;
+    if (!record.sourceId.startsWith('task-')) return excerpts ? { ...record, sourceId: `registered-v1-${record.sourceId.slice(8)}` } : record;
     const sourceId = remap(record.sourceId);
     const dependencies = record.dependencies.map(d => ({ ...d, sourceId: remap(d.sourceId) })).sort((a, b) => a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0);
     const text = artifact({ ...record, dependencies }, record.text);
@@ -131,5 +144,5 @@ export function extractProjectionContext(request: ContextExtractionRequest): Pro
     entries.push({ sourceId, sourceHash, artifact: text, upstream: { dagId: request.dagId, taskId, sourceHash: record.sourceHash, observedAt: record.observedAt } });
     return { ...record, sourceId, sourceHash, text, dependencies };
   });
-  return validateProjectionContext({ input: { ...legacy, records }, provenance: { schemaVersion: 1, sourceType: 'dag-task-projection-v1', entries } });
+  return validateProjectionContext({ input: { ...legacy, records }, provenance: { schemaVersion: 1, sourceType: 'dag-task-projection-v1', entries, ...(excerpts ? { excerpts } : {}) } });
 }

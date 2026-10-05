@@ -180,6 +180,7 @@ export function createSummaryStore(initialPack: ContextPack, localState?: Summar
     approvedBases = new Map(restored.approvedBases.map(b => [b.claimId, packs.get(b.packHash)!]));
     version = restored.version + 1; lastFailure = restored.lastFailure;
     pendingClaimIds = candidate || approved ? (candidate?.claims ?? approved!.summary.claims).filter(c => view(c, pack, (candidate ? candidateBases : approvedBases).get(c.claimId)!).freshness !== 'current').map(c => c.claimId) : null;
+    if (pendingClaimIds?.length === 0 && (candidate ?? approved?.summary)?.packHash !== pack.packHash) pendingClaimIds = null;
   }
   const snapshot = (): SummaryStoreSnapshot => detached({ incarnation, version, binding: bindSummaryContext(pack), candidate, approved,
     candidateClaims: candidate?.claims.map(c => view(c, pack, candidateBases.get(c.claimId) ?? pack)) ?? [], approvedClaims: approved?.summary.claims.map(c => view(c, pack, approvedBases.get(c.claimId) ?? pack)) ?? [], lastFailure });
@@ -199,6 +200,9 @@ export function createSummaryStore(initialPack: ContextPack, localState?: Summar
       pack = detached(next); version++; activeRequest = null;
       const claims = candidate?.claims ?? approved?.summary.claims ?? [];
       pendingClaimIds = candidate || approved ? claims.filter(c => view(c, pack, (candidate ? candidateBases : approvedBases).get(c.claimId) ?? pack).freshness !== 'current').map(c => c.claimId) : null;
+      // A changed uncited source still changes the reviewed context. Request a complete
+      // replacement instead of stranding an old candidate behind a new pack binding.
+      if (pendingClaimIds?.length === 0 && (candidate ?? approved?.summary)?.packHash !== pack.packHash) pendingClaimIds = null;
       return { changed: true, affectedClaimIds: pendingClaimIds ?? [] };
     },
     beginUpdate(): SummaryRequest | null {
@@ -241,6 +245,7 @@ export function createSummaryStore(initialPack: ContextPack, localState?: Summar
       // Deliberately separate from model parsing. A model-supplied approval field is rejected.
       const e = object(event, ['kind', 'incarnation', 'scopeId', 'candidateHash', 'expectedVersion', 'approvalId', 'approvedAt']);
       if (e.kind !== 'user-summary-approval' || e.incarnation !== incarnation || e.scopeId !== pack.scopeId || !candidate || e.candidateHash !== candidate.candidateHash || e.expectedVersion !== version) return false;
+      if (candidate.packHash !== pack.packHash) return false;
       if (candidate.claims.some(c => c.kind !== 'unknown' && view(c, pack, candidateBases.get(c.claimId) ?? pack).freshness !== 'current')) return false;
       const approvedAt = time(e.approvedAt);
       if (approvedAt < candidate.generatedAt) fail('Approval predates candidate');

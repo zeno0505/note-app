@@ -77,3 +77,46 @@ describe('exact registered excerpt source boundary', () => {
     for (const change of changes) { const r = structuredClone(original); change(r); expect(() => validateRegisteredExcerptContext(r)).toThrow(); }
   });
 });
+
+import { extractProjectionContext } from '../../src/summary/context/projection';
+import { buildContextPack } from '../../src/summary/context';
+import { ASPECTS, bindSummaryContext, createSummaryStore, restoreSummaryStoreFromLocalCache } from '../../src/summary/claims';
+import { summaryCacheCodec } from '../../src/summary/storage/payload';
+function project(excerpts: Awaited<ReturnType<ReturnType<typeof createRegisteredExcerptReader>['read']>>) {
+  const observedAt='2026-10-05T00:00:00.000Z';
+  const dag={dagId:'dag-test',sourceHash:'a'.repeat(64),sourceMtimeMs:1,observedAt,doneStatus:'done',tasks:[{id:'T-1',title:'Synthetic selected task',status:'running',dependencies:[],e2e:{state:'undeclared' as const,required:null,coveredBy:null,coverage:'undeclared' as const},commitReferences:[],commitVerification:'not-performed' as const}],statusCounts:[{status:'running',count:1}],coverage:{tasksTotal:1,declared:0,required:0,uncoveredDone:[],uncoveredOpen:[],malformed:[]},verifiedFacts:[]};
+  return extractProjectionContext({schemaVersion:1,dagId:'dag-test',dag,requestedTaskIds:['T-1'],excerpts:excerpts.excerpts,previousSources:[],priorApprovedSummary:null,limits:{maxBytes:32768,maxApproxTokens:32768,maxRecords:64}},excerpts);
+}
+function candidateStore(projection: ReturnType<typeof project>) {
+  const pack=buildContextPack(projection.input),store=createSummaryStore(pack),source=pack.records.find(r=>r.sourceId.startsWith('projection-v1-'))!;
+  const response={schemaVersion:1,...bindSummaryContext(pack),generatedAt:source.observedAt,claims:ASPECTS.map(aspect=>({claimId:aspect,aspect,kind:'inference',intent:aspect==='next'?'proposal':'informational',text:'Synthetic source-grounded interpretation',citations:[{sourceId:source.sourceId,sourceHash:source.sourceHash,observedAt:source.observedAt,quote:source.text}],assertions:[]}))};
+  expect(store.acceptResponse(store.beginUpdate()!,response)).toBe(true);
+  return store;
+}
+describe('registered provenance persistence and uncited changes',()=>{
+  it('requires exact local manifests for every registered excerpt without sending local paths to context',async()=>{
+    const f=await fixture();const projection=project(await createRegisteredExcerptReader(f.options).read('dag-test'));const store=candidateStore(projection);
+    const payload=summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[projection]});
+    expect(payload.projectionContexts[0].provenance.excerpts?.provenance[0].canonicalPath).toContain(f.root);
+    expect(JSON.stringify(buildContextPack(projection.input))).not.toContain(f.root);
+    const missing=structuredClone(payload);delete missing.projectionContexts[0].provenance.excerpts;expect(()=>summaryCacheCodec.parse(missing)).toThrow();
+    const bad=structuredClone(payload);bad.projectionContexts[0].provenance.excerpts!.provenance[0].byteStart++;expect(()=>summaryCacheCodec.parse(bad)).toThrow();
+  });
+  it('restarts from saved exact evidence and schedules replacement for an uncited excerpt change',async()=>{
+    const f=await fixture();const reader=createRegisteredExcerptReader(f.options);const first=project(await reader.read('dag-test'));const store=candidateStore(first);const old=store.snapshot();
+    expect(store.approve({kind:'user-summary-approval',incarnation:old.incarnation,scopeId:old.binding.scopeId,candidateHash:old.candidate!.candidateHash,expectedVersion:old.version,approvalId:'approved',approvedAt:'2026-10-05T00:00:00.000Z'})).toBe(true);
+    const saved=summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[first]});
+    await fs.writeFile(path.join(f.root,'goal.md'),'Header\n목표: 새로운 내용\nTail');
+    const next=project(await reader.read('dag-test'));const restored=restoreSummaryStoreFromLocalCache(saved.state,buildContextPack(next.input));
+    expect(restored.snapshot().approved?.approvalId).toBe('approved');expect(restored.snapshot().candidate?.candidateHash).toBe(old.candidate!.candidateHash);
+    const update=restored.beginUpdate();expect(update).not.toBeNull();expect(update!.claimIds).toBeNull();
+    const current=restored.snapshot();expect(restored.approve({kind:'user-summary-approval',incarnation:current.incarnation,scopeId:current.binding.scopeId,candidateHash:current.candidate!.candidateHash,expectedVersion:current.version,approvalId:'stale',approvedAt:'2026-10-05T00:00:00.000Z'})).toBe(false);
+    // A second restart must not lose the full replacement requirement when all citations stayed current.
+    const again=restoreSummaryStoreFromLocalCache(restored.exportState(),buildContextPack(next.input));expect(again.beginUpdate()?.claimIds).toBeNull();expect(again.snapshot().approved?.approvalId).toBe('approved');
+  });
+  it('does not strand a saved candidate after an uncited registration is removed',async()=>{
+    const f=await fixture();const first=project(await createRegisteredExcerptReader(f.options).read('dag-test'));const store=candidateStore(first);
+    const without=project({schemaVersion:1,scopeDagId:'dag-test',excerpts:[],provenance:[]});
+    store.updateContext(buildContextPack(without.input));expect(store.beginUpdate()).not.toBeNull();
+  });
+});
