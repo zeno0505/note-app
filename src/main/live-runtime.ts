@@ -157,7 +157,6 @@ export function createLiveRuntime(options: {
     const scope = config.noteScopes.find(s => s.scopeId === mapping.scopeId);
     if (!scope) throw new Error('Registered excerpt scope unavailable');
     const selections = config.summarySelections.filter(s => s.scopeId === scope.scopeId && path.join(scope.scopePath, s.dagRelativePath) === mapping.canonicalDagPath);
-    if (!selections.length && config.summarySelections.some(s => s.scopeId === scope.scopeId && s.excerpts?.length)) throw new Error('Configured excerpt selection could not be verified');
     const registrations = parseExcerptRegistrations(selections.flatMap(s => s.excerpts ?? []));
     if (!registrations.length) return undefined;
     const identity = JSON.stringify([mapping.dagId, scope.scopePath, mapping.canonicalNotePath, registrations]);

@@ -312,3 +312,12 @@ it('releases a pending excerpt response on disconnect and ignores late completio
   expect(read.mock.calls[0][1]?.aborted).toBe(true);finish({schemaVersion:1,scopeDagId:DAG,excerpts:[],provenance:[]});await flush();await f.runtime.connect();
   expect(read).toHaveBeenCalledTimes(1);expect(excerptReader).toHaveBeenCalledTimes(1);expect(f.runtime.getState().dags[0].summary.state).toBe('error');
 });
+
+it('does not borrow or require a sibling DAG excerpt registration for an unconfigured DAG in the same scope',async()=>{
+  const config=configuration();config.configuration!.noteScopes[0].dagRelativePaths=['a/dag.yaml','b/dag.yaml'];
+  config.configuration!.summarySelections=[{scopeId:'scope-one',dagRelativePath:'a/dag.yaml',taskIds:['T-0'],excerpts:[{id:'goal-a',kind:'goal-document',relativePath:'a/goal.md',startLine:1,endLine:1}]}];
+  const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>();const f=setup(config,true,{excerptReader});
+  f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved'){m.canonicalNotePath='/synthetic/vault/project/b';m.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';}for(const d of result.dags)d.canonicalDagPath='/synthetic/vault/project/b/dag.yaml';return result;});
+  const view=await f.runtime.connect();const source=await f.runtime.resolveSummarySource(view.workstreams[0].id);
+  expect(source.dag.dagId).toBe(DAG);expect(source.registeredExcerpts).toBeUndefined();expect(excerptReader).not.toHaveBeenCalled();
+});
