@@ -1,3 +1,4 @@
+import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { createOrcaAdapter, type OrcaObservation } from '../collector/orca';
@@ -49,7 +50,7 @@ export interface LiveRuntimeDependencies {
   pullObservations: PullObservationAdapter;
   publicGitHubObserver: typeof createPublicGitHubObserver;
 }
-interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null}
+interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null; present?:boolean}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[] }
 interface DagSession {
   canonicalPath: string;
@@ -71,7 +72,11 @@ export function createLiveRuntime(options: {
   cacheRoot: string;
   cacheAvailable?: boolean;
   dependencies?: Partial<LiveRuntimeDependencies>;
+  projectRegistry?:ProjectRegistry;
 }) {
+  const registry=options.projectRegistry;
+  let registryError:string|null=null;
+  const retainedAllowed=(p:RegisteredProject)=>config?.localHostId===p.hostId&&config.noteScopes.some(scope=>scope.scopeId===p.scopeId&&scope.hostId===p.hostId&&scope.dagRelativePaths.includes(path.relative(scope.scopePath,p.canonicalDagPath))&&p.canonicalDagPath.startsWith(p.canonicalNotePath+path.sep));
   const loaded = structuredClone(options.configuration);
   const config = loaded.configuration;
   const deps = options.dependencies ?? {};
@@ -295,8 +300,10 @@ export function createLiveRuntime(options: {
     }
   }
 
-  async function collectView(observation: OrcaObservation, signal: AbortSignal): Promise<CollectedView> {
-    const worktrees: NoteWorktree[] = observation.joined.flatMap(({worktree: w}) => w.identity.hostId && w.path
+  async function collectView(observation: OrcaObservation, signal: AbortSignal,manual=false): Promise<CollectedView> {
+    const skipped=new Set(!manual?(registry?.records().filter(p=>p.status==='completed').flatMap(p=>p.worktrees.map(w=>JSON.stringify([p.hostId,w.path])))??[]):[]);
+    const observedRows=observation.joined.filter(({worktree:w})=>!skipped.has(JSON.stringify([w.identity.hostId,w.path])));
+    const worktrees: NoteWorktree[] = observedRows.flatMap(({worktree: w}) => w.identity.hostId && w.path
       ? [{ worktreeId: w.id, hostId: w.identity.hostId, worktreePath: w.path }] : []);
     let mappings: NoteMapping[] = [];
     let canonicalDags: Awaited<ReturnType<typeof mapWorktreesToNotes>>['dags'] = [];
@@ -309,10 +316,13 @@ export function createLiveRuntime(options: {
         if (mapped.status === 'invalid-request') mappingFailure = 'Note mapping request was rejected.';
       } catch { mappingFailure = 'Note mapping could not be refreshed.'; }
     }
+    if(registry){await registry.discover(mappings.filter((m):m is ResolvedNoteMapping=>m.state==='resolved'),signal);
+      for(const p of registry.records().filter(p=>(p.status==='active'||manual)&&retainedAllowed(p)))if(!canonicalDags.some(d=>d.dagId===p.dagId))canonicalDags.push({dagId:p.dagId,hostId:p.hostId,canonicalDagPath:p.canonicalDagPath,worktreeIds:[]});
+    }
     const byWorktree = new Map(mappings.map(m => [identity(m.hostId, m.worktreeId), m]));
-    const workstreams: LiveWorkstreamView[] = observation.joined.map(({worktree: w, project, process, projectMapping}) => {
+    const workstreams: LiveWorkstreamView[] = observedRows.map(({worktree: w, project, process, projectMapping}) => {
       const mapping = byWorktree.get(identity(w.identity.hostId, w.id));
-      return { id: `worktree-${digest(JSON.stringify([observation.runtimeId, w.identity.hostId, w.identity.instanceId, w.id]))}`,
+      return { id: registry&&mapping?.state==='resolved'?projectId(mapping.hostId,mapping.dagId):`worktree-${digest(JSON.stringify([observation.runtimeId, w.identity.hostId, w.identity.instanceId, w.id]))}`,
         title: w.displayName || w.branch || 'Unnamed worktree', projectName: project?.displayName ?? null,
         branch: w.branch, archived: w.isArchived, terminalConnected: process?.hasAttachedPty ?? null,
         terminalCount: process?.liveTerminalCount ?? null,
@@ -322,7 +332,7 @@ export function createLiveRuntime(options: {
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
     publicSelections.clear();
-    observation.joined.forEach(({worktree:w},index)=>{
+    observedRows.forEach(({worktree:w},index)=>{
       const mapping=byWorktree.get(identity(w.identity.hostId,w.id));
       const registered=config?.publicGitHub?.find(r=>r.worktreePath===w.path);
       if(mapping?.state==='resolved'&&mapping.registration==='explicit-read-only'&&registered&&mapping.scopeId===registered.scopeId&&mapping.canonicalWorktreePath===registered.worktreePath) {
@@ -412,7 +422,17 @@ export function createLiveRuntime(options: {
       if (omittedHistorical && dags[0]) dags[0].reason = [dags[0].reason,
         'Some historical DAGs are omitted at the eight-DAG display limit.'].filter(Boolean).join(' ');
     }
-    const worktreeSources=observation.joined.map(({worktree:w},index)=>({id:workstreams[index].id,worktreeId:w.id,hostId:w.identity.hostId,worktreePath:w.path}));
+    const worktreeSources:WorktreeSource[]=observedRows.map(({worktree:w},index)=>({id:workstreams[index].id,worktreeId:w.id,hostId:w.identity.hostId,worktreePath:w.path}));
+    if(registry){
+      for(const p of registry.records().filter(p=>(p.status==='active'||manual)&&retainedAllowed(p)))if(!workstreams.some(w=>w.id===p.id)&&p.observation){
+        const retained=structuredClone(p.observation.workstream),dag=dags.find(d=>d.dagId===p.dagId);retained.archived=false;retained.terminalConnected=null;retained.terminalCount=null;retained.agentState='unknown';retained.projectMapping='retained';
+        retained.noteMapping={state:dag?.state==='ready'?'resolved':'unresolved',reason:dag?.state==='ready'?null:'등록된 소스 접근 불가',dagId:p.dagId};delete retained.readingSummary;
+        workstreams.push(retained);const tree=p.worktrees[0];if(tree)worktreeSources.push({id:p.id,worktreeId:tree.id,hostId:p.hostId,worktreePath:tree.path,present:false});
+        const registered=config?.publicGitHub?.find(r=>r.scopeId===p.scopeId&&p.worktrees.some(w=>w.path===r.worktreePath));if(registered)publicSelections.set(p.id,{dagId:p.dagId,branch:registered.branch,worktreePath:registered.worktreePath});
+      }
+      const unique=new Map<string,LiveWorkstreamView>();for(const w of workstreams){const prior=unique.get(w.id);if(!prior)unique.set(w.id,w);else{prior.terminalCount=prior.terminalCount===null||w.terminalCount===null?null:prior.terminalCount+w.terminalCount;prior.terminalConnected=prior.terminalConnected===true||w.terminalConnected===true?true:prior.terminalConnected===null||w.terminalConnected===null?null:false;prior.agentState=prior.agentState==='done'&&w.agentState==='done'?'done':'unknown';}}
+      return {workstreams:[...unique.values()].filter(w=>manual||!registry.records().some(p=>p.id===w.id&&p.status==='completed')),dags,worktreeSources:[...new Map(worktreeSources.map(w=>[w.id,w])).values()]};
+    }
     return { workstreams, dags, worktreeSources };
   }
 
@@ -427,7 +447,7 @@ export function createLiveRuntime(options: {
       let value: CollectedView | null = null;
       let projectionFailed = false;
       if (result.ok && !signal.aborted) {
-        try { value = await collectView(result.value, signal); } catch { projectionFailed = true; }
+        try { value = await collectView(result.value, signal,reason==='manual'); } catch { projectionFailed = true; }
       }
       const costResults = await budgets;
       if (!signal.aborted && !disposed) acceptCodeburn(costResults);
@@ -441,6 +461,7 @@ export function createLiveRuntime(options: {
       }
       const summaries = await reading.update(inputs, signal, reason==='manual'?'manual':'scheduled');
       for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
+      if(registry){await registry.capture(value.workstreams,value.dags,reason==='manual',signal);registryError=null;}
       const observation = result.value;
       return {kind: 'success', value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,
         coverage: { projects: observation.projects.coverage.state, worktrees: observation.worktrees.coverage.state,
@@ -451,8 +472,15 @@ export function createLiveRuntime(options: {
   function getState(): LiveWorkspaceView {
     const snapshot = store.getState();
     const freshness = !connected && snapshot.observedAt ? 'stale' : snapshot.freshness;
-    const value = structuredClone(snapshot.value) as CollectedView | null;
+    let value = structuredClone(snapshot.value) as CollectedView | null;
     const dags = value?.dags ?? [];
+    if(registry){
+      const records=registry.records();
+      if(!value)value={workstreams:[],dags,worktreeSources:[]};
+      for(const p of records){let view=value.workstreams.find(w=>w.id===p.id);const observedView=!!view;if(p.status==='completed'||!view){if(!p.observation)continue;view=structuredClone(p.observation.workstream);value.workstreams=value.workstreams.filter(w=>w.id!==p.id);value.workstreams.push(view);if(!dags.some(d=>d.dagId===p.dagId)&&p.observation.dag)dags.push(structuredClone(p.observation.dag));}
+        const present=value.worktreeSources.some(s=>s.id===p.id&&s.present!==false);view.archived=false;view.project=lifecycleView(p,view,present);if(p.status==='completed')view.project.sourceState='not-checked';else if(!observedView||!retainedAllowed(p)||!connected||snapshot.freshness!=='current'||registryError)view.project.sourceState='not-checked';
+      }
+    }
     for (const dag of dags) {
       const sourceUnavailable = dag.state !== 'ready' || dag.summary.state === 'error';
       const aged = freshness !== 'current' || !dag.observedAt || now() - Date.parse(dag.observedAt) >= STALE_MS;
@@ -468,7 +496,7 @@ export function createLiveRuntime(options: {
       refreshing: connected && snapshot.refreshing, observedAt: snapshot.observedAt, freshness,
       polling: {activity: !connected ? 'stopped' : activity.active && activity.visible ? 'foreground' : 'background',
         nextRefreshAt: connected ? snapshot.nextPollAt : null, countdownSeconds: connected ? snapshot.resumeCountdownSeconds : 0},
-      lastError: snapshot.lastAttempt?.error?.message ?? null, coverage: snapshot.coverage,
+      lastError: registryError??snapshot.lastAttempt?.error?.message ?? null, coverage: snapshot.coverage,
       workstreams: value?.workstreams ?? [], dags, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
   }
   const publish = () => {
@@ -513,6 +541,7 @@ export function createLiveRuntime(options: {
     },
     async connect(): Promise<LiveWorkspaceView> {
       if (disposed || !config || loaded.view.state !== 'ready') return getState();
+      if(registry)try{await registry.load();registryError=null;}catch{registryError='앱 프로젝트 상태를 읽지 못했습니다. 기존 상태 파일은 보존했습니다.';return getState();}
       connected = true;
       store.setActivity(activity);
       await store.start();
@@ -534,6 +563,8 @@ export function createLiveRuntime(options: {
       publish();
       return getState();
     },
+    async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
+    settleRegistry:()=>registry?.settle()??Promise.resolve(),
     setActivity(next: {visible: boolean; active: boolean}): void {
       activity = {...next};
       if (!disposed) store.setActivity(activity);

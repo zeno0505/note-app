@@ -12,6 +12,7 @@ export const busy = ref(false);
 export const liveBusy = ref(false);
 export const bridgeError = ref<string|null>(null);
 export const filter = ref<'connected'|'all'>('connected');
+export const projectFilter=ref<'active'|'completed'|'all'>('active');
 export const scenario = ref<'normal'|'empty'|'failure'>('normal');
 export const search = ref('');
 let requestGeneration = 0;
@@ -34,7 +35,7 @@ export const visibleWorkstreams = computed(()=>workstreams.value.filter(w=>
 export const liveWorkstreams = computed(()=>liveState.value?.workstreams.filter(w=>w.archived!==true)??[]);
 export const liveConnectedCount = computed(()=>liveWorkstreams.value.filter(w=>w.terminalConnected===true).length);
 export const visibleLiveWorkstreams = computed(()=>liveWorkstreams.value.filter(w=>
-  (filter.value==='all'||w.terminalConnected===true) && `${w.title} ${w.projectName??''} ${w.branch??''}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())
+  (w.project?(projectFilter.value==='all'||w.project.status===projectFilter.value):(filter.value==='all'||w.terminalConnected===true)) && `${w.title} ${w.projectName??''} ${w.branch??''}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())
 ));
 export const livePending = computed(()=>liveBusy.value||liveState.value?.refreshing===true);
 
@@ -65,6 +66,10 @@ export const connectLive=()=>liveAction('connect');
 export const refreshLive=()=>liveAction('refresh');
 export const summarizeNow=()=>liveAction('summarize');
 export const disconnectLive=()=>liveAction('disconnect');
+export async function setProjectStatus(projectId:string,status:'active'|'completed',expectedStatus:'active'|'completed') {
+  if(liveBusy.value||mode.value==='demo')return;liveBusy.value=true;bridgeError.value=null;
+  try{liveState.value=await window.noteApp.setProjectStatus({projectId,status,expectedStatus});}catch{bridgeError.value='프로젝트 전환을 저장하지 못했습니다. 기존 상태와 이력을 확인해 주세요.';}finally{liveBusy.value=false;}
+}
 
 export async function refreshDemo() {
   if(busy.value) return;

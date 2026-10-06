@@ -6,6 +6,8 @@ import { DemoStore } from './demo-store';
 import { assertNoArguments, assertTrustedSender, parseDemoRequest } from './security';
 import type { AppEnvironment } from '../shared/bridge';
 import { loadLiveConfiguration } from './live-config';
+import {createProjectRegistry,projectRegistryCodec} from './projects/registry';
+import {createLocalSummaryCache} from '../summary/storage';
 import { createLiveRuntime } from './live-runtime';
 import { boundedStartup } from './startup-boundary';
 import { observeWindowActivity } from './window-activity';
@@ -74,7 +76,10 @@ app.whenReady().then(async()=>{
     })(),{path:join(userData,'summary-cache'),available:false}),
   ]);
   const cacheRoot=cacheLocation.path;
-  liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available});
+  let projectPersistence;
+  if(cacheLocation.available){const directory=join(cacheRoot,'projects');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw new Error('Unsafe project registry');projectPersistence=createLocalSummaryCache({directory,codec:projectRegistryCodec});}
+  const projectRegistry=createProjectRegistry({persistence:projectPersistence??{read:async()=>null,write:async()=>{throw new Error('앱 프로젝트 상태 저장 위치를 사용할 수 없습니다.');}}});
+  liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry});
   summaryWorkflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
     if(signal.aborted||!cacheLocation.available)throw new Error('App-owned cache unavailable or request cancelled');return liveRuntime.resolveSummarySource(workstreamId,signal);
   }});
@@ -94,6 +99,10 @@ app.whenReady().then(async()=>{
     if(!mainWindow) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
     return action();
+  });
+  ipcMain.handle('note-app:project-status',(event,...args)=>{
+    if(!mainWindow)throw new Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);
+    if(args.length!==1)throw new Error('Expected one project status request');return tracked(liveRuntime.setProjectStatus(args[0]));
   });
   ipcMain.handle('note-app:environment',(event,...args)=>{
     if(!mainWindow) throw new Error('App window unavailable');

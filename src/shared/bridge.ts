@@ -17,6 +17,7 @@ export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge {
   refreshLive(): Promise<LiveWorkspaceView>;
   summarizeNow(): Promise<LiveWorkspaceView>;
   disconnectLive(): Promise<LiveWorkspaceView>;
+  setProjectStatus(request:{projectId:string;status:'active'|'completed';expectedStatus:'active'|'completed'}):Promise<LiveWorkspaceView>;
   onLiveState(listener: (state: LiveWorkspaceView)=>void): ()=>void;
 }
 declare global { interface Window { noteApp: NoteAppBridge } }

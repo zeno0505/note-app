@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import path from 'node:path';
+import {createProjectRegistry} from '../../src/main/projects/registry';
 import { createLiveRuntime, type LiveRuntimeDependencies } from '../../src/main/live-runtime';
 import type { LoadedLiveConfiguration } from '../../src/main/live-config-types';
 import type { OrcaAdapter, OrcaObservation, OrcaResult } from '../../src/collector/orca';
@@ -62,7 +63,7 @@ function persisted(model = dag()): SummaryCacheRecord<SummaryCachePayload> {
   return {revision:7,payload:summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[projection]})};
 }
 const runtimes: ReturnType<typeof createLiveRuntime>[] = [];
-function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {}) {
+function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {},projectRegistry?:ReturnType<typeof createProjectRegistry>) {
   const collect = vi.fn<OrcaAdapter['collect']>(async()=>({ok:true,value:observation()}));
   const mapNotes = vi.fn<LiveRuntimeDependencies['mapNotes']>(async request=>mapping(request));
   const readDag = vi.fn<ReturnType<LiveRuntimeDependencies['dagReader']>['read']>(async()=>({ok:true,value:dag(),unchanged:false}));
@@ -72,7 +73,7 @@ function setup(config = configuration(), cacheAvailable = true, extraDependencie
   const summaryCache = vi.fn<LiveRuntimeDependencies['summaryCache']>(()=>({read:cacheRead}));
   const orca = vi.fn<LiveRuntimeDependencies['orca']>(()=>({collect,read:vi.fn()}));
   const codeburn = vi.fn<LiveRuntimeDependencies['codeburn']>(()=>({read:codeRead}));
-  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
+  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,projectRegistry,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
   runtimes.push(runtime);
   return {runtime,collect,mapNotes,readDag,dagReader,codeRead,cacheRead,summaryCache,orca,codeburn};
 }
@@ -436,4 +437,15 @@ it('does not open a document reader when the mapper resolves another canonical w
  const {config}=projectDocumentFixture();const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>();const f=setup(config,true,{excerptReader});
  f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved')m.canonicalWorktreePath='/synthetic/other';return result;});
  await f.runtime.connect();expect(excerptReader).not.toHaveBeenCalled();
+});
+
+it('tracks one canonical project after worktrees disappear, and only the user can stop/resume periodic project reads',async()=>{
+ const registry=createProjectRegistry({now:()=>Date.now()});const f=setup(configuration(),true,{},registry);
+ const first=await f.runtime.connect();expect(first.workstreams).toHaveLength(1);const project=first.workstreams[0];expect(project.project?.status).toBe('active');
+ await f.runtime.setProjectStatus({projectId:project.id,status:'completed',expectedStatus:'active'});const reads=f.readDag.mock.calls.length;
+ await vi.advanceTimersByTimeAsync(20_000);expect(f.readDag.mock.calls.length).toBe(reads);expect(f.runtime.getState().workstreams[0].project?.status).toBe('completed');
+ await f.runtime.summarizeNow();expect(f.readDag.mock.calls.length).toBeGreaterThan(reads);expect(f.runtime.getState().workstreams[0].project?.status).toBe('completed');
+ await f.runtime.setProjectStatus({projectId:project.id,status:'active',expectedStatus:'completed'});
+ f.collect.mockImplementation(async()=>({ok:true,value:observation(0)}));const missing=await f.runtime.refresh();expect(missing.workstreams).toHaveLength(1);expect(missing.workstreams[0].id).toBe(project.id);expect(missing.workstreams[0].project?.status).toBe('active');expect(missing.workstreams[0].project?.worktreeState).toBe('missing');
+ f.readDag.mockImplementation(async()=>({ok:false,error:{kind:'source_unavailable',message:'Synthetic source inaccessible'}}));const unavailable=await f.runtime.refresh();expect(unavailable.workstreams[0].project?.sourceState).toBe('unavailable');expect(unavailable.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('판단할 수 없습니다'))).toBe(true);
 });

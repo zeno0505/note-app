@@ -42,6 +42,10 @@ export interface LiveDagView {
   statusCountsOmitted: number;
   summary: LiveSummaryView;
 }
+export interface ProjectLifecycleView {
+  status:'active'|'completed';changedAt:string;sourceState:'available'|'unavailable'|'not-checked';worktreeState:'present'|'missing';
+  history:{at:string;status:'active'|'completed';summary:ReadingSummary|null}[];
+}
 export interface LiveWorkstreamView {
   id: string;
   title: string;
@@ -54,6 +58,7 @@ export interface LiveWorkstreamView {
   projectMapping: string;
   noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null; registration?: 'explicit-read-only' };
   readingSummary?: ReadingSummary;
+  project?:ProjectLifecycleView;
 }
 export interface LiveWorkspaceView {
   mode: 'live-read-only';

@@ -2,7 +2,7 @@
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import {computed,ref,watch} from 'vue';
-import {environment,liveState,livePending,filter,search,liveWorkstreams,liveConnectedCount,visibleLiveWorkstreams,connectLive,refreshDemo,busy} from '../store';
+import {environment,liveState,livePending,filter,search,liveWorkstreams,liveConnectedCount,visibleLiveWorkstreams,projectFilter,connectLive,refreshDemo,busy} from '../store';
 import LiveWorkstreamCard from './LiveWorkstreamCard.vue';
 import LiveStatus from './LiveStatus.vue';
 import LiveDag from './LiveDag.vue';
@@ -30,7 +30,7 @@ const initialCancelled=computed(()=>!observed.value&&isCancelledObservation(live
   </section>
   <template v-else>
     <div v-if="!connected" class="notice warning"><strong>연결 해제됨</strong><span>보관된 마지막 관측입니다. 연결하기 전까지 갱신되지 않습니다.</span><Button v-if="ready" label="설정된 소스 연결" data-testid="live-connect" size="small" :loading="livePending" @click="connectLive"/></div>
-    <div v-if="observed" class="overview-toolbar"><div class="filter-group" aria-label="실제 워크스트림 표시 범위"><button :class="{selected:filter==='connected'}" :aria-pressed="filter==='connected'" @click="filter='connected'">터미널 연결 <span>{{liveConnectedCount}}</span></button><button :class="{selected:filter==='all'}" :aria-pressed="filter==='all'" @click="filter='all'">전체 비보관·미확인 <span>{{liveWorkstreams.length}}</span></button></div><InputText v-model="search" placeholder="작업·프로젝트·브랜치 찾기" aria-label="작업 검색"/></div>
+    <div v-if="liveWorkstreams.some(w=>w.project)" class="filter-group" aria-label="프로젝트 상태"><button v-for="state in (['active','completed','all'] as const)" :key="state" :aria-pressed="projectFilter===state" :class="{selected:projectFilter===state}" @click="projectFilter=state">{{state==='active'?'진행 중':state==='completed'?'완료':'전체 프로젝트'}}</button></div><div v-if="observed" class="overview-toolbar"><div class="filter-group" aria-label="실제 워크스트림 표시 범위"><button :class="{selected:filter==='connected'}" :aria-pressed="filter==='connected'" @click="filter='connected'">터미널 연결 <span>{{liveConnectedCount}}</span></button><button :class="{selected:filter==='all'}" :aria-pressed="filter==='all'" @click="filter='all'">전체 비보관·미확인 <span>{{liveWorkstreams.length}}</span></button></div><InputText v-model="search" placeholder="작업·프로젝트·브랜치 찾기" aria-label="작업 검색"/></div>
     <div v-if="observed" class="observation"><span>{{visibleLiveWorkstreams.length}}개 중 {{shownWorkstreams.length}}개 표시 · 보관 상태 미확인 포함</span><span>워크트리별 관측 · 같은 DAG는 동일 근거를 공유</span></div>
     <div v-if="visibleLiveWorkstreams.length" class="workstream-grid"><LiveWorkstreamCard v-for="workstream in shownWorkstreams" :key="workstream.id" :workstream="workstream" :dag="workstream.noteMapping.dagId?dagById.get(workstream.noteMapping.dagId):undefined"/></div>
     <section v-else class="empty-state" data-testid="live-empty"><h2>{{search?'검색 결과가 없어요':liveState?.refreshing&&!observed?'실제 소스를 확인하고 있어요':initialCancelled?'관측이 중단되어 아직 작업을 확인하지 못했어요':!observed&&liveState?.lastError?'조회에 실패해 작업을 표시할 수 없어요':filter==='connected'&&liveWorkstreams.length?'터미널이 연결된 작업이 없어요':observed?'관측 범위에 표시할 작업이 없어요':'아직 작업 관측이 없습니다'}}</h2><p>{{search?'다른 이름으로 검색하거나 검색어를 지워 주세요.':observed?'확인된 관측 범위의 결과입니다. 부분 관측이나 미확인 범위에는 다른 작업이 있을 수 있습니다.':'조회 실패나 미확인은 작업이 없다는 뜻이 아닙니다.'}}</p><Button v-if="search" label="검색어 지우기" outlined @click="search=''"/><Button v-else-if="filter==='connected'&&liveWorkstreams.length" label="전체 비보관 보기" outlined @click="filter='all'"/></section>
