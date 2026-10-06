@@ -4,7 +4,7 @@ import {access,readFile} from 'node:fs/promises';
 import {runFakeProvider} from '../helpers/fake-provider-runner.mjs';
 import preview from '../../fixtures/summary-quality/public-one-shot-preview.json' with {type:'json'};
 const base={requestId:'request-public-preview',input:preview.exactInput,deadlineMs:2000};
-async function running(pid){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')return false;throw e;}if(process.platform==='linux'){try{if((await readFile(`/proc/${pid}/stat`,'utf8')).split(' ')[2]==='Z')return false;}catch(e){if(e.code==='ENOENT')return false;throw e;}}return true;}
+async function running(pid){try{process.kill(pid,0);}catch(e){if(e.code==='ESRCH')return false;throw e;}if(process.platform==='linux'){try{if((await readFile(`/proc/${pid}/stat`,'utf8')).split(' ')[2]==='Z')return false;}catch(e){if(e.code==='ENOENT'||e.code==='ESRCH')return false;throw e;}}return true;}
 describe.runIf(['darwin','linux'].includes(process.platform))('new test-only fake provider process evidence, never a model runner',()=>{
  it('passes the exact bounded preview with fixed argv, an empty owned cwd and no inherited configuration env',async()=>{
   const result=await runFakeProvider(base);expect(result.status).toBe('fake-complete');expect(result.modelRun).toBe(false);
