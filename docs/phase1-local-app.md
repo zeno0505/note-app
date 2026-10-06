@@ -26,3 +26,7 @@ Phase 1은 로컬 Mac 앱, 실제 프로젝트의 근거 있는 한국어 설명
 6. 실제 활성 창에서 두 번 이상의 예정 foreground 조회와 activity 타임라인.
 
 타입·unit·SSR·CI·headless 실제 소스 조회는 위 네이티브 검수의 대체가 아니다. 실제 note-app 체크아웃에 지정 링크가 없으면 자동 발견을 완료로 표시하지 않으며 원본 링크 생성은 별도 승인 범위다. 모델 transport 차단은 유지한다. DAG 갱신, 개발 위임, 트레이 popover는 Phase 2다.
+
+## 2026-10-06 사용자 UI 수용과 후속 범위
+
+프로젝트별 AI 요약을 후속으로 작업하는 전제에서 사용자는 현재 UI 구조가 Phase 1을 충분히 반영한다고 수용했다. 이는 UI 구조에 대한 수용이며 위 실제 검증 항목이나 Phase 1 전체 완료를 자동 충족하지 않는다. CodeBurn을 독립 페이지로 옮기는 작업은 [T-028 · CodeBurn 사용량 통계 페이지 분리](plans/codeburn-usage-statistics-page.md)에 pending으로 등록했다. 이번 변경은 계획 기록만이며 제품 코드·앱·모델은 변경하지 않는다.
