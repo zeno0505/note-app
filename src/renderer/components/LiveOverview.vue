@@ -39,7 +39,7 @@ async function openPublicPreview(){const workstream=publicWorkstream.value;if(!w
     <p v-else-if="liveState?.configuration.state==='invalid'">시작 설정을 사용할 수 없습니다.<br>연결 및 설정에서 오류와 준비 방법을 확인해 주세요.</p>
     <p v-else>실제 소스를 사용하려면 시작 설정 파일이 필요합니다.<br>가상의 세 작업으로 화면의 흐름을 먼저 살펴볼 수도 있어요.</p>
     <div class="welcome-actions"><Button v-if="ready" label="설정된 소스 연결" data-testid="live-connect" :loading="livePending" :disabled="busy" @click="connectLive"/><Button label="샘플로 살펴보기" :outlined="ready" :loading="busy" @click="refreshDemo"/></div>
-    <RouterLink to="/settings" class="subtle-link">연결 상태 확인{{liveState?' · '+configurationLabels[liveState.configuration.state]:''}}</RouterLink><div class="welcome-note">{{environment?.capabilities.noteWrites?'노트 연결은 별도 미리보기·확인 후 적용':'노트 연결 변경 미설정'}} · 실제 요약 생성 차단 · 모델 호출 없음</div>
+    <RouterLink to="/settings" class="subtle-link">연결 상태 확인{{liveState?' · '+configurationLabels[liveState.configuration.state]:''}}</RouterLink><div class="welcome-note">{{environment?.capabilities.noteWrites?'노트 연결은 별도 미리보기·확인 후 적용':'노트 연결 변경 미설정'}} · 프로젝트 연결 후 수동 Claude AI 사용 가능 · 화면 조회만으로 모델 호출 없음</div>
   </section>
   <template v-else>
     <div v-if="!connected" class="notice warning"><strong>연결 해제됨</strong><span>보관된 마지막 관측입니다. 연결하기 전까지 갱신되지 않습니다.</span><Button v-if="ready" label="설정된 소스 연결" data-testid="live-connect" size="small" :loading="livePending" @click="connectLive"/></div>

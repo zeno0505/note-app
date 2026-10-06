@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {mkdir,lstat,realpath,open,unlink} from 'node:fs/promises';
 import path from 'node:path';
 import {createLocalSummaryCache} from '../storage';
-import {publicInputHash,validateModelAnswer,MODEL_HARNESS_VERSION,SECTION_IDS,type PublicReadingPack,type ModelAnswer,type HarnessRecord,type HarnessLedger} from './model-harness';
+import {readingInputHash,packVersion,validateModelAnswer,MODEL_HARNESS_VERSION,PROJECT_MODEL_VERSION,SECTION_IDS,type PublicReadingPack,type ReadingModelPack,type ModelAnswer,type HarnessRecord,type HarnessLedger} from './model-harness';
 export const MODEL_LEDGER_LIMIT=128,MODEL_PROJECT_LIMIT=64;
 export interface MinimalUsage extends Record<string,unknown> {inputTokens?:number;cacheCreationInputTokens?:number;cacheReadInputTokens?:number;outputTokens?:number;reportedTurns?:number}
 interface Run {project:string;inputHash:string;runId:string;attempts:number;status:HarnessRecord['status'];at:string;errors:string[];receipts:{provider:string;runtimeMs:number;usage:MinimalUsage}[]}
@@ -26,7 +26,7 @@ const ledgerCodec={parse(value:unknown){const x=value as Ledger;
   for(const r of x.requests)if(!validProject(r.project)||!validHash(r.inputHash)||!validTime(r.at)||typeof r.status!=='string'||r.status.length>40)throw Error('Invalid model request');return bound(x,131072);
 }};
 const latestCodec={parse(value:unknown){const x=value as LatestModelReading;
-  if(!x||!validProject(x.project)||!validHash(x.inputHash)||!/^[a-f0-9]{40}$/.test(x.sourceSha)||x.version!==MODEL_HARNESS_VERSION||!validTime(x.generatedAt)||!x.answer||x.answer.project!==x.project||x.answer.inputHash!==x.inputHash||x.answer.version!==x.version||![1,2].includes(x.attempts)||x.answer.attempt!==x.attempts||!Array.isArray(x.answer.sections)||x.answer.sections.length!==4||!Array.isArray(x.sources)||x.sources.length>12||!x.validation||x.validation.schema!=='passed'||x.validation.facts!=='passed'||!['not-reviewed','reviewed-with-scope-note'].includes(x.validation.semantic)||typeof x.validation.note!=='string'||x.validation.note.length>1000)throw Error('Invalid latest model reading');
+  if(!x||!validProject(x.project)||!validHash(x.inputHash)||!/^[a-f0-9]{40}$/.test(x.sourceSha)||![MODEL_HARNESS_VERSION,PROJECT_MODEL_VERSION].includes(x.version)||!validTime(x.generatedAt)||!x.answer||x.answer.project!==x.project||x.answer.inputHash!==x.inputHash||x.answer.version!==x.version||![1,2].includes(x.attempts)||x.answer.attempt!==x.attempts||!Array.isArray(x.answer.sections)||x.answer.sections.length!==4||!Array.isArray(x.sources)||x.sources.length>12||!x.validation||x.validation.schema!=='passed'||x.validation.facts!=='passed'||!['not-reviewed','reviewed-with-scope-note'].includes(x.validation.semantic)||typeof x.validation.note!=='string'||x.validation.note.length>1000)throw Error('Invalid latest model reading');
   if(typeof x.provider!=='string'||x.provider.length>80||!Number.isFinite(x.runtimeMs)||x.runtimeMs<0||new Set(x.answer.sections.map(s=>s.id)).size!==4)throw Error('Invalid model metadata');
   for(const source of x.sources)if(!/^S\d+$/.test(source.id)||!validHash(source.sha256)||typeof source.path!=='string'||source.path.includes('..')||source.path.length>256||!Number.isSafeInteger(source.lineStart)||source.lineStart<1||!Number.isSafeInteger(source.lineEnd)||source.lineEnd<source.lineStart)throw Error('Invalid model source');
   for(const s of x.answer.sections)if(!SECTION_IDS.includes(s.id)||typeof s.text!=='string'||s.text.length<8||s.text.length>1800||!Array.isArray(s.facts)||!Array.isArray(s.sourceIds)||s.sourceIds.some(id=>!x.sources.some(source=>source.id===id)))throw Error('Invalid model section');return bound(x,32768);
@@ -55,13 +55,13 @@ export function createModelReadingStorage(directory:string,now=()=>new Date().to
       const latest=await getLatest(project);if(!latest)return {state:'empty',message:'저장된 모델 요약이 없습니다. 이 화면은 모델을 호출하지 않습니다.'};
       const {record}=await readLedger(false),request=record?.payload.requests.find(r=>r.project===project);
       const stale=(currentInputHash!==undefined&&currentInputHash!==latest.payload.inputHash)||!!request&&(request.inputHash!==latest.payload.inputHash||['fallback','cancelled','blocked-capacity'].includes(request.status));
-      return {state:stale?'stale':'ready',message:stale?'이전 정상 모델 요약입니다. 입력 변경·실패·취소 후 현재 근거로 재확인되지 않았습니다.':'프로젝트별 최신 성공 모델 요약입니다. 지정된 공개 입력 범위의 저장 결과입니다.',latest:latest.payload};
+      return {state:stale?'stale':'ready',message:stale?'이전 정상 모델 요약입니다. 입력 변경·실패·취소 후 현재 근거로 재확인되지 않았습니다.':'프로젝트별 최신 성공 모델 요약입니다. 지정된 입력 범위의 저장 결과입니다.',latest:latest.payload};
     }catch{return {state:'unavailable',message:'모델 요약 저장소를 확인하지 못했습니다. 기존 파일과 이력을 변경하지 않습니다.'};}},
-    ledger(pack:PublicReadingPack):HarnessLedger {
-      const inputHash=publicInputHash(pack);return {lock,
+    ledger(pack:ReadingModelPack):HarnessLedger {
+      const inputHash=readingInputHash(pack);return {lock,
         async get(key):Promise<HarnessRecord|undefined>{if(key!==inputHash)throw Error('Reading ledger input mismatch');const {record}=await readLedger(),run=record?.payload.runs.find(r=>r.inputHash===key);if(!run)return;
           const latest=await getLatest(pack.project);
-          if(latest?.payload.inputHash===key&&latest.payload.answer.runId===run.runId&&!validateModelAnswer(latest.payload.answer,{runId:run.runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt:run.attempts as 1|2},pack).length)return {inputHash:key,runId:run.runId,attempts:run.attempts,status:'model',answer:latest.payload.answer,errors:[],receipts:copy(run.receipts)};
+          if(latest?.payload.inputHash===key&&latest.payload.answer.runId===run.runId&&!validateModelAnswer(latest.payload.answer,{runId:run.runId,project:pack.project,inputHash,version:packVersion(pack),attempt:run.attempts as 1|2},pack).length)return {inputHash:key,runId:run.runId,attempts:run.attempts,status:'model',answer:latest.payload.answer,errors:[],receipts:copy(run.receipts)};
           return {inputHash:key,runId:run.runId,attempts:run.attempts,status:run.status==='model'?'fallback':run.status,errors:run.status==='model'?['Older successful input is reserved; only latest body retained, no replay']:run.errors,receipts:copy(run.receipts)};
         },
         async put(value,signal){if(value.inputHash!==inputHash||![1,2].includes(value.attempts))throw Error('Invalid model reservation');const {cache,record}=await readLedger(),payload=copy(record?.payload??{runs:[],requests:[]});const previous=payload.runs.find(r=>r.inputHash===inputHash),at=now();
@@ -72,9 +72,9 @@ export function createModelReadingStorage(directory:string,now=()=>new Date().to
           const receipts=value.receipts.slice(0,2).map(r=>({provider:r.provider.slice(0,80),runtimeMs:r.runtimeMs,usage:minimalUsage(r.usage)}));
           const run:Run={project:pack.project,inputHash,runId,attempts:value.attempts,status:value.status,at,errors:value.errors.slice(0,12).map(e=>e.slice(0,240)),receipts};
           if(value.status==='model'){
-            if(!previous||!value.answer||validateModelAnswer(value.answer,{runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt:value.attempts as 1|2},pack).length)throw Error('Unreserved or invalid latest model answer');
+            if(!previous||!value.answer||validateModelAnswer(value.answer,{runId,project:pack.project,inputHash,version:packVersion(pack),attempt:value.attempts as 1|2},pack).length)throw Error('Unreserved or invalid latest model answer');
             const target=await latestCache(pack.project,true),old=await target.read(),receipt=receipts.at(-1);
-            await target.write({project:pack.project,inputHash,sourceSha:pack.sourceSha,version:MODEL_HARNESS_VERSION,provider:receipt?.provider??'unobserved',generatedAt:at,answer:copy(value.answer),sources:pack.sources.map(({excerpt:_excerpt,...source})=>source),validation:{schema:'passed',facts:'passed',semantic:'not-reviewed',note:'JSON 형식과 필수 근거 검사가 통과했습니다. 한국어 문맥의 진실성은 별도 검수가 필요합니다.'},attempts:value.attempts,usage:receipt?.usage??{},runtimeMs:receipt?.runtimeMs??0},old?.revision??null,signal);
+            await target.write({project:pack.project,inputHash,sourceSha:pack.sourceSha,version:packVersion(pack),provider:receipt?.provider??'unobserved',generatedAt:at,answer:copy(value.answer),sources:pack.sources.map(({excerpt:_excerpt,...source})=>source),validation:{schema:'passed',facts:'passed',semantic:'not-reviewed',note:'JSON 형식과 필수 근거 검사가 통과했습니다. 한국어 문맥의 진실성은 별도 검수가 필요합니다.'},attempts:value.attempts,usage:receipt?.usage??{},runtimeMs:receipt?.runtimeMs??0},old?.revision??null,signal);
           }
           payload.runs=payload.runs.filter(r=>r.inputHash!==inputHash);payload.runs.push(run);payload.requests.push({project:pack.project,inputHash,status:value.status,at});await cache.write(payload,record?.revision??null,signal);
         },

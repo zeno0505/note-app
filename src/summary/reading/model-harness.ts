@@ -1,6 +1,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 
 export const MODEL_HARNESS_VERSION='public-reading-v1';
+export const PROJECT_MODEL_VERSION='connected-project-reading-v1';
 export const SECTION_IDS=['implemented','next','evidence','decisions'] as const;
 export type SectionId=typeof SECTION_IDS[number];
 export type FactState='known'|'none'|'unrecorded'|'query-failed';
@@ -9,12 +10,15 @@ export interface PublicReadingPack {
   sources:{id:string;path:string;lineStart:number;lineEnd:number;sha256:string;excerpt:string}[];
   facts:{id:string;section:SectionId;state:FactState;text:string;sourceIds:string[];anchors:string[]}[];
 }
+export interface ProjectReadingPack extends Omit<PublicReadingPack,'project'> {project:string;scope:'connected-project'}
+export type ReadingModelPack=PublicReadingPack|ProjectReadingPack;
+export const packVersion=(pack:ReadingModelPack)=>'scope' in pack?PROJECT_MODEL_VERSION:MODEL_HARNESS_VERSION;
 export interface ModelBinding {runId:string;project:string;inputHash:string;version:string;attempt:1|2}
 export interface ModelAnswer extends ModelBinding {
   sections:{id:SectionId;text:string;facts:{id:string;state:FactState}[];sourceIds:string[]}[];
 }
 export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string}
-export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:PublicReadingPack;repairErrors:string[]},signal:AbortSignal):Promise<ModelReceipt>}
+export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[]},signal:AbortSignal):Promise<ModelReceipt>}
 export interface HarnessRecord {inputHash:string;runId?:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
 export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord,signal?:AbortSignal):Promise<void>;lock():Promise<()=>Promise<void>>}
 const exact=(x:Record<string,unknown>,keys:string[])=>Object.keys(x).sort().join('|')===keys.sort().join('|');
@@ -29,7 +33,16 @@ export function validatePublicPack(pack:PublicReadingPack){
 }
 /** Hash semantic content only. Run identity, observation time and polling do not trigger generation. */
 export function publicInputHash(pack:PublicReadingPack){validatePublicPack(pack);return hash({version:MODEL_HARNESS_VERSION,pack});}
-export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:PublicReadingPack):string[]{
+export function validateProjectPack(pack:ProjectReadingPack){
+  if(pack.scope!=='connected-project'||!/^project:[a-f0-9]{64}$/.test(pack.project))throw Error('Invalid connected project');
+  // 공개 계약의 프로젝트·경로 제한은 유지하고 공통 근거 형식 검사만 재사용합니다.
+  for(const s of pack.sources)if(!/^(dag|reading|runtime|documents)\/[A-Za-z0-9_.\/-]+$/.test(s.path)||s.path.split('/').some(x=>x==='..'||x==='.'||!x))throw Error('Invalid project source path');
+  validatePublicPack({...pack,project:'zeno0505/note-app',sources:pack.sources.map(s=>({...s,path:'docs/'+s.path}))});
+  const runtime=pack.facts.find(f=>f.id==='F0'&&f.section==='implemented');
+  if(!runtime||!runtime.anchors.includes('Claude')||!runtime.anchors.includes('수동')||!runtime.anchors.includes('자동 호출 없음'))throw Error('Current runtime scope required');
+}
+export function readingInputHash(pack:ReadingModelPack){if(!('scope' in pack))return publicInputHash(pack);validateProjectPack(pack);return hash({version:PROJECT_MODEL_VERSION,pack});}
+export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:ReadingModelPack):string[]{
   const errors:string[]=[];
   if(!object(value)||!exact(value,['runId','project','inputHash','version','attempt','sections']))return ['Invalid output object'];
   for(const key of ['runId','project','inputHash','version','attempt'] as const)if(value[key]!==binding[key])errors.push('Binding mismatch: '+key);
@@ -53,23 +66,23 @@ export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:Publ
 export function modelOutputSchema(binding:ModelBinding){
   return {type:'object',additionalProperties:false,required:['runId','project','inputHash','version','attempt','sections'],properties:{...Object.fromEntries(Object.entries(binding).map(([k,v])=>[k,{const:v,type:typeof v==='number'?'integer':'string'}])),sections:{type:'array',minItems:4,maxItems:4,items:{type:'object',additionalProperties:false,required:['id','text','facts','sourceIds'],properties:{id:{type:'string',enum:SECTION_IDS},text:{type:'string',minLength:8,maxLength:1800},facts:{type:'array',maxItems:24,items:{type:'object',additionalProperties:false,required:['id','state'],properties:{id:{type:'string'},state:{type:'string',enum:['known','none','unrecorded','query-failed']}}}},sourceIds:{type:'array',maxItems:12,items:{type:'string'}}}}}}};
 }
-const fallback=(pack:PublicReadingPack)=>({kind:'rules-only' as const,sections:SECTION_IDS.map(id=>({id,text:pack.facts.filter(f=>f.section===id).map(f=>f.text).join(' ')}))});
-let globalFlight:Promise<HarnessRecord>|undefined,globalHash:string|undefined,globalRetire:(()=>void)|undefined,quarantined=false;
+const fallback=(pack:ReadingModelPack)=>({kind:'rules-only' as const,sections:SECTION_IDS.map(id=>({id,text:pack.facts.filter(f=>f.section===id).map(f=>f.text).join(' ')}))});
+let globalFlight:Promise<HarnessRecord>|undefined,globalHash:string|undefined,globalProject:string|undefined,globalRetire:(()=>void)|undefined,quarantined=false;
 /** No provider racing. A durable ledger reserves each attempt before the paid call. */
 export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLedger,timeoutMs=120000){
   let generation=0,controller:AbortController|undefined;
   return {
     cancel(){generation++;controller?.abort();},
-    async summarize(pack:PublicReadingPack):Promise<HarnessRecord>{
-      const inputHash=publicInputHash(pack);
+    async summarize(pack:ReadingModelPack):Promise<HarnessRecord>{
+      const inputHash=readingInputHash(pack);
       if(quarantined)throw Error('Unsettled model adapter quarantined; no further calls');
-      if(globalFlight){if(globalHash===inputHash)return globalFlight;globalRetire?.();throw Error('Global model slot busy; prior input retired');}
+      if(globalFlight){if(globalHash===inputHash)return globalFlight;if(globalProject===pack.project)globalRetire?.();throw Error('Global model slot busy; prior input retired only for same project');}
       const ownGeneration=++generation;controller=new AbortController();const signal=controller.signal;
       const flight=(async():Promise<HarnessRecord>=>{
         const unlock=await ledger.lock();let release=true;try{
           const saved=await ledger.get(inputHash);if(saved){
             if(signal.aborted||generation!==ownGeneration)return {...saved,status:'cancelled',answer:undefined};
-            if(saved.status==='model'&&(!saved.answer||validateModelAnswer(saved.answer,{runId:saved.answer.runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt:saved.answer.attempt},pack).length))throw Error('Stored model answer invalid; no automatic replay');
+            if(saved.status==='model'&&(!saved.answer||validateModelAnswer(saved.answer,{runId:saved.answer.runId,project:pack.project,inputHash,version:packVersion(pack),attempt:saved.answer.attempt},pack).length))throw Error('Stored model answer invalid; no automatic replay');
             return saved.status==='running'?{...saved,status:'fallback',fallback:fallback(pack),errors:[...saved.errors,'Interrupted prior attempt; no automatic replay']}:saved.status==='fallback'?{...saved,fallback:saved.fallback??fallback(pack)}:saved;
           }
           const runId=randomUUID();
@@ -77,7 +90,7 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
           for(const attempt of [1,2] as const){
             if(signal.aborted||generation!==ownGeneration){record.status='cancelled';break;}
             record.attempts=attempt;await ledger.put(record);
-            const binding:ModelBinding={runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt};
+            const binding:ModelBinding={runId,project:pack.project,inputHash,version:packVersion(pack),attempt};
             let timer:ReturnType<typeof setTimeout>|undefined;
             let timedOut=false;
             let settled=false,adapterFlight:Promise<ModelReceipt>|undefined;
@@ -89,7 +102,7 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
               record.errors=validateModelAnswer(receipt.answer,binding,pack);
               if(!record.errors.length){record.status='model';record.answer=receipt.answer as ModelAnswer;break;}
               if(attempt===2)record.status='fallback';
-            }catch(error){record.status=timedOut?'fallback':signal.aborted?'cancelled':'fallback';record.errors=[String(error)];
+            }catch(error){record.status=timedOut?'fallback':signal.aborted?'cancelled':'fallback';record.errors=['scope' in pack?'Model request failed; private details omitted':String(error)];
               if(adapterFlight&&!settled){let drainTimer:ReturnType<typeof setTimeout>|undefined;await Promise.race([adapterFlight.catch(()=>{}),new Promise<void>(resolve=>{drainTimer=setTimeout(resolve,2000);})]);if(drainTimer)clearTimeout(drainTimer);if(!settled){quarantined=true;release=false;record.errors.push('Adapter did not settle; durable global slot retained');}}
               break;
             }finally{if(timer)clearTimeout(timer);}
@@ -97,8 +110,8 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
           if(signal.aborted&&record.status==='model'||generation!==ownGeneration){record.status='cancelled';delete record.answer;}
           if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback=fallback(pack);await ledger.put(record,record.status==='model'?signal:undefined);return record;
         }finally{if(release)await unlock();}
-      })();globalFlight=flight;globalHash=inputHash;globalRetire=()=>{generation++;controller?.abort();};
-      try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalHash=undefined;globalRetire=undefined;}}
+      })();globalFlight=flight;globalHash=inputHash;globalProject=pack.project;globalRetire=()=>{generation++;controller?.abort();};
+      try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalHash=undefined;globalProject=undefined;globalRetire=undefined;}}
     },
   };
 }

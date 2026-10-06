@@ -12,6 +12,7 @@ import { loadLiveConfiguration } from './live-config';
 import {createProjectRegistry,projectRegistryCodec} from './projects/registry';
 import {createModelReadingStorage} from '../summary/reading/model-reading-storage';
 import {createPublicModelController} from './public-model';
+import {createProjectModelController} from './project-model';
 import {createClaudePublicAdapter} from '../summary/reading/claude-public-adapter';
 import publicReadingPack from '../shared/public-reading-pack.json';
 import type {PublicReadingPack} from '../summary/reading/model-harness';
@@ -32,6 +33,7 @@ const entryUrl = pathToFileURL(rendererEntry).href;
 let mainWindow: BrowserWindow | null = null;
 let tray:Tray|null=null;
 let quitting=false;
+let projectModel:ReturnType<typeof createProjectModelController>|undefined;
 let publicModel:ReturnType<typeof createPublicModelController>|undefined;
 let quitSettled=false;
 const demoStore = new DemoStore();
@@ -110,6 +112,7 @@ app.whenReady().then(async()=>{
   const readRoots=createReadRoots({initialScopes:configuration.configuration?.noteScopes??[],hostId:configuration.configuration?.localHostId,persistence:readPersistence,unavailable:!readPersistence});
   await readRoots.load();
   liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry,readRoots});
+  projectModel=createProjectModelController({storage:modelReading,adapter:publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined,identify:id=>liveRuntime.identifyModelProject(id),revision:id=>liveRuntime.modelSourceRevision(id),resolve:async(id,signal)=>{const source=await liveRuntime.resolveSummarySource(id,signal);if(!source.readingSummary||liveRuntime.getState().dags.find(d=>d.dagId===source.dag.dagId)?.sourceHash!==source.dag.sourceHash)throw Error('Current reading source unavailable');return {...source,readingSummary:source.readingSummary};}});
   function makeSummaryWorkflow(){const workflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
     if(signal.aborted||!cacheLocation.available)throw new Error('App-owned cache unavailable or request cancelled');return liveRuntime.resolveSummarySource(workstreamId,signal);
   }});workflow.subscribe(view=>{if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:summary-changed',view);});return workflow;}
@@ -117,6 +120,7 @@ app.whenReady().then(async()=>{
   const linkConfig=configuration.configuration?.noteLink;
   const noteLink=linkConfig?createNoteLinkWorkflow({...linkConfig,resolveSelection:async(worktreeId:string,scopeId:string)=>liveRuntime.resolveNoteSelection(worktreeId,scopeId)}):null;
   liveRuntime.subscribe(state=>{
+    projectModel?.invalidate();
     if(mainWindow&&!mainWindow.webContents.isDestroyed()) mainWindow.webContents.send('note-app:live-changed',state);
   });
   let changingReadRoots=false,pickingReadRoot=false;
@@ -128,7 +132,7 @@ app.whenReady().then(async()=>{
   });
   ipcMain.handle('note-app:read-root-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');readRoots.cancel(args[0]);});
   async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
-    try{for(const controller of linkControllers)controller.abort();await publicModel?.cancel();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
+    try{for(const controller of linkControllers)controller.abort();await publicModel?.cancel();projectModel?.cancel();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
     finally{summaryWorkflow=makeSummaryWorkflow();changingReadRoots=false;}
   }
   ipcMain.handle('note-app:read-root-confirm',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one confirmation');return tracked(changeReadRoots(()=>readRoots.confirm(args[0])));});
@@ -142,12 +146,21 @@ app.whenReady().then(async()=>{
     ['note-app:public-model-state',()=>publicModel!.view()],
     ['note-app:public-model-run',()=>publicModel!.run()],
     ['note-app:public-model-cancel',()=>publicModel!.cancel()],
-    ['note-app:live-disconnect',()=>liveRuntime.disconnect()],
+    ['note-app:live-disconnect',()=>{projectModel?.cancel();return liveRuntime.disconnect();}],
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
     if(changingReadRoots&&channel!=='note-app:live-state')throw Error('읽기 권한 변경이 진행 중입니다.');
     return action();
+  });
+  for(const [channel,action] of [
+    ['note-app:project-model-state',(id:string)=>projectModel!.view(id)],
+    ['note-app:project-model-run',(id:string)=>projectModel!.run(id)],
+    ['note-app:project-model-cancel',(id:string)=>{projectModel!.cancel(id);return projectModel!.view(id);}],
+  ] as const)ipcMain.handle(channel,(event,...args)=>{
+    if(!mainWindow||quitting||changingReadRoots)throw Error('App unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);
+    if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).sort().join(',')!==(channel==='note-app:project-model-run'?'transferConfirmed,workstreamId':'workstreamId')||(channel==='note-app:project-model-run'&&args[0].transferConfirmed!==true)||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('Invalid project model selection');
+    return tracked(action(args[0].workstreamId));
   });
   ipcMain.handle('note-app:project-document-open',async(event,...args)=>{
     if(!mainWindow||quitting)throw new Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);if(args.length!==1)throw new Error('Expected one document selection');const uri=await liveRuntime.resolveDocumentLink(args[0]);await shell.openExternal(uri);
@@ -210,9 +223,9 @@ app.whenReady().then(async()=>{
 // A retained tray owns the app lifetime; only explicit quit terminates collection.
 app.on('window-all-closed',()=>{});
 app.on('before-quit',event=>{
-  quitting=true;for(const controller of linkControllers)controller.abort();publicModel?.dispose();summaryWorkflow?.dispose();liveRuntime?.dispose();
+  quitting=true;for(const controller of linkControllers)controller.abort();publicModel?.dispose();projectModel?.dispose();summaryWorkflow?.dispose();liveRuntime?.dispose();
   if(!quitSettled){event.preventDefault();if(waitingForMutation)return;waitingForMutation=true;
-    void finishQuit([...mutations,publicModel?.settle()??Promise.resolve(),liveRuntime?.settleRegistry()??Promise.resolve()],()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
+    void finishQuit([...mutations,publicModel?.settle()??Promise.resolve(),projectModel?.settle()??Promise.resolve(),liveRuntime?.settleRegistry()??Promise.resolve()],()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
   }
 });
 let waitingForMutation=false;

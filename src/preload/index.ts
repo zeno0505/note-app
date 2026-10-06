@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { NoteAppBridge } from '../shared/bridge';
 const bridge: NoteAppBridge = Object.freeze({
+  getProjectModelState:(request:Parameters<NoteAppBridge['getProjectModelState']>[0])=>ipcRenderer.invoke('note-app:project-model-state',request),
+  summarizeProjectModel:(request:Parameters<NoteAppBridge['summarizeProjectModel']>[0])=>ipcRenderer.invoke('note-app:project-model-run',request),
+  cancelProjectModel:(request:Parameters<NoteAppBridge['cancelProjectModel']>[0])=>ipcRenderer.invoke('note-app:project-model-cancel',request),
   getPublicModelReview:()=>ipcRenderer.invoke('note-app:public-model-review'),
   getPublicModelState:()=>ipcRenderer.invoke('note-app:public-model-state'),
   summarizePublicModel:()=>ipcRenderer.invoke('note-app:public-model-run'),

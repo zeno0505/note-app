@@ -34,7 +34,7 @@ onUnmounted(actions.dispose);
 <template>
   <section class="phase1-journey summary-journey" data-testid="summary-journey" :aria-busy="busy">
     <div class="section-heading"><div><p class="eyebrow">SUMMARY REVIEW</p><h3>작업 요약 · 검토</h3></div><span class="state-badge">승인은 실행 권한이 아닙니다</span></div>
-    <p class="journey-intro">선택한 작업·직접 의존성과 명시적으로 등록된 목표·문서·인박스 발췌문으로 요약의 근거를 준비합니다. 실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.</p>
+    <p class="journey-intro">선택한 작업·직접 의존성과 명시적으로 등록된 목표·문서·인박스 발췌문으로 요약의 근거를 준비합니다. 이 작업별 후보 검토 워크플로의 새 모델 호출은 차단되어 있습니다. 프로젝트의 지금 요약 · Claude AI 수동 실행과는 별도입니다.</p>
     <LiveSummary v-if="!view" :summary="dag.summary" :historical="!current"/>
     <template v-if="view">
       <p class="journey-status" data-testid="summary-status" role="status">{{states[view.state]}}</p>

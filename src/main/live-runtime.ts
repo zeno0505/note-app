@@ -564,7 +564,7 @@ export function createLiveRuntime(options: {
       if(mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || now()-Date.parse(session.model.observedAt)>=STALE_MS) throw new Error('Current DAG unavailable');
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new Error('Current mapping unavailable');
-      const verified=await readMapping({localHostId:config.localHostId,scopes:noteScopes,
+      const verified=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
         worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath}],signal});
       const currentMapping=verified.mappings[0];
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new Error('Source mapping changed');
@@ -574,8 +574,10 @@ export function createLiveRuntime(options: {
       const after=store.getState();
       if(disposed||!connected||after.refreshing||after.freshness!=='current'||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new Error('Source changed during validation');
       session.model=currentDag.value;
-      return {dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
+      return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
+    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&snapshot.freshness==='current'&&w?.noteMapping.state==='resolved'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
+    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''):null;},
     resolveNoteSelection(worktreeId: string, scopeId: string) {
       const snapshot=store.getState();
       if(disposed || !connected || snapshot.freshness!=='current' || !snapshot.value || !config?.localHostId) return null;
