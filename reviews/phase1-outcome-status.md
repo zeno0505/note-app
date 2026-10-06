@@ -12,7 +12,7 @@
 - 현재 입력 v2: 최신 작업/CI 우선, 현재 수동 승인과 과거 문서 제한 구분, 등록 문서의 현재 미대조 표시
 - 모델 인증 확인의 비동기 취소, owned CLI 취소/늦은 결과 차단, 영속 no-replay ledger
 - Mac 임시 Git fixture에서 note preview/confirm/no-op/rollback/exclude/cancel, 캐시와 승인 복원
-- 실제 로컬 .app 패키징·ad hoc 서명·일반 실행·기존 상태/권한/이력/AI 캐시 보존 교체
+- 실제 로컬 .app 패키징·ad hoc 서명·일반 실행·기존 상태/권한/최근12개 이력 정책/AI 캐시 보존 교체
 
 각 항목의 실제/fixture/과거 소스 구분과 한계는 최신 검토표에 있다. 검사 개수나 DAG done 선언이 실제 요약의 품질을 대신하지 않는다.
 
