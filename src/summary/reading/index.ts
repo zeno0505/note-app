@@ -49,6 +49,8 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
   }
   decisions.push(paragraph('설계 상태가 미기재되어 있습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
   evidence.push(paragraph('DAG 작업별 실제 화면 검증, 테스트 항목별 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));
+  const unsupportedCommits=dag?.tasks.reduce((n,t)=>n+(t.commitReferencesUnsupported??0),0)??0;
+  if(unsupportedCommits){partial=true;evidence.unshift(paragraph(`표시한 태스크의 커밋 참조 중 ${unsupportedCommits}개는 형식 미지원으로 미확인입니다. 내용이나 검증 여부를 추정하지 않으며 참조가 없다는 뜻이 아닙니다.`, 'unknown', sources));}
   if (pulls.state !== 'observed') {
     evidence.push(paragraph(pulls.state === 'error' ? 'PR·CI·리뷰 조회를 완료하지 못했습니다. 이 실패를 승인 또는 검증 완료로 바꾸지 않습니다.' : '실제 PR·CI·리뷰 조회 대상과 연결이 설정되지 않았습니다. DAG가 최신이라고 가정하지 않습니다.'));
     partial = true;

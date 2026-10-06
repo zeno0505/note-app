@@ -15,7 +15,12 @@ export function projectDagQuery(raw: unknown): { tasks: DagTask[]; coverage: Dag
   const counts = new Map<string | null, number>();
   const tasks: DagTask[] = raw.index.map((row: Record<string, unknown>) => {
     if ((row.title != null && !text(row.title)) || (row.status != null && !text(row.status))
-      || (row.depends_on != null && !strings(row.depends_on)) || (row.commits != null && !strings(row.commits))) return invalid();
+      || (row.depends_on != null && !strings(row.depends_on))) return invalid();
+    // Legacy scalar declarations are still declarations. Unsupported object
+    // entries do not erase the DAG or become verified/absent commit evidence.
+    if (Array.isArray(row.commits) && row.commits.length > 10000) return invalid();
+    const commitItems=row.commits==null?[]:Array.isArray(row.commits)?row.commits:[row.commits];
+    const commitReferences=commitItems.filter(text),commitReferencesUnsupported=commitItems.length-commitReferences.length;
     const status = typeof row.status === 'string' ? row.status : null;
     counts.set(status, (counts.get(status) ?? 0) + 1);
     let e2e: DagTask['e2e'] = { state: 'undeclared', required: null, coveredBy: null, coverage: 'undeclared' };
@@ -30,7 +35,7 @@ export function projectDagQuery(raw: unknown): { tasks: DagTask[]; coverage: Dag
     }
     return { id: row.id as string, title: typeof row.title === 'string' ? row.title : null, status,
       dependencies: ((row.depends_on ?? []) as string[]).map(id => ({ id, scope: ids.has(id) ? 'internal' as const : 'external' as const })),
-      e2e, commitReferences: [...(row.commits ?? []) as string[]], commitVerification: 'not-performed' };
+      e2e, commitReferences, ...(commitReferencesUnsupported?{commitReferencesUnsupported}:{}), commitVerification: 'not-performed' };
   });
   const coverage = raw.coverage;
   if (!count(coverage.tasks_total) || coverage.tasks_total !== tasks.length || !count(coverage.declared) || !count(coverage.required)

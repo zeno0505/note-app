@@ -8,6 +8,8 @@ export interface DagTask {
   e2e: { state: 'undeclared' | 'declared'; required: boolean | null; coveredBy: string[] | null; coverage: 'undeclared' | 'not-required' | 'unmet' | 'references-declared' | 'malformed' };
   /** Declaration only; no git/evidence verification is performed. */
   commitReferences: string[];
+  /** Optional declarations we could not interpret; never equivalent to no references. */
+  commitReferencesUnsupported?: number;
   commitVerification: 'not-performed';
 }
 export interface DagCoverage {

@@ -38,6 +38,13 @@ async function setup(body = `process.stdout.write(${JSON.stringify(JSON.stringif
 afterEach(async () => { ioHooks.realpath = null; ioHooks.open = null; ioHooks.mkdtemp = null; vi.restoreAllMocks(); await Promise.all(directories.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 
 describe('DAG authoritative-query projection', () => {
+  it('keeps legacy scalar commits and marks unsupported optional entries without losing task or coverage declarations',()=>{
+    const value=wire();value.index[0].commits='legacy-declaration' as never;value.index[1].commits=['supported',{sha:'do-not-infer-object-sha'},17] as never;
+    const projected=projectDagQuery(value);
+    expect(projected.tasks[0]).toMatchObject({commitReferences:['legacy-declaration'],commitVerification:'not-performed'});
+    expect(projected.tasks[1]).toMatchObject({commitReferences:['supported'],commitReferencesUnsupported:2,commitVerification:'not-performed'});
+    expect(projected.coverage.uncoveredDone).toEqual(['T-001']);expect(projected.tasks[1].status).toBe('future-vocabulary');expect(JSON.stringify(projected)).not.toContain('do-not-infer-object-sha');
+  });
   it('keeps declared vocabulary, external dependencies, E2E distinctions and unverified references separate', () => {
     const result = projectDagQuery(wire());
     expect(result.tasks[0]).toMatchObject({ status: 'finished', dependencies: [{ id: 'EXT-1', scope: 'external' }], e2e: { coverage: 'unmet' }, commitReferences: ['abc123'], commitVerification: 'not-performed' });
