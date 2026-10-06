@@ -12,7 +12,7 @@ Phase 1은 로컬 Mac 앱, 실제 프로젝트의 근거 있는 한국어 설명
 
 ## 로컬 패키지 준비
 
-깨끗한 검증 SHA에서 `npm run package:mac:local -- --output /absolute/new/note-app.app --config /absolute/private/config.json`을 사용한다. `--config`는 선택이며 기존 시작 설정 형식이다. Finder는 셸 환경을 상속하지 않으므로 이 명시적 로컬 설정을 앱 Resources에 넣는다. 원본·설치 앱을 덮어쓰지 않으며 새 출력이 필요하다. 설정은 private regular file이어야 한다. 개인 경로가 든 설정과 앱은 공개 저장소에 넣지 않는다.
+깨끗한 검증 SHA에서 `npm run package:mac:local -- --output /absolute/new/note-app.app --build-number 2 --config /absolute/private/config.json`을 사용한다. `--config`는 선택이며 기존 시작 설정 형식이다. Finder는 셸 환경을 상속하지 않으므로 이 명시적 로컬 설정을 앱 Resources에 넣는다. 원본·설치 앱을 덮어쓰지 않으며 새 출력이 필요하다. 설정은 private regular file이어야 한다. 개인 경로가 든 설정과 앱은 공개 저장소에 넣지 않는다.
 
 패키징은 다시 빌드하고 소스 SHA/트리와 entry/preload 해시를 manifest에 기록한다. 복사본 실행 파일과 CFBundleExecutable을 note-app으로 맞춰 실제 packaged 실행과 내장 설정 선택이 가능하도록 한 뒤 ad hoc 서명하고 구조·서명을 검사한다. 계정 인증서·보안 설정·자동 업데이트·설치는 변경하지 않는다.
 
@@ -30,3 +30,13 @@ Phase 1은 로컬 Mac 앱, 실제 프로젝트의 근거 있는 한국어 설명
 ## 2026-10-06 사용자 UI 수용과 후속 범위
 
 프로젝트별 AI 요약을 후속으로 작업하는 전제에서 사용자는 현재 UI 구조가 Phase 1을 충분히 반영한다고 수용했다. 이는 UI 구조에 대한 수용이며 위 실제 검증 항목이나 Phase 1 전체 완료를 자동 충족하지 않는다. CodeBurn을 독립 페이지로 옮기는 작업은 [T-028 · CodeBurn 사용량 통계 페이지 분리](plans/codeburn-usage-statistics-page.md)에 pending으로 등록했다. 이번 변경은 계획 기록만이며 제품 코드·앱·모델은 변경하지 않는다.
+
+## 승인된 단일 설치 가드
+
+사용자 package는 `~/Applications/note-app.app`에서만 소스 관측·AI·IPC를 시작한다. 다른 경로에서는 경고 후 종료하거나 서명과 build를 확인한 canonical 설치본을 열 수 있다. 경로 가드는 기존 single-instance lock 전에 실행하며 환경 변수나 live-config로 해제하지 않는다. 개발 실행은 유지한다.
+
+Mac 패키징은 유효한 증가 `--build-number`를 명시해야 한다. 이전 build1 다음은2다. 실제 설치 경로와 build번호/SHA는 앱 하단의 앱정보에 표시한다. 패키지 manifest에 role/bundle ID/build번호를 기록한다.
+
+격리 fixture package는 `--verification --build-number 2`로 만든다. 별도 ID `dev.noteapp.verification`, 이름 `note-app Verification`, package 옆 private `.note-app-verification` userData/sessionData를 사용한다. `--config`와 동시 사용은 거절하며 `NOTE_APP_CONFIG`도 읽지 않는다. 사용자 실제 profile·credentials·읽기 권한을 복사하지 않는다. 실제 설치 acceptance는 canonical 사용자 앱에서 별도로 검증한다.
+
+복구·승인된 복사본 정리·note-app LS 대상 검증 절차는 [설치 가드레일](mac-installation-guardrail-review-2026-10-07.md)을 따른다. 사용자 승인 이후 실제 적용 결과는 별도 보고서에 기록한다.

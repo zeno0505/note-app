@@ -1,9 +1,10 @@
 import {createReadRoots,readRootsCodec} from './read-roots';
+import {readInstallation,verificationProfile,allowInstallation,canonicalTargetVerified} from './install-identity';
 import {trayIconPng} from './tray-icon';
 import {finishQuit} from './quit-lifecycle';
 import { app, BrowserWindow, ipcMain, session, shell, Tray, nativeImage, powerMonitor, Menu, dialog } from 'electron';
 import { join } from 'node:path';
-import { mkdir, realpath, lstat,readFile } from 'node:fs/promises';
+import { mkdir, realpath, lstat } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { DemoStore } from './demo-store';
 import { assertNoArguments, assertTrustedSender, parseDemoRequest } from './security';
@@ -28,6 +29,13 @@ let started=false;
 export function startHost(options: {summaryFactory?: typeof createSummaryWorkflow} = {}): void {
 if(started) throw new Error('Host already started');started=true;
 app.enableSandbox();
+const installation=readInstallation(app.isPackaged,process.platform,app.getAppPath(),app.getPath('home'));
+if(installation.role==='verification'){
+  const profile=verificationProfile(installation);
+  app.setName('note-app Verification');app.setPath('userData',profile);app.setPath('sessionData',profile);
+}else if(installation.role==='user'){
+  app.setName('note-app');app.setPath('userData',join(app.getPath('appData'),'note-app'));
+}
 const rendererEntry = join(__dirname, '../renderer/index.html');
 const entryUrl = pathToFileURL(rendererEntry).href;
 let mainWindow: BrowserWindow | null = null;
@@ -57,7 +65,7 @@ async function createWindow(): Promise<void> {
     callback({cancel: !details.url.startsWith(root)});
   });
   const window = new BrowserWindow({
-    title:'note-app', width:1280, height:900, minWidth:760, minHeight:620,
+    title:installation.role==='verification'?'note-app Verification':'note-app', width:1280, height:900, minWidth:760, minHeight:620,
     backgroundColor:'#f5f6f3', show:false,
     webPreferences:{
       preload:join(__dirname,'../preload/index.cjs'),
@@ -77,16 +85,25 @@ async function createWindow(): Promise<void> {
   await window.loadFile(rendererEntry);
 }
 async function showWindow():Promise<void>{if(quitting||!liveRuntime)return;if(!mainWindow||quitting){await createWindow();return;}if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();}
-const locked=app.requestSingleInstanceLock();if(!locked){app.quit();return;}
-app.on('second-instance',()=>{void showWindow();});
 app.whenReady().then(async()=>{
+  const permitted=await allowInstallation(installation,{
+    targetVerified:()=>canonicalTargetVerified(installation),
+    warn:async canOpen=>(await dialog.showMessageBox({type:'warning',title:'note-app 설치 경로 확인',
+      message:'이 복사본에서는 소스 관측과 AI 요약을 시작하지 않습니다.',
+      detail:`실행 경로: ${installation.currentPath}\n사용자 설치 경로: ${installation.canonicalPath}\n빌드: ${installation.buildNumber??'미확인'} · ${installation.buildSha??'미확인'}\n${canOpen?'서명과 빌드를 확인한 설치본을 열 수 있습니다.':'검증된 설치본을 확인하지 못했습니다. 설치를 먼저 완료해 주세요.'}`,
+      buttons:canOpen?['종료','설치된 note-app 열기']:['종료'],defaultId:0,cancelId:0})).response,
+    openCanonical:()=>shell.openPath(installation.canonicalPath),
+  });
+  if(!permitted){app.quit();return;}
+  const locked=app.requestSingleInstanceLock();if(!locked){app.quit();return;}
+  app.on('second-instance',()=>{void showWindow();});
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'note-app',submenu:[{role:'about'},{type:'separator'},{role:'quit'}]},{role:'editMenu'},{role:'windowMenu'}]));
   const userData=app.getPath('userData');
-  const buildSha=app.isPackaged?await boundedStartup((async()=>{const metadata=JSON.parse(await readFile(join(app.getAppPath(),'package.json'),'utf8'));return typeof metadata.sourceSha==='string'&&/^[a-f0-9]{40}$/.test(metadata.sourceSha)?metadata.sourceSha:null;})(),null):null;
+  const buildSha=installation.buildSha;
   // Canonicalize the trusted Electron-owned parent once (macOS /var aliases included).
   // The cache adapter still rejects symlink descendants and ancestor replacement.
   const [configuration,cacheLocation]=await Promise.all([
-    loadLiveConfiguration(process.env.NOTE_APP_CONFIG??(app.isPackaged?join(process.resourcesPath,'live-config.json'):undefined)),
+    loadLiveConfiguration(installation.role==='verification'?undefined:process.env.NOTE_APP_CONFIG??(app.isPackaged?join(process.resourcesPath,'live-config.json'):undefined)),
     boundedStartup((async()=>{
       await mkdir(userData,{recursive:true,mode:0o700});const root=join(await realpath(userData),'summary-cache');
       await mkdir(root,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});
@@ -175,7 +192,9 @@ app.whenReady().then(async()=>{
   ipcMain.handle('note-app:environment',(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl); assertNoArguments(args);
-    return {version:app.getVersion(),buildSha,platform:process.platform,dataMode:configuration.configuration?'configured':'disabled',summaryBackend:'unconfigured',capabilities:{realOrca:!!configuration.configuration,noteWrites:!!noteLink,remoteSummary:false}} satisfies AppEnvironment;
+    return {version:app.getVersion(),buildSha,buildNumber:installation.buildNumber,installationRole:installation.role,
+      installationPath:installation.currentPath,canonicalInstallationPath:installation.canonicalPath,
+      platform:process.platform,dataMode:configuration.configuration?'configured':'disabled',summaryBackend:'unconfigured',capabilities:{realOrca:!!configuration.configuration,noteWrites:!!noteLink,remoteSummary:false}} satisfies AppEnvironment;
   });
   ipcMain.handle('note-app:demo',(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');

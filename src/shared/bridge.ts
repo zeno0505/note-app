@@ -6,6 +6,10 @@ import type {ReadRootsBridge} from './read-roots';
 export interface AppEnvironment {
   version: string;
   buildSha?:string|null;
+  buildNumber?:string|null;
+  installationRole?:'development'|'user'|'verification'|'blocked';
+  installationPath?:string;
+  canonicalInstallationPath?:string;
   platform: string;
   dataMode: 'disabled' | 'configured';
   summaryBackend: 'unconfigured';

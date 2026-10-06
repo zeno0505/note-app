@@ -75,3 +75,5 @@
 .public-model-review dt { font-size: 12px; margin-top: 12px; }
 .public-model-review dd { margin: 4px 0; font-size: 12px; }
 .public-model-review ul { font-size: 12px; padding-left: 18px; }
+
+.app-footer{flex-wrap:wrap;gap:10px}.installation-info{flex-basis:100%;min-width:0;overflow-wrap:anywhere}.installation-info p{margin-top:6px}
