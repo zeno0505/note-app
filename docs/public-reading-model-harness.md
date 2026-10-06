@@ -31,3 +31,13 @@ Orca 터미널 전송 계약은 `accepted`와 `turn_started`를 구별한다. `t
 반환 실측: 일반 입력 token 2, 캐시 생성 입력 token 7,761, 출력 token 1,578, 실행 16,165ms. CLI의 num_turns는 2이며 앱의 생성 요청 횟수와 다른 값이다. 반환 server_tool_use의 웹 검색·웹 fetch는 모두 0이다. 반환 list-cost 0.093656 USD는 구독 청구액으로 해석하지 않는다. quota의 전후 변화는 다른 사용자 작업도 포함하므로 이 요청에 귀속하지 않는다.
 
 한국어 네 섹션을 공개 근거와 대조했다. 다음 작업의 “계획 문서에만 있습니다”라는 표현은 지정된 공개 입력 범위로 한정하며 저장소 전체에 구현이 없다는 인증이 아니다. 입력 SHA를 실행 앱 SHA로 보거나 이 CI를 Mac 화면 검수·배포로 바꾸지 않았다. 일반 프로젝트 자동 호출과 역사 문서 freshness 판단은 추가하지 않았다. 저장 결과는 앱 연결 및 설정의 접힌 공개 검증 영역에서 읽을 수 있으며 그 화면은 모델을 호출하지 않는다.
+
+## 최신 본문과 최소 기록의 보관 정책
+
+Mac 앱 저장 위치는 `~/Library/Application Support/note-app/model-reading/`다. `latest-<SHA256(project)>/summary-cache-v1.json`에 프로젝트별 최신 성공 본문 하나만 저장한다. source SHA·입력 hash·버전·provider·생성 시각·출처 ID와 행 범위·검증 결과·실측 usage를 함께 보관한다. 원문 소스 excerpt는 중복 저장하지 않는다. 실패·취소·늦은 응답은 이 본문을 교체하지 않으며 이전 정상본은 stale로 표시한다. 새 성공본은 기존 캐시의 private path·CAS revision·checksum·임시 파일 rename 원자 교체를 사용한다.
+
+`ledger/summary-cache-v1.json`은 별도 최소 호출 방지 기록이다. 본문·원문 없이 hash·run ID·시도 수·상태·시간·제한된 오류·실측 usage만 저장한다. 최대 128개 입력 기록과 64개 프로젝트 메타데이터를 허용한다. 오래된 hash를 지워 같은 입력의 재과금을 허용하지 않으며 상한에 도달하면 새 호출을 차단한다. 기존 본문은 계속 읽을 수 있다. 향후 보관 상한 확장은 명시적인 정책 결정이 필요하다.
+
+최신이 아닌 과거 입력을 다시 요청하면 과거 본문을 복원하거나 모델을 재호출하지 않는다. 기존 hash 예약을 확인해 규칙 기반 fallback으로 표시한다. 현재 최신 입력은 재시작·동시 요청·출력 경로 변경 뒤에도 그대로 복원된다. `--execute --cached-only`는 모델 호출을 금지한 복원 검증이다.
+
+기존 `public-model-harness/<hash>.json`과 작업 폴더의 실험 증거는 복구 가능한 이전 산출물로 보존한다. 새 실행은 model-reading 저장소만 사용한다. 프로젝트 완료·재개 이력의 `summary-cache/projects/`, 명시적 후보·승인의 `summary-cache/dag-<hash>/`, 읽기 권한의 `summary-cache/read-permissions/`는 변경하거나 청소하지 않는다. 일반 규칙 기반 읽기 요약은 계속 별도 메모리 캐시이며 프로젝트 전체 자동 AI 호출을 추가하지 않는다.

@@ -5,7 +5,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
-const {values}=parseArgs({options:{output:{type:'string'},execute:{type:'boolean',default:false},'approved-public-sha':{type:'string'},'claude-path':{type:'string'}}});
+const {values}=parseArgs({options:{output:{type:'string'},execute:{type:'boolean',default:false},'approved-public-sha':{type:'string'},'claude-path':{type:'string'},'cached-only':{type:'boolean',default:false}}});
 if(!values.output||!path.isAbsolute(values.output))throw Error('Private absolute --output directory required');
 const out=values.output;await mkdir(out,{mode:0o700,recursive:true});
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8',maxBuffer:1024*1024}).trim();
@@ -35,7 +35,7 @@ const facts=[
  {id:'F6',section:'decisions',state:'unrecorded',text:'일반 읽기 요약에서 프로젝트별 설계 상태는 미기재입니다. 미기재를 결정 사항 없음이나 설계 완료로 바꾸지 않습니다. 실제 프로젝트 모델 전송 대상·권한·검증 경계는 별도 확인해야 합니다.',sourceIds:[reading,blocked],anchors:['설계','미기재','없음','전송','확인']},
 ];
 const pack={project:'zeno0505/note-app',sourceSha:sha,sources,facts};
-await build({entryPoints:['src/summary/reading/model-harness.ts','src/summary/reading/claude-public-adapter.ts'],outdir:path.join(out,'compiled'),platform:'node',format:'esm',bundle:true,target:'node24'});
+await build({entryPoints:['src/summary/reading/model-harness.ts','src/summary/reading/claude-public-adapter.ts','src/summary/reading/model-reading-storage.ts'],outdir:path.join(out,'compiled'),platform:'node',format:'esm',bundle:true,target:'node24'});
 const harnessModule=await import(pathToFileURL(path.join(out,'compiled/model-harness.js'))),adapterModule=await import(pathToFileURL(path.join(out,'compiled/claude-public-adapter.js')));
 const inputHash=harnessModule.publicInputHash(pack);await writeFile(path.join(out,'public-evidence-pack.json'),JSON.stringify({inputHash,pack},null,2),{mode:0o600});
 console.log(JSON.stringify({stage:'prepared',sha,inputHash,sourceCount:sources.length,facts:facts.length,bytes:Buffer.byteLength(JSON.stringify(pack)),publicOnly:true,execute:values.execute}));
@@ -44,13 +44,14 @@ if(!values['claude-path']||!path.isAbsolute(values['claude-path']))throw Error('
 const cwd=path.join(out,'empty-workspace');await mkdir(cwd,{mode:0o700,recursive:true});
 // Every experiment directory shares one durable per-user reservation/lock.
 // Changing --output must not create another paid-call allowance.
-const ledgerDirectory=process.platform==='darwin'?path.join(process.env.HOME,'Library','Application Support','note-app','public-model-harness'):path.join(process.env.HOME,'.local','share','note-app','public-model-harness');
-const ledger=adapterModule.createFileHarnessLedger(ledgerDirectory);
-const adapter=adapterModule.createClaudePublicAdapter(values['claude-path'],cwd,process.env);
+const ledgerDirectory=process.platform==='darwin'?path.join(process.env.HOME,'Library','Application Support','note-app','model-reading'):path.join(process.env.HOME,'.local','share','note-app','model-reading');
+const storageModule=await import(pathToFileURL(path.join(out,'compiled/model-reading-storage.js')));
+const ledger=storageModule.createModelReadingStorage(ledgerDirectory).ledger(pack);
+const adapter=values['cached-only']?{generate:async()=>{throw Error('Cached-only invocation cannot call a model');}}:adapterModule.createClaudePublicAdapter(values['claude-path'],cwd,process.env);
 let adapterInvocationsThisRun=0;
 const harness=harnessModule.createPublicReadingHarness({generate(...args){adapterInvocationsThisRun++;return adapter.generate(...args);}},ledger);
 process.once('SIGINT',()=>harness.cancel());process.once('SIGTERM',()=>harness.cancel());
 const first=await harness.summarize(pack),before=first.attempts,second=await harness.summarize(pack);
-await writeFile(path.join(out,'result.json'),JSON.stringify({sha,inputHash,first,adapterInvocationsThisRun,duplicate:{sameAnswer:JSON.stringify(first)===JSON.stringify(second),additionalCalls:second.attempts-before},billingInterpretation:'Returned usage is observed metadata, not a subscription charge guarantee.'},null,2),{mode:0o600});
+await writeFile(path.join(out,'result.json'),JSON.stringify({sha,inputHash,first,adapterInvocationsThisRun,duplicate:{sameAnswer:JSON.stringify(first.answer)===JSON.stringify(second.answer),additionalCalls:second.attempts-before},billingInterpretation:'Returned usage is observed metadata, not a subscription charge guarantee.'},null,2),{mode:0o600});
 console.log(JSON.stringify({stage:'completed',status:first.status,attempts:first.attempts,adapterInvocationsThisRun,errors:first.errors,duplicateAdditionalCalls:second.attempts-before,receipts:first.receipts}));
 if(first.status!=='model')process.exitCode=1;

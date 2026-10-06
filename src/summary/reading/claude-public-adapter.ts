@@ -28,8 +28,8 @@ export function createClaudePublicAdapter(executable:string,cwd:string,env:NodeJ
     if(signal.aborted)return Promise.reject(Error('Cancelled after auth status'));
     const started=Date.now();return new Promise((resolve,reject)=>{
       const child=spawn(executable,[...CLAUDE_PUBLIC_FLAGS,'--json-schema',JSON.stringify(modelOutputSchema(request.binding))],{cwd,env:subscriptionEnvironment(env),shell:false,detached:process.platform!=='win32',stdio:['pipe','pipe','pipe']});
-      let output='',error='',bytes=0,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
-      const terminate=()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGTERM');else process.kill(-child.pid,'SIGTERM');}}catch{}killTimer=setTimeout(()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}},1000);};
+      let output='',error='',bytes=0,stopping=false,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
+      const terminate=()=>{if(stopping)return;stopping=true;try{if(child.pid){if(process.platform==='win32')child.kill('SIGTERM');else process.kill(-child.pid,'SIGTERM');}}catch{}killTimer=setTimeout(()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}},1000);};
       const abort=()=>{failure='Cancelled owned model process';terminate();};signal.addEventListener('abort',abort,{once:true});
       child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>256000){failure='Model output exceeded bound';terminate();}else output+=chunk.toString();});
       child.stderr.on('data',chunk=>{if(error.length<4000)error+=chunk.toString().slice(0,4000-error.length);});

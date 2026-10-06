@@ -12,6 +12,7 @@ export interface AppEnvironment {
   capabilities: {realOrca:boolean; noteWrites:boolean; remoteSummary:false};
 }
 export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge {
+  getPublicModelReview():Promise<import('../summary/reading/model-reading-storage').LatestModelReadingView>;
   getEnvironment(): Promise<AppEnvironment>;
   loadDemo(request: {scenario:'normal'|'empty'|'failure'}): Promise<WorkspaceSnapshot>;
   getLiveState(): Promise<LiveWorkspaceView>;

@@ -15,8 +15,8 @@ export interface ModelAnswer extends ModelBinding {
 }
 export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string}
 export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:PublicReadingPack;repairErrors:string[]},signal:AbortSignal):Promise<ModelReceipt>}
-export interface HarnessRecord {inputHash:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
-export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord):Promise<void>;lock():Promise<()=>Promise<void>>}
+export interface HarnessRecord {inputHash:string;runId?:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
+export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord,signal?:AbortSignal):Promise<void>;lock():Promise<()=>Promise<void>>}
 const exact=(x:Record<string,unknown>,keys:string[])=>Object.keys(x).sort().join('|')===keys.sort().join('|');
 const object=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==='object'&&!Array.isArray(x);
 const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
@@ -40,7 +40,7 @@ export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:Publ
     const expected=pack.facts.filter(f=>f.section===section.id),listed=new Set<string>();
     for(const item of section.facts){if(!object(item)||!exact(item,['id','state'])||typeof item.id!=='string'||listed.has(item.id)){errors.push('Invalid or duplicate fact');continue;}listed.add(item.id);const fact=expected.find(f=>f.id===item.id);if(!fact||fact.state!==item.state)errors.push('Fact state changed: '+item.id);}
     if(expected.some(f=>!listed.has(f.id))||listed.size!==expected.length)errors.push('Missing fact coverage: '+section.id);
-    const sourceIds=new Set(expected.flatMap(f=>f.sourceIds));if(section.sourceIds.length!==sourceIds.size||section.sourceIds.some(id=>typeof id!=='string'||!sourceIds.has(id)))errors.push('Source coverage changed: '+section.id);
+    const sourceIds=new Set(expected.flatMap(f=>f.sourceIds));if(section.sourceIds.length!==sourceIds.size||new Set(section.sourceIds).size!==sourceIds.size||section.sourceIds.some(id=>typeof id!=='string'||!sourceIds.has(id)))errors.push('Source coverage changed: '+section.id);
     const text=section.text;
     for(const fact of expected)if(fact.anchors.some(anchor=>!text.includes(anchor)))errors.push('Required factual anchor missing: '+fact.id);
     // Reject new numbers/SHA literals. This is a guard, not a semantic truth proof.
@@ -70,10 +70,10 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
           const saved=await ledger.get(inputHash);if(saved){
             if(signal.aborted||generation!==ownGeneration)return {...saved,status:'cancelled',answer:undefined};
             if(saved.status==='model'&&(!saved.answer||validateModelAnswer(saved.answer,{runId:saved.answer.runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt:saved.answer.attempt},pack).length))throw Error('Stored model answer invalid; no automatic replay');
-            return saved.status==='running'?{...saved,status:'fallback',fallback:fallback(pack),errors:[...saved.errors,'Interrupted prior attempt; no automatic replay']}:saved;
+            return saved.status==='running'?{...saved,status:'fallback',fallback:fallback(pack),errors:[...saved.errors,'Interrupted prior attempt; no automatic replay']}:saved.status==='fallback'?{...saved,fallback:saved.fallback??fallback(pack)}:saved;
           }
-          const record:HarnessRecord={inputHash,attempts:0,status:'running',errors:[],receipts:[]};
           const runId=randomUUID();
+          const record:HarnessRecord={inputHash,runId,attempts:0,status:'running',errors:[],receipts:[]};
           for(const attempt of [1,2] as const){
             if(signal.aborted||generation!==ownGeneration){record.status='cancelled';break;}
             record.attempts=attempt;await ledger.put(record);
@@ -94,7 +94,8 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
               break;
             }finally{if(timer)clearTimeout(timer);}
           }
-          if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback=fallback(pack);await ledger.put(record);return record;
+          if(signal.aborted&&record.status==='model'||generation!==ownGeneration){record.status='cancelled';delete record.answer;}
+          if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback=fallback(pack);await ledger.put(record,record.status==='model'?signal:undefined);return record;
         }finally{if(release)await unlock();}
       })();globalFlight=flight;globalHash=inputHash;globalRetire=()=>{generation++;controller?.abort();};
       try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalHash=undefined;globalRetire=undefined;}}

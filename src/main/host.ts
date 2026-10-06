@@ -10,6 +10,7 @@ import { assertNoArguments, assertTrustedSender, parseDemoRequest } from './secu
 import type { AppEnvironment } from '../shared/bridge';
 import { loadLiveConfiguration } from './live-config';
 import {createProjectRegistry,projectRegistryCodec} from './projects/registry';
+import {createModelReadingStorage} from '../summary/reading/model-reading-storage';
 import {createLocalSummaryCache} from '../summary/storage';
 import { createLiveRuntime } from './live-runtime';
 import { boundedStartup } from './startup-boundary';
@@ -88,6 +89,7 @@ app.whenReady().then(async()=>{
     })(),{path:join(userData,'summary-cache'),available:false}),
   ]);
   const cacheRoot=cacheLocation.path;
+  const modelReading=createModelReadingStorage(join(userData,'model-reading'));
   const projectPersistence=cacheLocation.available?await boundedStartup((async()=>{const directory=join(cacheRoot,'projects');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw new Error('Unsafe project registry');return createLocalSummaryCache({directory,codec:projectRegistryCodec});})(),undefined):undefined;
   const projectRegistry=createProjectRegistry({persistence:projectPersistence??{read:async()=>null,write:async()=>{throw new Error('앱 프로젝트 상태 저장 위치를 사용할 수 없습니다.');}}});
   const readPersistence=cacheLocation.available?await boundedStartup((async()=>{
@@ -126,6 +128,7 @@ app.whenReady().then(async()=>{
     ['note-app:live-connect',()=>liveRuntime.connect()],
     ['note-app:live-refresh',()=>liveRuntime.refresh()],
     ['note-app:reading-summary-now',()=>liveRuntime.summarizeNow()],
+    ['note-app:public-model-review',()=>modelReading.readLatest('zeno0505/note-app')],
     ['note-app:live-disconnect',()=>liveRuntime.disconnect()],
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
