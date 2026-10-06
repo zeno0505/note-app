@@ -2,6 +2,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { NoteAppBridge } from '../shared/bridge';
 const bridge: NoteAppBridge = Object.freeze({
   getEnvironment: () => ipcRenderer.invoke('note-app:environment'),
+  getReadRoots:()=>ipcRenderer.invoke('note-app:read-roots'),
+  selectReadRoot:()=>ipcRenderer.invoke('note-app:read-root-select'),
+  confirmReadRoot:(request:Parameters<NoteAppBridge['confirmReadRoot']>[0])=>ipcRenderer.invoke('note-app:read-root-confirm',request),
+  cancelReadRoot:(request:Parameters<NoteAppBridge['cancelReadRoot']>[0])=>ipcRenderer.invoke('note-app:read-root-cancel',request),
+  revokeReadRoot:(request:Parameters<NoteAppBridge['revokeReadRoot']>[0])=>ipcRenderer.invoke('note-app:read-root-revoke',request),
   loadDemo: (request: Parameters<NoteAppBridge['loadDemo']>[0]) => ipcRenderer.invoke('note-app:demo', request),
   getLiveState: () => ipcRenderer.invoke('note-app:live-state'),
   connectLive: () => ipcRenderer.invoke('note-app:live-connect'),

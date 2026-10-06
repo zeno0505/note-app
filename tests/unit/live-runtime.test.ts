@@ -65,7 +65,7 @@ function persisted(model = dag()): SummaryCacheRecord<SummaryCachePayload> {
   return {revision:7,payload:summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[projection]})};
 }
 const runtimes: ReturnType<typeof createLiveRuntime>[] = [];
-function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {},projectRegistry?:ReturnType<typeof createProjectRegistry>) {
+function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {},projectRegistry?:ReturnType<typeof createProjectRegistry>,readRoots?:Parameters<typeof createLiveRuntime>[0]['readRoots']) {
   const collect = vi.fn<OrcaAdapter['collect']>(async()=>({ok:true,value:observation()}));
   const mapNotes = vi.fn<LiveRuntimeDependencies['mapNotes']>(async request=>mapping(request));
   const readDag = vi.fn<ReturnType<LiveRuntimeDependencies['dagReader']>['read']>(async()=>({ok:true,value:dag(),unchanged:false}));
@@ -75,7 +75,7 @@ function setup(config = configuration(), cacheAvailable = true, extraDependencie
   const summaryCache = vi.fn<LiveRuntimeDependencies['summaryCache']>(()=>({read:cacheRead}));
   const orca = vi.fn<LiveRuntimeDependencies['orca']>(()=>({collect,read:vi.fn()}));
   const codeburn = vi.fn<LiveRuntimeDependencies['codeburn']>(()=>({read:codeRead}));
-  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,projectRegistry,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
+  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,projectRegistry,readRoots,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
   runtimes.push(runtime);
   return {runtime,collect,mapNotes,readDag,dagReader,codeRead,cacheRead,summaryCache,orca,codeburn};
 }
@@ -478,4 +478,15 @@ it('keeps document-open authority in main, bound to the current project and exac
   await expect(f.runtime.resolveDocumentLink({workstreamId:first.workstreams[1].id,linkId:link.id})).rejects.toThrow();await expect(f.runtime.resolveDocumentLink({workstreamId:view.id,linkId:link.id,path:note})).rejects.toThrow();
   await f.runtime.disconnect();await expect(f.runtime.resolveDocumentLink({workstreamId:view.id,linkId:link.id})).rejects.toThrow();f.runtime.dispose();
  }finally{await rm(root,{recursive:true,force:true});}
+});
+
+
+it('revokes new project reads while retaining historical summaries and requires fresh source connection',async()=>{
+ const config=configuration(),registry=createProjectRegistry();let allowed=true;
+ const readRoots={scopesFor:vi.fn(async()=>allowed?config.configuration!.noteScopes:[]),filterScopes:vi.fn(async(scopes:readonly import('../../src/collector/notes').AllowedNoteScope[])=>allowed?[...scopes]:[])};
+ const mapNotes=vi.fn(async(request:NoteMappingRequest):Promise<NoteMappingResult>=>request.scopes.length?mapping(request):{status:'partial',mappings:request.worktrees.map(w=>({state:'unresolved',hostId:w.hostId,worktreeId:w.worktreeId,reason:'no-allowed-scope',stage:'scope'})),dags:[],scopeIssues:[],filesystemOperations:0});
+ const f=setup(config,true,{mapNotes},registry,readRoots);const first=await f.runtime.connect(),project=first.workstreams[0];expect(project.readingSummary).toBeTruthy();const reads=f.readDag.mock.calls.length;
+ allowed=false;await f.runtime.invalidateReadRoots();const stopped=f.runtime.getState();expect(stopped.connection).toBe('disconnected');expect(stopped.configuration.noteScopeCount).toBe(0);expect(stopped.workstreams[0].readingSummary).toEqual(project.readingSummary);expect(stopped.workstreams[0].project?.sourceState).toBe('not-checked');
+ await f.runtime.connect();expect(f.readDag).toHaveBeenCalledTimes(reads);expect(f.runtime.getState().workstreams.some(w=>w.project&&w.readingSummary)).toBe(true);
+ await expect(f.runtime.resolveSummarySource(project.id,new AbortController().signal)).rejects.toThrow();
 });

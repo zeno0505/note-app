@@ -1,3 +1,4 @@
+import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
 import { createHash } from 'node:crypto';
@@ -75,12 +76,14 @@ export function createLiveRuntime(options: {
   cacheAvailable?: boolean;
   dependencies?: Partial<LiveRuntimeDependencies>;
   projectRegistry?:ProjectRegistry;
+  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>;
 }) {
   const registry=options.projectRegistry;
   let registryError:string|null=null;
-  const retainedAllowed=(p:RegisteredProject)=>config?.localHostId===p.hostId&&config.noteScopes.some(scope=>scope.scopeId===p.scopeId&&scope.hostId===p.hostId&&scope.dagRelativePaths.includes(path.relative(scope.scopePath,p.canonicalDagPath))&&p.canonicalDagPath.startsWith(p.canonicalNotePath+path.sep));
+  const retainedAllowed=(p:RegisteredProject)=>config?.localHostId===p.hostId&&noteScopes.some(scope=>scope.scopeId===p.scopeId&&scope.hostId===p.hostId&&scope.dagRelativePaths.includes(path.relative(scope.scopePath,p.canonicalDagPath))&&p.canonicalDagPath.startsWith(p.canonicalNotePath+path.sep));
   const loaded = structuredClone(options.configuration);
   const config = loaded.configuration;
+  let noteScopes=config?.noteScopes??[];
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
   const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
@@ -173,7 +176,8 @@ export function createLiveRuntime(options: {
   async function readMapping(request: Parameters<typeof mapWorktreesToNotes>[0]): Promise<Awaited<ReturnType<typeof mapWorktreesToNotes>>> {
     if (mappingRetired) throw new Error('Mapping retired');
     try {
-      const scopedRequest={...request,...(registry?{requireNoteSymlink:true}:{}),worktrees:request.worktrees.map(worktree=>{
+      const allowedScopes=options.readRoots?await options.readRoots.filterScopes(request.scopes,request.signal):request.scopes;
+      const scopedRequest={...request,scopes:allowedScopes,...(registry?{requireNoteSymlink:true}:{}),worktrees:request.worktrees.map(worktree=>{
         const registration=config?.publicGitHub?.find(r=>r.worktreePath===worktree.worktreePath&&request.scopes.some(s=>s.scopeId===r.scopeId));
         if(!registration||worktree.hostId!==request.localHostId||(worktree.selectedDagRelativePath&&worktree.selectedDagRelativePath!==registration.dagRelativePath)){const choice=registry?.connections().find(c=>c.hostId===worktree.hostId&&c.worktreePath===worktree.worktreePath&&request.scopes.some(s=>s.scopeId===c.scopeId));return choice&&!worktree.selectedDagRelativePath?{...worktree,selectedScopeId:choice.scopeId,selectedDagRelativePath:choice.dagRelativePath}:worktree;}
         return {...worktree,registeredScopeId:registration.scopeId,selectedDagRelativePath:registration.dagRelativePath};
@@ -211,7 +215,7 @@ export function createLiveRuntime(options: {
   async function readProjectDocuments(workstream:LiveWorkstreamView,source:WorktreeSource|undefined,dag:LiveDagView|undefined,signal:AbortSignal):Promise<ProjectDocumentObservation> {
     const registration=config?.readingDocuments?.find(d=>d.worktreePath===source?.worktreePath);
     if(!registration)return {state:'unconfigured'};
-    const scope=config!.noteScopes.find(s=>s.scopeId===registration.scopeId);
+    const scope=noteScopes.find(s=>s.scopeId===registration.scopeId);
     if(!source||source.hostId!==config!.localHostId||workstream.noteMapping.state!=='resolved'||workstream.noteMapping.dagId!==dag?.dagId||dag?.state!=='ready'||!scope)return {state:'unavailable'};
     try {
       const verified=await readMapping({localHostId:config!.localHostId!,scopes:[scope],signal,worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath!,selectedDagRelativePath:registration.dagRelativePath}]});
@@ -235,7 +239,7 @@ export function createLiveRuntime(options: {
 
   async function readRegistered(mapping: ResolvedNoteMapping | undefined, signal: AbortSignal): Promise<RegisteredExcerptContext | undefined> {
     if (!mapping || !config) throw new Error('Verified excerpt scope unavailable');
-    const scope = config.noteScopes.find(s => s.scopeId === mapping.scopeId);
+    const scope = noteScopes.find(s => s.scopeId === mapping.scopeId);
     if (!scope) throw new Error('Registered excerpt scope unavailable');
     const selections: typeof config.summarySelections = [];
     for (const selection of config.summarySelections.filter(s => s.scopeId === scope.scopeId && s.excerpts?.length)) {
@@ -323,13 +327,18 @@ export function createLiveRuntime(options: {
     const observedRows=observation.joined.filter(({worktree:w})=>!skipped.has(JSON.stringify([w.identity.hostId,w.path])));
     const worktrees: NoteWorktree[] = observedRows.flatMap(({worktree: w}) => w.identity.hostId && w.path
       ? [{ worktreeId: w.id, hostId: w.identity.hostId, worktreePath: w.path }] : []);
+    if(options.readRoots&&!mappingRetired){
+      const deadline=new AbortController();const combined=AbortSignal.any([signal,deadline.signal]);let timer:ReturnType<typeof setTimeout>|undefined;
+      try{noteScopes=await Promise.race([options.readRoots.scopesFor(worktrees,registry?.records().map(p=>({scopeId:p.scopeId,hostId:p.hostId,scopePath:p.canonicalNotePath,vaultRootPath:path.dirname(p.canonicalNotePath),dagRelativePaths:[path.relative(p.canonicalNotePath,p.canonicalDagPath)]}))??[],combined),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{deadline.abort();reject(Error('Read scope deadline'));},5000);})]);}
+      catch{mappingRetired=true;noteScopes=[];}finally{if(timer)clearTimeout(timer);}
+    }
     let mappings: NoteMapping[] = [];
     let canonicalDags: Awaited<ReturnType<typeof mapWorktreesToNotes>>['dags'] = [];
     let mappingFailure: string | null = !config?.localHostId ? 'Local host identity is not configured.'
       : mappingRetired ? 'Note mapping is retired after an unsettled or failed observation; restart is required.' : null;
     if (config?.localHostId && !signal.aborted && !mappingRetired) {
       try {
-        const mapped = await readMapping({ localHostId: config.localHostId, worktrees, scopes: config.noteScopes, signal });
+        const mapped = await readMapping({ localHostId: config.localHostId, worktrees, scopes: noteScopes, signal });
         mappings = mapped.mappings; canonicalDags = mapped.dags;
         if (mapped.status === 'invalid-request') mappingFailure = 'Note mapping request was rejected.';
       } catch { mappingFailure = 'Note mapping could not be refreshed.'; }
@@ -356,7 +365,7 @@ export function createLiveRuntime(options: {
       const view=workstreams[index],row=observedRows[index].worktree;
       if(view.noteMapping.state!=='unresolved'||!['ambiguous-scope','ambiguous-dag'].includes(view.noteMapping.reason??'')||!row.path||row.identity.hostId!==config?.localHostId)continue;
       view.connectionOptions=[];
-      for(const scope of config.noteScopes)for(const dagRelativePath of scope.dagRelativePaths){if(checks++>=8||signal.aborted)break;
+      for(const scope of noteScopes)for(const dagRelativePath of scope.dagRelativePaths){if(checks++>=8||signal.aborted)break;
         const candidate=await readMapping({localHostId:config.localHostId!,scopes:[scope],signal,worktrees:[{worktreeId:row.id,hostId:row.identity.hostId!,worktreePath:row.path,selectedScopeId:scope.scopeId,selectedDagRelativePath:dagRelativePath}]});
         const resolved=candidate.mappings[0];if(resolved?.state!=='resolved')continue;
         const id=digest(JSON.stringify([view.id,scope.scopeId,dagRelativePath,resolved.canonicalDagPath]));connectionChoices.set(id,{workstreamId:view.id,hostId:row.identity.hostId!,worktreePath:row.path,scopeId:scope.scopeId,dagRelativePath,canonicalDagPath:resolved.canonicalDagPath});view.connectionOptions.push({id,label:`${scope.scopeId} · ${dagRelativePath}`});
@@ -376,7 +385,7 @@ export function createLiveRuntime(options: {
     const selections = new Map<string, string[]>();
     for (const selection of config?.summarySelections ?? []) {
       if (signal.aborted || !config?.localHostId || mappingRetired) break;
-      const scope = config.noteScopes.find(s => s.scopeId === selection.scopeId);
+      const scope = noteScopes.find(s => s.scopeId === selection.scopeId);
       if (!scope || !scope.dagRelativePaths.includes(selection.dagRelativePath)) continue;
       const matching = mappings.filter(m => m.state === 'resolved' && m.scopeId === selection.scopeId);
       const representative = new Map<string, NoteMapping>();
@@ -530,7 +539,7 @@ export function createLiveRuntime(options: {
         dag.summary.approvedClaims = historical(dag.summary.approvedClaims);
       }
     }
-    return structuredClone({ mode: 'live-read-only', connection: connected ? 'connected' : 'disconnected', configuration: loaded.view,
+    return structuredClone({ mode: 'live-read-only', connection: connected ? 'connected' : 'disconnected', configuration: {...loaded.view,noteScopeCount:noteScopes.length},
       refreshing: connected && snapshot.refreshing, observedAt: snapshot.observedAt, freshness,
       polling: {activity: !connected ? 'stopped' : activity.active && activity.visible ? 'foreground' : 'background',
         nextRefreshAt: connected ? snapshot.nextPollAt : null, countdownSeconds: connected ? snapshot.resumeCountdownSeconds : 0},
@@ -555,7 +564,7 @@ export function createLiveRuntime(options: {
       if(mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || now()-Date.parse(session.model.observedAt)>=STALE_MS) throw new Error('Current DAG unavailable');
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new Error('Current mapping unavailable');
-      const verified=await readMapping({localHostId:config.localHostId,scopes:config.noteScopes,
+      const verified=await readMapping({localHostId:config.localHostId,scopes:noteScopes,
         worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath}],signal});
       const currentMapping=verified.mappings[0];
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new Error('Source mapping changed');
@@ -571,8 +580,8 @@ export function createLiveRuntime(options: {
       const snapshot=store.getState();
       if(disposed || !connected || snapshot.freshness!=='current' || !snapshot.value || !config?.localHostId) return null;
       const source=snapshot.value.worktreeSources.find(w=>w.id===worktreeId);
-      const scope=config.noteScopes.find(s=>s.scopeId===scopeId);
-      if(!source?.hostId||!source.worktreePath||!scope||source.hostId!==config.localHostId||scope.hostId!==source.hostId) return null;
+      const scope=noteScopes.find(s=>s.scopeId===scopeId);
+      if(!source?.hostId||!source.worktreePath||!scope||!config.noteScopes.some(s=>s.scopeId===scope.scopeId)||source.hostId!==config.localHostId||scope.hostId!==source.hostId) return null;
       return {localHostId:config.localHostId,
         worktree:{worktreeId,hostId:source.hostId,worktreePath:source.worktreePath},scope:structuredClone(scope),
         knownWorktrees:snapshot.value.worktreeSources.filter(w=>w.hostId===config.localHostId&&w.worktreePath).map(w=>({worktreeId:w.id,worktreePath:w.worktreePath!}))};
@@ -606,6 +615,7 @@ export function createLiveRuntime(options: {
       if(disposed||!connected||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='linkId,workstreamId')throw new Error('문서 열기 요청 오류');
       const r=request as {linkId:string;workstreamId:string},link=documentLinks.get(r.linkId),snapshot=store.getState();
       if(!link||link.workstreamId!==r.workstreamId||snapshot.refreshing||snapshot.freshness!=='current')throw new Error('문서 연결을 다시 조회해 주세요.');
+      if(options.readRoots&&!(await options.readRoots.filterScopes(noteScopes)).some(s=>s.scopePath===link.canonicalNotePath||link.canonicalNotePath.startsWith(s.scopePath+path.sep)))throw Error('문서 읽기 허용이 철회되었거나 경로가 변경되었습니다.');
       const resolved=await resolveWikiUri(link);
       if(disposed||!connected||documentLinks.get(r.linkId)!==link||store.getState().refreshing||store.getState().revision!==snapshot.revision)throw new Error('문서 연결이 변경되었습니다.');return resolved.uri;
     },
@@ -617,7 +627,7 @@ export function createLiveRuntime(options: {
       if(!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)throw new Error('현재 연결 상태에서 다시 확인해 주세요.');
       const controller=new AbortController();connectionConfirmations.add(controller);
       try {
-        const scope=config.noteScopes.find(s=>s.hostId===choice.hostId&&s.scopeId===choice.scopeId&&s.dagRelativePaths.includes(choice.dagRelativePath));
+        const scope=noteScopes.find(s=>s.hostId===choice.hostId&&s.scopeId===choice.scopeId&&s.dagRelativePaths.includes(choice.dagRelativePath));
         if(!scope)throw new Error('연결 범위가 변경되었습니다.');
         const result=await readMapping({localHostId:config.localHostId,scopes:[scope],signal:controller.signal,worktrees:[{worktreeId:r.workstreamId,hostId:choice.hostId,worktreePath:choice.worktreePath,selectedScopeId:choice.scopeId,selectedDagRelativePath:choice.dagRelativePath}]});
         const mapping=result.mappings[0],after=store.getState();
@@ -627,6 +637,7 @@ export function createLiveRuntime(options: {
       }finally{connectionConfirmations.delete(controller);}
     },
     async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
+    async invalidateReadRoots(){await this.disconnect();noteScopes=[];publish();},
     settleRegistry:()=>registry?.settle()??Promise.resolve(),
     setSuspended(suspended:boolean):void{if(!disposed)store.setSuspended(suspended);},
     setActivity(next: {visible: boolean; active: boolean}): void {

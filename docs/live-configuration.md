@@ -227,3 +227,13 @@ never by guessing a path suffix. A sibling DAG with no applicable excerpt
 registration keeps an empty excerpt selection. Source-file and scope-directory
 aliases remain unsupported by the excerpt reader and surface as an error; they
 are not silently treated as absent registrations.
+
+## 앱의 읽기 허용 폴더
+
+연결 및 설정에서 네이티브 폴더 선택기로 폴더를 고르고, 표시된 정규 경로와 하위 프로젝트의 읽기 범위를 확인한 뒤 저장한다. 선택·취소만으로는 권한을 부여하지 않는다. 초기 목록은 기존 시작 설정의 프로젝트 범위이며, 저장된 빈 목록은 철회 상태이므로 재시작 때 시작 설정으로 되돌리지 않는다.
+
+허용 루트는 재귀 수집 대상이 아니다. 로컬 host의 Orca 지정 `docs/note` symlink와 프로젝트의 고정 `dag.yaml`·`dag.yml`만 확인한다. vault 자체를 note 대상으로 사용하지 않으며, symlink 경계·폴더 identity·DAG 경계를 재확인한다. 여러 후보의 연결 선택은 별도 확인을 유지한다. 원격 host나 허용 밖의 노트 내용은 읽지 않는다. 동일한 파일 inode의 DAG 후보는 중복 처리하지 않는다.
+
+앱 전용 private cache의 `read-permissions`에 허용 목록을 저장한다. 허용 변경 시 진행 중인 소스 연결·검토를 중단하고, 과거 설명·프로젝트 이력을 보존한다. 다시 연결해야 새 범위의 읽기가 시작된다. metadata 작업이 timeout/취소 뒤 미정리 상태가 되면 해당 mapping 수명은 계속 차단되며 앱 재시작이 필요할 수 있다. 손상된 권한 저장 파일을 덮어쓰거나 원래 권한으로 되돌리지 않는다.
+
+앱 허용 목록과 macOS의 파일 접근 권한은 별개다. 이 설정은 OS 권한을 바꾸거나 노트 쓰기·모델 전송·프로젝트 등록을 허용하지 않는다. 읽기 허용 폴더를 추가해도 시작 설정의 노트 연결 쓰기 범위는 확대되지 않는다.

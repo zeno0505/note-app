@@ -17,7 +17,7 @@ execFileSync('npm',['run','build'],{stdio:'inherit'});
 await mkdir(path.dirname(target),{recursive:true,mode:0o700});
 await cp(source,target,{recursive:true,dereference:false,verbatimSymlinks:true,errorOnExist:true,force:false});
 const resources=path.join(target,'Contents','Resources'),appRoot=path.join(resources,'app');await mkdir(appRoot,{mode:0o755});await cp('dist',path.join(appRoot,'dist'),{recursive:true});
-await writeFile(path.join(appRoot,'package.json'),JSON.stringify({name:'note-app',version:'0.1.0',private:true,main:'dist/main/index.cjs'},null,2)+'\n');
+await writeFile(path.join(appRoot,'package.json'),JSON.stringify({name:'note-app',version:'0.1.0',sourceSha:sha,private:true,main:'dist/main/index.cjs'},null,2)+'\n');
 if(config)await writeFile(path.join(resources,'live-config.json'),config,{mode:0o600});
 const plist=path.join(target,'Contents','Info.plist');
 // Electron's macOS isPackaged checks the executable basename. Keeping Electron

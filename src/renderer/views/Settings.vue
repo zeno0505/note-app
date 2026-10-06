@@ -3,6 +3,7 @@ import Button from 'primevue/button';
 import {useRouter} from 'vue-router';
 import {environment,mode,liveState,livePending,busy,bridgeError,exitDemo,refreshDemo,connectLive,disconnectLive,refreshLive} from '../store';
 import {configurationLabels} from '../live-labels';
+import ReadRootsSettings from '../components/ReadRootsSettings.vue';
 import LiveCodeBurn from '../components/LiveCodeBurn.vue';
 const router=useRouter();
 function stopDemo(){exitDemo();void router.push('/');}
@@ -15,11 +16,12 @@ function stopDemo(){exitDemo();void router.push('/');}
     <div class="configuration-details"><dl class="configuration-list"><div><dt>Orca 실행 파일</dt><dd>{{liveState?.configuration.orcaExecutable??'미설정'}}</dd></div><div><dt>CodeBurn 실행 파일 (선택)</dt><dd>{{liveState?.configuration.codeburnExecutable??'미설정'}}</dd></div><div><dt>허용된 노트 범위</dt><dd>{{liveState?liveState.configuration.noteScopeCount+'개':'미확인'}}</dd></div><div><dt>DAG query.py</dt><dd>{{liveState?(liveState.configuration.dagQueryConfigured?'설정됨':'미설정'):'미확인'}}</dd></div><div><dt>실제 연결</dt><dd>{{liveState?.connection==='connected'?'연결됨':liveState?'미연결':'미확인'}}{{liveState?.refreshing?' · 확인 중':''}}</dd></div></dl>
       <div class="setting-actions" v-if="mode==='live'"><Button v-if="liveState?.configuration.state==='ready'&&liveState.connection==='disconnected'" label="설정된 소스 연결" data-testid="live-connect" :loading="livePending" :disabled="busy" @click="connectLive"/><template v-if="liveState?.connection==='connected'"><Button label="실제 소스 새로고침" data-testid="live-refresh" outlined :loading="livePending" @click="refreshLive"/><Button label="연결 해제" data-testid="live-disconnect" outlined :disabled="busy" @click="disconnectLive"/></template></div>
     </div>
-    <div class="setting-row"><div><h2>시작 설정 파일</h2><p>로컬 JSON 설정 파일의 절대 경로를 NOTE_APP_CONFIG 환경 변수로 지정한 뒤 앱을 다시 시작하세요. 설정 스키마와 실행 예시는 저장소 docs/live-configuration.md를 참고하세요.</p><p>실행 파일 경로와 명시적인 프로젝트별 노트 범위는 시작 파일에서만 정합니다. 이 화면은 설정을 읽어 보여주며 파일을 수정하지 않습니다.</p></div></div>
+    <ReadRootsSettings v-if="mode==='live'"/>
+    <div class="setting-row"><div><h2>시작 설정 파일</h2><p>로컬 JSON 설정 파일의 절대 경로를 NOTE_APP_CONFIG 환경 변수로 지정한 뒤 앱을 다시 시작하세요. 설정 스키마와 실행 예시는 저장소 docs/live-configuration.md를 참고하세요.</p><p>실행 파일 경로와 노트 연결 쓰기 설정은 시작 파일에서 정합니다. 노트 읽기 허용 폴더는 위 선택·확인 절차로 앱에 저장할 수 있습니다.</p></div></div>
     <div class="setting-row"><div><h2>요약 백엔드</h2><p>선택한 작업의 제한된 컨텍스트를 미리 보고 로컬 요약 후보를 검토·승인할 수 있습니다. 이전 승인 기록은 새 후보와 구분해 보존됩니다. 실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.</p></div><span class="state-badge">새 요약 생성 비활성</span></div>
     <div class="setting-row"><div><h2>데이터 처리 범위</h2><p>소스 연결은 설정된 CLI와 명시된 노트·DAG를 읽기 전용으로 관측합니다. 요약 승인은 로컬 검토 기록이며 작업 실행 권한이 아닙니다. 모델 전송과 개발 위임은 차단되어 있습니다. 샘플 모드로 전환하면 실제 소스 수집을 중단합니다.</p></div><span class="state-badge safe">소스 관측은 읽기 전용</span></div>
     <div class="setting-row"><div><h2>로컬 노트 연결</h2><p>{{environment?.capabilities.noteWrites?'등록된 범위만 선택할 수 있습니다. 작업 상세에서 경로·공유 Git 로컬 제외 변경을 미리 본 뒤, 명시적으로 확인해야 적용됩니다.':'시작 설정에서 노트 연결 변경이 활성화되지 않았습니다. 임의의 파일 경로를 입력하거나 변경하지 않습니다.'}}</p><p>노트 내용은 편집하지 않습니다. 연결·제외 파일 변경 결과와 필요한 복구 안내를 각각 표시합니다.</p></div><span class="state-badge">{{environment?.capabilities.noteWrites?'미리보기 후 확인 필요':'변경 미설정'}}</span></div>
-    <div class="setting-row"><div><h2>실행 환경</h2><p>{{environment?.platform??'확인 중'}} · {{environment?.version??'—'}} · macOS 네이티브·최종 패키지 검증은 별도입니다</p></div></div>
+    <div class="setting-row"><div><h2>실행 환경</h2><p>{{environment?.platform??'확인 중'}} · {{environment?.version??'—'}}<span v-if="environment?.buildSha"> · 빌드 {{environment.buildSha.slice(0,7)}}</span> · macOS 네이티브·최종 패키지 검증은 별도입니다</p></div></div>
     <div class="setting-actions"><Button v-if="mode==='demo'" label="샘플 모드 종료" outlined @click="stopDemo"/><Button v-else label="샘플로 살펴보기" outlined :loading="busy" @click="refreshDemo().then(()=>{if(mode==='demo')router.push('/')})"/></div>
   </section>
   <LiveCodeBurn v-if="mode==='live'&&liveState" :codeburn="liveState.codeburn" :stale="liveState.connection!=='connected'"/>

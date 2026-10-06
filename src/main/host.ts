@@ -1,8 +1,9 @@
+import {createReadRoots,readRootsCodec} from './read-roots';
 import {trayIconPng} from './tray-icon';
 import {finishQuit} from './quit-lifecycle';
-import { app, BrowserWindow, ipcMain, session, shell, Tray, nativeImage, powerMonitor, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, session, shell, Tray, nativeImage, powerMonitor, Menu, dialog } from 'electron';
 import { join } from 'node:path';
-import { mkdir, realpath, lstat } from 'node:fs/promises';
+import { mkdir, realpath, lstat,readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { DemoStore } from './demo-store';
 import { assertNoArguments, assertTrustedSender, parseDemoRequest } from './security';
@@ -73,6 +74,7 @@ app.on('second-instance',()=>{void showWindow();});
 app.whenReady().then(async()=>{
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'note-app',submenu:[{role:'about'},{type:'separator'},{role:'quit'}]},{role:'editMenu'},{role:'windowMenu'}]));
   const userData=app.getPath('userData');
+  const buildSha=app.isPackaged?await boundedStartup((async()=>{const metadata=JSON.parse(await readFile(join(app.getAppPath(),'package.json'),'utf8'));return typeof metadata.sourceSha==='string'&&/^[a-f0-9]{40}$/.test(metadata.sourceSha)?metadata.sourceSha:null;})(),null):null;
   // Canonicalize the trusted Electron-owned parent once (macOS /var aliases included).
   // The cache adapter still rejects symlink descendants and ancestor replacement.
   const [configuration,cacheLocation]=await Promise.all([
@@ -88,16 +90,37 @@ app.whenReady().then(async()=>{
   const cacheRoot=cacheLocation.path;
   const projectPersistence=cacheLocation.available?await boundedStartup((async()=>{const directory=join(cacheRoot,'projects');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw new Error('Unsafe project registry');return createLocalSummaryCache({directory,codec:projectRegistryCodec});})(),undefined):undefined;
   const projectRegistry=createProjectRegistry({persistence:projectPersistence??{read:async()=>null,write:async()=>{throw new Error('앱 프로젝트 상태 저장 위치를 사용할 수 없습니다.');}}});
-  liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry});
-  summaryWorkflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
+  const readPersistence=cacheLocation.available?await boundedStartup((async()=>{
+    const directory=join(cacheRoot,'read-permissions');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});
+    const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw Error('Unsafe read permission directory');
+    return createLocalSummaryCache({directory,codec:readRootsCodec});
+  })(),undefined):undefined;
+  const readRoots=createReadRoots({initialScopes:configuration.configuration?.noteScopes??[],hostId:configuration.configuration?.localHostId,persistence:readPersistence,unavailable:!readPersistence});
+  await readRoots.load();
+  liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry,readRoots});
+  function makeSummaryWorkflow(){const workflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
     if(signal.aborted||!cacheLocation.available)throw new Error('App-owned cache unavailable or request cancelled');return liveRuntime.resolveSummarySource(workstreamId,signal);
-  }});
+  }});workflow.subscribe(view=>{if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:summary-changed',view);});return workflow;}
+  summaryWorkflow=makeSummaryWorkflow();
   const linkConfig=configuration.configuration?.noteLink;
   const noteLink=linkConfig?createNoteLinkWorkflow({...linkConfig,resolveSelection:async(worktreeId:string,scopeId:string)=>liveRuntime.resolveNoteSelection(worktreeId,scopeId)}):null;
-  summaryWorkflow.subscribe(view=>{if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:summary-changed',view);});
   liveRuntime.subscribe(state=>{
     if(mainWindow&&!mainWindow.webContents.isDestroyed()) mainWindow.webContents.send('note-app:live-changed',state);
   });
+  let changingReadRoots=false,pickingReadRoot=false;
+  function checkReadSender(event:Electron.IpcMainInvokeEvent){if(!mainWindow||quitting)throw Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);}
+  ipcMain.handle('note-app:read-roots',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return readRoots.view();});
+  ipcMain.handle('note-app:read-root-select',async(event,...args)=>{
+    checkReadSender(event);assertNoArguments(args);if(pickingReadRoot||changingReadRoots)throw Error('폴더 선택이 진행 중입니다.');pickingReadRoot=true;
+    try{const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 읽기를 허용할 폴더 선택',properties:['openDirectory'],buttonLabel:'읽기 범위 검토'});if(result.canceled||result.filePaths.length!==1)return null;return await readRoots.prepare(result.filePaths[0]);}finally{pickingReadRoot=false;}
+  });
+  ipcMain.handle('note-app:read-root-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');readRoots.cancel(args[0]);});
+  async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
+    try{for(const controller of linkControllers)controller.abort();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
+    finally{summaryWorkflow=makeSummaryWorkflow();changingReadRoots=false;}
+  }
+  ipcMain.handle('note-app:read-root-confirm',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one confirmation');return tracked(changeReadRoots(()=>readRoots.confirm(args[0])));});
+  ipcMain.handle('note-app:read-root-revoke',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one revocation');return tracked(changeReadRoots(()=>readRoots.revoke(args[0])));});
   for(const [channel,action] of [
     ['note-app:live-state',()=>liveRuntime.getState()],
     ['note-app:live-connect',()=>liveRuntime.connect()],
@@ -107,6 +130,7 @@ app.whenReady().then(async()=>{
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
+    if(changingReadRoots&&channel!=='note-app:live-state')throw Error('읽기 권한 변경이 진행 중입니다.');
     return action();
   });
   ipcMain.handle('note-app:project-document-open',async(event,...args)=>{
@@ -122,7 +146,7 @@ app.whenReady().then(async()=>{
   ipcMain.handle('note-app:environment',(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl); assertNoArguments(args);
-    return {version:app.getVersion(),platform:process.platform,dataMode:configuration.configuration?'configured':'disabled',summaryBackend:'unconfigured',capabilities:{realOrca:!!configuration.configuration,noteWrites:!!noteLink,remoteSummary:false}} satisfies AppEnvironment;
+    return {version:app.getVersion(),buildSha,platform:process.platform,dataMode:configuration.configuration?'configured':'disabled',summaryBackend:'unconfigured',capabilities:{realOrca:!!configuration.configuration,noteWrites:!!noteLink,remoteSummary:false}} satisfies AppEnvironment;
   });
   ipcMain.handle('note-app:demo',(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
