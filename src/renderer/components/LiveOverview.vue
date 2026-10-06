@@ -10,7 +10,6 @@ import {environment,liveState,livePending,search,liveWorkstreams,liveScope,liveS
 import LiveWorkstreamCard from './LiveWorkstreamCard.vue';
 import LiveStatus from './LiveStatus.vue';
 import LiveDag from './LiveDag.vue';
-import LiveCodeBurn from './LiveCodeBurn.vue';
 import {configurationLabels,isCancelledObservation} from '../live-labels';
 const visibleLimit=ref(40);
 const route=useRoute(),router=useRouter();
@@ -54,6 +53,5 @@ async function openPublicPreview(){const workstream=publicWorkstream.value;if(!w
     </div>
     <section v-else class="empty-state" data-testid="live-empty"><h2>{{search?'검색 결과가 없어요':liveState?.refreshing&&!observed?'실제 소스를 확인하고 있어요':initialCancelled?'관측이 중단되어 아직 작업을 확인하지 못했어요':!observed&&liveState?.lastError?'조회에 실패해 작업을 표시할 수 없어요':liveScope==='activity'&&liveWorkstreams.length?'현재 활동이 관측된 작업이 없어요':observed?'관측 범위에 표시할 작업이 없어요':'아직 작업 관측이 없습니다'}}</h2><p>{{search?'다른 이름으로 검색하거나 검색어를 지워 주세요.':observed?'확인된 관측 범위의 결과입니다. 부분 관측이나 미확인 범위에는 다른 작업이 있을 수 있습니다.':'조회 실패나 미확인은 작업이 없다는 뜻이 아닙니다.'}}</p><Button v-if="search" label="검색어 지우기" outlined @click="search=''"/><Button v-else-if="liveScope==='activity'&&liveWorkstreams.length" label="현재 관측 보기" outlined @click="liveScope='observed'"/></section>
     <section v-if="unlinkedDags.length" class="retained-dags"><h2>연결이 재확인되지 않은 이전 DAG</h2><p class="muted">현재 워크스트림과의 연결을 추측하지 않습니다. 마지막으로 읽은 선언과 저장 요약을 별도로 유지합니다.</p><details v-for="dag in unlinkedDags" :key="dag.dagId" class="retained-dag"><summary>{{dag.dagId}} · 이전 관측</summary><LiveDag :dag="dag"/></details></section>
-    <LiveCodeBurn v-if="liveState" :codeburn="liveState.codeburn" :stale="!connected"/>
   </template>
 </template>

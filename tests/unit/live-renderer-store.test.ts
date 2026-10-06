@@ -174,4 +174,24 @@ describe('live renderer disclosure and escaping',()=>{
     const html=await render(CodeBurn,{codeburn:{state:'observed',results:[{ok:true,value:{kind:'status',provider:'claude',currency:'USD',periods:[{label:'today',cost:7,savings:2,calls:3,approximate:true,window:null}],calendarBasis:'unknown',observedAt:1000,provenance:'codeburn-cli'}},{ok:false,observedAt:2000,error:{kind:'timeout',query:'claude-status'}},{ok:true,value:{kind:'quota',observedAt:2000,provenance:'codeburn-cli',providers:[{provider:'claude',quotaData:'unavailable',agentAvailability:'unknown',error:'reported-error',windows:[]}]}}]}});
     expect(html).toContain('비용 약 7 USD');expect(html).toContain('이전 관측');expect(html).toContain('실패한 시도');expect(html).toContain('쿼터 데이터: 사용 불가');expect(html).toContain('에이전트 실행 가능 여부: 미확인');expect(html).not.toContain('사용 0%');
   });
+  it('moves usage into its own page while preserving partial failure and unconfigured meanings',async()=>{
+    const {default:Usage}=await import('../../src/renderer/views/UsageStatistics.vue');
+    const {default:Overview}=await import('../../src/renderer/components/LiveOverview.vue');
+    store.liveState.value=state({connection:'connected',observedAt:'2026-10-06T12:00:00Z',freshness:'stale',codeburn:{state:'observed',results:[{ok:true,value:{kind:'status',provider:'claude',currency:'USD',periods:[{label:'today',cost:7,savings:2,calls:3,approximate:true,window:null}],calendarBasis:'unknown',observedAt:1000,provenance:'codeburn-cli'}},{ok:false,observedAt:2000,error:{kind:'timeout',query:'claude-status'}},{ok:true,value:{kind:'quota',observedAt:2000,provenance:'codeburn-cli',providers:[{provider:'claude',quotaData:'unavailable',agentAvailability:'unknown',error:'reported-error',windows:[]}]}}]}});
+    const html=await render(Usage,{});expect(html).toContain('사용량 통계');expect(html).toContain('비용 약 7 USD');expect(html).toContain('timeout');expect(html).toContain('쿼터 데이터: 사용 불가');expect(html).toContain('이전 관측');expect(html).not.toContain('사용 0%');expect(await render(Overview,{})).not.toContain('data-testid="live-codeburn"');
+    store.liveState.value=state();expect(await render(Usage,{})).toContain('CodeBurn이 설정되지 않아');
+    store.mode.value='demo';const demo=await render(Usage,{});expect(demo).toContain('가상 사용량을 표시하지 않습니다');expect(demo).not.toContain('data-testid="live-codeburn"');
+  });
+  it('uses the product routes for overview, usage and settings with the requested navigation order',async()=>{
+    const {createSSRApp}=await import('vue');const {renderToString}=await import('vue/server-renderer');
+    const {createRouter,createMemoryHistory}=await import('vue-router');const {routes}=await import('../../src/renderer/routes');
+    const {default:App}=await import('../../src/renderer/App.vue');const {default:PrimeVue}=await import('primevue/config');
+    const router=createRouter({history:createMemoryHistory(),routes});const app=createSSRApp(App).use(router).use(PrimeVue);
+    await router.push('/usage');await router.isReady();const usage=await renderToString(app);
+    const nav=usage.slice(usage.indexOf('<nav'),usage.indexOf('</nav>'));expect(nav.indexOf('프로젝트 현황')).toBeLessThan(nav.indexOf('사용량 통계'));expect(nav.indexOf('사용량 통계')).toBeLessThan(nav.indexOf('연결 및 설정'));expect(usage).toContain('data-testid="usage-statistics-page"');
+    const usageLink=nav.split('<a').find(tag=>tag.includes('data-testid="nav-usage"'))?.split('>')[0];expect(usageLink).toContain('aria-current="page"');expect(usageLink).toContain(' active"');
+    await router.push('/settings');expect((await renderToString(app))).not.toContain('data-testid="usage-statistics-page"');
+    await router.push('/');expect((await renderToString(app))).not.toContain('data-testid="live-codeburn"');
+    expect(bridge.connectLive).not.toHaveBeenCalled();expect(bridge.refreshLive).not.toHaveBeenCalled();expect(bridge.runSummary).not.toHaveBeenCalled();
+  });
 });

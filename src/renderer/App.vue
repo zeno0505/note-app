@@ -9,7 +9,7 @@ onUnmounted(dispose);
 <template>
   <div class="app-shell">
     <header class="app-header"><RouterLink to="/" class="brand"><span class="brand-mark">n</span><span>note-app<span class="brand-sub">PROJECT WORKSPACE</span></span></RouterLink>
-      <nav aria-label="주 메뉴"><RouterLink to="/" :class="{active:route.path!=='/settings'}">프로젝트 현황</RouterLink><RouterLink to="/settings" :class="{active:route.path==='/settings'}">연결 및 설정</RouterLink></nav>
+      <nav aria-label="주 메뉴"><RouterLink to="/" data-testid="nav-overview" :class="{active:route.path!=='/settings'&&route.path!=='/usage'}">프로젝트 현황</RouterLink><RouterLink to="/usage" data-testid="nav-usage" :class="{active:route.path==='/usage'}">사용량 통계</RouterLink><RouterLink to="/settings" data-testid="nav-settings" :class="{active:route.path==='/settings'}">연결 및 설정</RouterLink></nav>
       <span class="local-badge"><span class="status-dot"></span>{{mode==='demo'?(snapshot?.freshness==='stale'?'가상 데이터 · 갱신 실패':'가상 데이터'):liveState?.connection==='connected'?'실제 소스 관측':'로컬 전용'}}</span>
     </header>
     <main class="main-content"><RouterView /></main>
