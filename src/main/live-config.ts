@@ -34,7 +34,7 @@ function list(value: unknown, maximum: number): unknown[] {
 }
 /** Explicit, bounded startup configuration. Never accepts renderer data. */
 export function parseLiveConfiguration(value: unknown): LiveConfiguration {
-  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink'],['schemaVersion','orcaExecutablePath']);
+  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink','publicGitHub'],['schemaVersion','orcaExecutablePath']);
   if(v.schemaVersion!==1) fail();
   const noteScopes: AllowedNoteScope[] = list(v.noteScopes ?? [],8).map(raw=>{
     const s=fields(raw,['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths'],['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths']);
@@ -60,6 +60,16 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
   let dagQuery: LiveConfiguration['dagQuery'];
   if(v.dagQuery!==undefined){const q=fields(v.dagQuery,['pythonPath','queryScriptPath'],['pythonPath','queryScriptPath']);dagQuery={pythonPath:absolute(q.pythonPath),queryScriptPath:absolute(q.queryScriptPath)};}
   if(summarySelections.length&&!dagQuery) fail();
+  let publicGitHub:LiveConfiguration['publicGitHub'];
+  if(v.publicGitHub!==undefined) {
+    publicGitHub=list(v.publicGitHub,8).map(raw=>{
+      const p=fields(raw,['scopeId','dagRelativePath','worktreePath','branch'],['scopeId','dagRelativePath','worktreePath','branch']);
+      const scopeId=text(p.scopeId,128),dagRelativePath=relative(p.dagRelativePath),worktreePath=absolute(p.worktreePath),branch=text(p.branch,128);
+      if(!dagQuery||!localHostId||/[\u0000-\u0020\u007f?#]/u.test(branch)||!noteScopes.some(s=>s.scopeId===scopeId&&s.dagRelativePaths.includes(dagRelativePath)))fail();
+      return {scopeId,dagRelativePath,worktreePath,branch};
+    });
+    if(!publicGitHub.length||new Set(publicGitHub.map(p=>p.worktreePath)).size!==publicGitHub.length)fail();
+  }
   let noteLink: LiveConfiguration['noteLink'];
   if(v.noteLink!==undefined){
     const n=fields(v.noteLink,['gitExecutablePath','allowedCommonGitDirs'],['gitExecutablePath','allowedCommonGitDirs']);
@@ -69,7 +79,7 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
   }
   return {schemaVersion:1,orcaExecutablePath:absolute(v.orcaExecutablePath),
     ...(v.codeburnExecutablePath===undefined?{}:{codeburnExecutablePath:absolute(v.codeburnExecutablePath)}),
-    ...(localHostId?{localHostId}:{}),noteScopes,...(dagQuery?{dagQuery}:{}),...(noteLink?{noteLink}:{}),summarySelections};
+    ...(localHostId?{localHostId}:{}),noteScopes,...(dagQuery?{dagQuery}:{}),...(noteLink?{noteLink}:{}),summarySelections,...(publicGitHub?{publicGitHub}:{})};
 }
 async function readLiveConfiguration(filename: string | undefined): Promise<LoadedLiveConfiguration> {
   const base={orcaExecutable:null,codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked' as const};
@@ -87,7 +97,7 @@ async function readLiveConfiguration(filename: string | undefined): Promise<Load
       const after=await handle.stat();
       if(offset>MAX_CONFIG_BYTES||before.size!==offset||before.mtimeMs!==after.mtimeMs||before.size!==after.size)fail();
       const configuration=parseLiveConfiguration(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer.subarray(0,offset))));
-      return {configuration,view:{state:'ready',message:'연결하면 등록된 소스만 읽습니다. 새 요약 생성과 노트 변경은 비활성 상태입니다.',
+      return {configuration,view:{state:'ready',message:'연결하면 등록된 소스의 규칙 기반 설명을 갱신합니다. 모델 요약 생성과 노트 변경은 비활성 상태입니다.',
         orcaExecutable:configuration.orcaExecutablePath,codeburnExecutable:configuration.codeburnExecutablePath??null,
         noteScopeCount:configuration.noteScopes.length,dagQueryConfigured:!!configuration.dagQuery,summaryTransport:'blocked'}};
     } finally {buffer.fill(0);}

@@ -16,14 +16,19 @@ export interface PullObservationResult {
   observedAt: string;
   coverage: 'complete' | 'partial';
   pulls: PullObservation[];
+  branch?: {
+    name: string; headSha: string; ci: {id: number; sha: string; state: 'success' | 'failure' | 'pending' | 'unknown'; event: 'push' | 'pull_request' | 'other'}[];
+    ciFreshness: 'current' | 'historical' | 'unknown'; ciObservedAt: string | null;
+  };
+  issues?: string[];
 }
 export interface PullObservationAdapter {
-  read(selection: { workstreamId: string; dagId: string }, signal: AbortSignal): Promise<unknown>;
+  read(selection: { workstreamId: string; dagId: string }, signal: AbortSignal, intent?: 'scheduled' | 'manual'): Promise<unknown>;
 }
-function object(value: unknown, keys: string[]): Record<string, unknown> {
+function object(value: unknown, keys: string[], optional: string[] = []): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new Error('Invalid pull observation');
   const v = value as Record<string, unknown>;
-  if (Object.keys(v).length !== keys.length || keys.some(k => !Object.hasOwn(v, k))) throw new Error('Invalid pull fields');
+  if (Object.keys(v).some(k => ![...keys,...optional].includes(k)) || keys.some(k => !Object.hasOwn(v, k))) throw new Error('Invalid pull fields');
   return v;
 }
 function text(value: unknown, max = 256): string {
@@ -47,7 +52,7 @@ function array(value: unknown, max: number): unknown[] {
 export function parsePullObservation(value: unknown, selection: {workstreamId: string; dagId: string}): PullObservationResult {
   // Count the serialized response before exposing any of it to the display boundary.
   if (Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8') > 131_072) throw new Error('Pull response limit');
-  const v = object(value, ['workstreamId', 'dagId', 'repository', 'observedAt', 'coverage', 'pulls']);
+  const v = object(value, ['workstreamId', 'dagId', 'repository', 'observedAt', 'coverage', 'pulls'], ['branch','issues']);
   if (v.workstreamId !== selection.workstreamId || v.dagId !== selection.dagId) throw new Error('Foreign pull scope');
   const repository = text(v.repository);
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository)) throw new Error('Invalid repository identity');
@@ -71,6 +76,22 @@ export function parsePullObservation(value: unknown, selection: {workstreamId: s
       mapping: enumeration(p.mapping, ['verified', 'unresolved', 'squash-unverified'] as const), ci, reviews };
   });
   if (new Set(pulls.map(p => p.number)).size !== pulls.length) throw new Error('Duplicate pulls');
+  let branch: PullObservationResult['branch'];
+  if(v.branch !== undefined) {
+    const b = object(v.branch,['name','headSha','ci','ciFreshness','ciObservedAt']);
+    const ciObservedAt=b.ciObservedAt===null?null:text(b.ciObservedAt,24);
+    if(ciObservedAt!==null && (!Number.isFinite(Date.parse(ciObservedAt)) || new Date(ciObservedAt).toISOString()!==ciObservedAt || ciObservedAt>observedAt)) throw new Error('Invalid CI observation time');
+    const ci=array(b.ci,16).map(raw=>{
+      const c=object(raw,['id','sha','state','event']);
+      if(!Number.isSafeInteger(c.id)||(c.id as number)<1)throw new Error('Invalid workflow identity');
+      return {id:c.id as number,sha:sha(c.sha),state:enumeration(c.state,['success','failure','pending','unknown'] as const),event:enumeration(c.event,['push','pull_request','other'] as const)};
+    });
+    const headSha=sha(b.headSha);
+    if(ci.some(c=>c.sha!==headSha)||new Set(ci.map(c=>c.id)).size!==ci.length)throw new Error('Foreign/duplicate CI');
+    branch={name:text(b.name,128),headSha,ci,ciFreshness:enumeration(b.ciFreshness,['current','historical','unknown'] as const),ciObservedAt};
+    if((branch.ciFreshness==='current'||branch.ciFreshness==='historical')&&!ciObservedAt)throw new Error('Missing CI time');
+  }
+  const issues=v.issues===undefined?undefined:array(v.issues,16).map(x=>text(x,128));
   return {workstreamId: selection.workstreamId, dagId: selection.dagId, repository, observedAt,
-    coverage: enumeration(v.coverage, ['complete', 'partial'] as const), pulls};
+    coverage: enumeration(v.coverage, ['complete', 'partial'] as const), pulls,...(branch?{branch}:{}),...(issues?{issues}:{})};
 }

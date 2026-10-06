@@ -8,6 +8,15 @@ afterEach(async()=>{await Promise.all(roots.splice(0).map(root=>rm(root,{recursi
 const minimal={schemaVersion:1,orcaExecutablePath:'/usr/local/bin/orca'};
 const scoped={...minimal,localHostId:'host',noteScopes:[{scopeId:'project',hostId:'host',vaultRootPath:'/notes',scopePath:'/notes/project',dagRelativePaths:['dag.yaml']}],dagQuery:{pythonPath:'/usr/bin/python3',queryScriptPath:'/trusted/query.py'},summarySelections:[{scopeId:'project',dagRelativePath:'dag.yaml',taskIds:['T-1']}]};
 describe('explicit startup configuration',()=>{
+  it('permits only exact public note-app startup registration, with no token/repository/URL route',()=>{
+    const entry={scopeId:'project',dagRelativePath:'dag.yaml',worktreePath:'/work/note-app',branch:'feat/phase1-foundation'};
+    expect(parseLiveConfiguration({...scoped,publicGitHub:[entry]}).publicGitHub).toEqual([entry]);
+    for(const value of [{...entry,repository:'example/other'},{...entry,token:'secret'},
+      {...entry,scopeId:'foreign'},{...entry,dagRelativePath:'../dag.yaml'},{...entry,branch:'main?other=x'},
+      {...entry,worktreePath:'relative'}])expect(()=>parseLiveConfiguration({...scoped,publicGitHub:[value]})).toThrow();
+    expect(()=>parseLiveConfiguration({...minimal,publicGitHub:[entry]})).toThrow();
+    expect(()=>parseLiveConfiguration({...scoped,publicGitHub:[entry,entry]})).toThrow();
+  });
   it('allows note-link capability only with explicit local scoped and Git authority configuration',()=>{
     const noteLink={gitExecutablePath:'/usr/bin/git',allowedCommonGitDirs:['/work/repository/.git']};
     expect(parseLiveConfiguration({...scoped,noteLink}).noteLink).toEqual(noteLink);

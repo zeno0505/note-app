@@ -8,6 +8,7 @@ import { createCodeBurnReader, type CodeBurnQuery, type CodeBurnResult } from '.
 import { createSummaryStore, restoreSummaryStoreFromLocalCache, type ClaimView } from '../summary/claims';
 import { createReadingScheduler } from '../summary/reading';
 import type { PullObservationAdapter } from '../summary/reading/pulls';
+import { createPublicGitHubObserver } from '../summary/reading/github';
 import { buildContextPack } from '../summary/context';
 import { contextScopeId } from '../summary/context/extract';
 import { extractProjectionContext } from '../summary/context/projection';
@@ -45,6 +46,7 @@ export interface LiveRuntimeDependencies {
   clock: SnapshotClock;
   /** Internal observation seam only; no production GitHub transport is configured. */
   pullObservations: PullObservationAdapter;
+  publicGitHubObserver: typeof createPublicGitHubObserver;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[] }
@@ -73,7 +75,18 @@ export function createLiveRuntime(options: {
   const config = loaded.configuration;
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
-  const reading = createReadingScheduler({now, adapter: deps.pullObservations});
+  const publicSelections=new Map<string,{dagId:string;branch:string;worktreePath:string}>();
+  const publicObservers=new Map<string,PullObservationAdapter>();
+  const publicAdapter:PullObservationAdapter|undefined=config?.publicGitHub?.length?{
+    read(selection,signal,intent){
+      const registration=publicSelections.get(selection.workstreamId);
+      if(!registration||registration.dagId!==selection.dagId)throw new Error('Public repository scope unavailable');
+      let observer=publicObservers.get(registration.worktreePath);
+      if(!observer){if(publicObservers.size>=8)throw new Error('Public observer lifetime limit');observer=(deps.publicGitHubObserver??createPublicGitHubObserver)({registrations:[{dagId:registration.dagId,branch:registration.branch}],now});publicObservers.set(registration.worktreePath,observer);}
+      return observer.read(selection,signal,intent);
+    },
+  }:undefined;
+  const reading = createReadingScheduler({now, adapter: deps.pullObservations??publicAdapter});
   const mapNotes = deps.mapNotes ?? mapWorktreesToNotes;
   const makeCache: LiveRuntimeDependencies['summaryCache'] = deps.summaryCache ?? (cacheOptions=>{
     const cache=createLocalSummaryCache<SummaryCachePayload>(cacheOptions);
@@ -148,7 +161,12 @@ export function createLiveRuntime(options: {
   async function readMapping(request: Parameters<typeof mapWorktreesToNotes>[0]): Promise<Awaited<ReturnType<typeof mapWorktreesToNotes>>> {
     if (mappingRetired) throw new Error('Mapping retired');
     try {
-      const result = await mapNotes(request);
+      const scopedRequest={...request,worktrees:request.worktrees.map(worktree=>{
+        const registration=config?.publicGitHub?.find(r=>r.worktreePath===worktree.worktreePath&&request.scopes.some(s=>s.scopeId===r.scopeId));
+        if(!registration||worktree.hostId!==request.localHostId||(worktree.selectedDagRelativePath&&worktree.selectedDagRelativePath!==registration.dagRelativePath))return worktree;
+        return {...worktree,registeredScopeId:registration.scopeId,selectedDagRelativePath:registration.dagRelativePath};
+      })};
+      const result = await mapNotes(scopedRequest);
       // Timeout/cancellation can leave one owned kernel metadata call outstanding.
       // Keep this lifetime retired instead of accumulating a fresh call each poll.
       if (request.signal?.aborted || [...result.mappings, ...result.scopeIssues].some(issue =>
@@ -275,8 +293,16 @@ export function createLiveRuntime(options: {
         terminalCount: process?.liveTerminalCount ?? null,
         agentState: process?.agents?.length && process.agents.every(a => a.state === 'done') ? 'done' : 'unknown',
         projectMapping, noteMapping: mapping?.state === 'resolved'
-          ? { state: 'resolved', reason: null, dagId: mapping.dagId }
+          ? { state: 'resolved', reason: null, dagId: mapping.dagId,...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
+    });
+    publicSelections.clear();
+    observation.joined.forEach(({worktree:w},index)=>{
+      const mapping=byWorktree.get(identity(w.identity.hostId,w.id));
+      const registered=config?.publicGitHub?.find(r=>r.worktreePath===w.path);
+      if(mapping?.state==='resolved'&&mapping.registration==='explicit-read-only'&&registered&&mapping.scopeId===registered.scopeId&&mapping.canonicalWorktreePath===registered.worktreePath) {
+        publicSelections.set(workstreams[index].id,{dagId:mapping.dagId,branch:registered.branch,worktreePath:registered.worktreePath});
+      }
     });
 
     // Resolve explicit summary registrations using the same scope-checking mapper. No path
@@ -368,7 +394,7 @@ export function createLiveRuntime(options: {
   const store = createSnapshotStore<CollectedView, LiveWorkspaceView['coverage'], {kind: string; message: string}>({
     clock: deps.clock, intervalMs: INTERVAL_MS, staleAfterMs: STALE_MS, active: false, visible: true,
     backgroundIntervalMs: 300_000, resumeDelayMs: 5_000,
-    async load({signal}) {
+    async load({signal,reason}) {
       const budgets = readCodeburn(signal);
       let result;
       try { result = await orca!.collect({signal}); }
@@ -384,7 +410,7 @@ export function createLiveRuntime(options: {
       if (projectionFailed || !value) return {kind: 'failure', error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
       const summaries = await reading.update(value.workstreams.filter(w => w.archived !== true).map(workstream => ({
         workstream, dag: value!.dags.find(d => d.dagId === workstream.noteMapping.dagId),
-      })), signal);
+      })), signal, reason==='manual'?'manual':'scheduled');
       for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
       const observation = result.value;
       return {kind: 'success', value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,

@@ -52,7 +52,7 @@ export interface LiveWorkstreamView {
   terminalCount: number | null;
   agentState: 'done' | 'unknown';
   projectMapping: string;
-  noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null };
+  noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null; registration?: 'explicit-read-only' };
   readingSummary?: ReadingSummary;
 }
 export interface LiveWorkspaceView {

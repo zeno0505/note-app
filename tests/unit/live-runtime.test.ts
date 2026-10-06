@@ -80,6 +80,18 @@ beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(EPOCH);});
 afterEach(()=>{for(const runtime of runtimes.splice(0))runtime.dispose();vi.useRealTimers();});
 
 describe('connected-project rule reading integration',()=>{
+  it('production-wires the explicitly registered canonical DAG and branch only, with manual intent',async()=>{
+    const config=configuration();config.configuration!.publicGitHub=[{scopeId:'scope-one',dagRelativePath:'dag.yaml',worktreePath:'/synthetic/worktree/0',branch:'feat/phase1-foundation'}];
+    const read=vi.fn<LiveRuntimeDependencies['pullObservations']['read']>(async(selection)=>({...selection,repository:'zeno0505/note-app',observedAt:new Date().toISOString(),coverage:'complete',pulls:[],
+      branch:{name:'feat/phase1-foundation',headSha:'a'.repeat(40),ci:[{id:1,sha:'a'.repeat(40),state:'success',event:'push'}],ciFreshness:'current',ciObservedAt:new Date().toISOString()}}));
+    const factory=vi.fn<LiveRuntimeDependencies['publicGitHubObserver']>(()=>({read}));const f=setup(config,true,{publicGitHubObserver:factory});
+    f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved'&&request.worktrees.find(w=>w.worktreeId===m.worktreeId)?.registeredScopeId)m.registration='explicit-read-only';return result;});
+    const first=await f.runtime.connect();expect(factory).toHaveBeenCalledTimes(1);expect(factory.mock.calls[0][0].registrations).toEqual([{dagId:DAG,branch:'feat/phase1-foundation'}]);
+    expect(first.workstreams[0].noteMapping.registration).toBe('explicit-read-only');expect(first.workstreams[1].noteMapping.registration).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(1);expect(read.mock.calls[0][0].workstreamId).toBe(first.workstreams[0].id);
+    await f.runtime.summarizeNow();expect(read.mock.calls.at(-1)![2]).toBe('manual');
+    expect(first.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('직접 푸시'))).toBe(true);
+  });
   it('uses background collection cadence and does not regenerate unchanged content',async()=>{
     const f=setup();const first=await f.runtime.connect();const reading=first.workstreams[0].readingSummary!;
     expect(reading.sections).toHaveLength(4);expect(reading.kind).toBe('rules-only');

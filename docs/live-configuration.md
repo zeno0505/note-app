@@ -85,7 +85,7 @@ Connected projects now have [four-section rule-based explanations](reading-summa
 They update only when the scoped observation changes; `지금 요약` checks current sources
 through its own read-only request, separately from `실제 소스 새로고침`. Neither invokes
 a model or edits user notes/DAGs. The existing six-aspect candidates and historical
-approval cache below remain separate. Real PR observation has no production adapter.
+approval cache below remain separate. Public note-app observation is opt-in through the [fixed-repository read adapter](public-github-reading.md); other repositories and task-to-PR correlation remain unavailable.
 
 ## Model summary and cache boundary
 

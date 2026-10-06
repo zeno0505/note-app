@@ -43,10 +43,10 @@ workstream/DAG의 마지막 PR 근거를 **이전 관측**으로 표시하고 �
 
 ## 외부 PR 어댑터: 합성 테스트 경계
 
-`PullObservationAdapter`는 main 내부의 시험용 seam이다. production GitHub
-transport, 저장소 자동 검색, 자격 증명 경로, 사용자 입력 URL 실행 기능은 없다.
-실제 조회 대상 및 작업/회차/커밋 연결 정책 승인 후에만 구체 어댑터를 추가한다.
-현재 production에서는 PR/CI/리뷰가 미설정이라고 표시한다.
+`PullObservationAdapter`의 합성 seam은 유지한다. 승인된 공개 note-app에만
+[구체 읽기 어댑터](public-github-reading.md)를 추가했다. 저장소 자동 검색,
+자격 증명 경로, 사용자 입력 URL 실행 기능은 없다. 등록하지 않으면 여전히
+미설정이다. 작업/회차/커밋 연결은 별도 검증이 필요하다.
 
 응답은 workstream/DAG와 정확히 일치해야 한다. repository 이름, PR 번호, head/merge
 SHA, 작업 연결 상태, CI/review SHA, 관측 시각, coverage를 엄격하게 검사한다.

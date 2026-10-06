@@ -1,6 +1,6 @@
 /** Read-only explanations, independent of model candidates and user approvals. */
 export interface ReadingSource {
-  kind: 'dag' | 'orca' | 'pull' | 'ci' | 'review';
+  kind: 'dag' | 'orca' | 'pull' | 'ci' | 'review' | 'git';
   id: string;
   sha: string | null;
   sourceHash: string | null;

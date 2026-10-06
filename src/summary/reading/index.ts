@@ -4,7 +4,7 @@ import type { ReadingParagraph, ReadingSection, ReadingSource, ReadingSummary } 
 import { parsePullObservation, type PullObservationAdapter, type PullObservationResult } from './pulls';
 
 export interface ReadingInput { workstream: LiveWorkstreamView; dag?: LiveDagView }
-type PullState = {state: 'unconfigured'} | {state: 'error'; retained?: PullObservationResult} | {state: 'observed'; value: PullObservationResult};
+type PullState = {state: 'unconfigured'} | {state: 'error'; retained?: PullObservationResult;reason?:'rate-limit'} | {state: 'observed'; value: PullObservationResult};
 const LIMITATION = '고정 규칙으로 관측 기록을 설명합니다. 코드의 실제 동작·설계 합의·우선순위를 자유롭게 추론하지 않습니다. 기존 6관점의 저장 요약과 사용자 승인 기록은 별도로 유지합니다.';
 const paragraph = (text: string, basis: ReadingParagraph['basis'] = 'unknown', sources: ReadingSource[] = []): ReadingParagraph => ({text, basis, sources});
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -50,6 +50,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
   if (pulls.state !== 'observed') {
     evidence.push(paragraph(pulls.state === 'error' ? 'PR·CI·리뷰 조회를 완료하지 못했습니다. 이 실패를 승인 또는 검증 완료로 바꾸지 않습니다.' : '실제 PR·CI·리뷰 조회 대상과 연결이 설정되지 않았습니다. DAG가 최신이라고 가정하지 않습니다.'));
     partial = true;
+    if(pulls.state==='error'&&pulls.reason==='rate-limit')evidence.push(paragraph('GitHub 공개 조회 한도에 따라 대기 중입니다. 자동 재시도나 새 인증 시도로 우회하지 않습니다.'));
   }
   const observation = pulls.state === 'observed' ? pulls.value : pulls.state === 'error' ? pulls.retained : undefined;
   if (observation) {
@@ -57,6 +58,19 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
     if (historical) evidence.push(paragraph('아래 PR·CI·리뷰는 조회 실패 전에 저장한 이전 관측입니다. 현재 상태로 재확인되지 않았습니다.'));
     if (observation.coverage === 'partial') evidence.push(paragraph('PR 관측이 부분 결과입니다. 보이지 않는 PR·CI·리뷰가 없다고 판단하지 않습니다.'));
     if (!observation.pulls.length) evidence.push(paragraph('지정된 PR 조회 범위에서 PR을 관측하지 못했습니다. 프로젝트 전체의 PR 부재나 구현 완료를 뜻하지 않습니다.'));
+    if(observation.branch) {
+      const branch=observation.branch;
+      const ref:ReadingSource={kind:'git',id:`${observation.repository}:${branch.name}`,sha:branch.headSha,sourceHash:null,observedAt:observation.observedAt};
+      evidence.push(paragraph(`${historical?'이전 관측에서 ':''}${branch.name} 브랜치의 head 커밋을 확인했습니다. 브랜치 커밋과 PR 병합 근거는 구별합니다.`,historical?'unknown':'observation',[ref]));
+      const current=!historical&&branch.ciFreshness==='current';
+      const runs=branch.ci;
+      const ciSources:ReadingSource[]=runs.map(run=>({kind:'ci',id:`${observation.repository}:actions/${run.id}`,sha:run.sha,sourceHash:null,observedAt:branch.ciObservedAt}));
+      const result=runs.length&&runs.every(run=>run.state==='success')?'조회한 workflow가 성공했습니다':runs.some(run=>run.state==='failure')?'실패한 workflow가 있습니다':runs.some(run=>run.state==='pending')?'진행 중인 workflow가 있습니다':'workflow 성공 여부가 미확인입니다';
+      evidence.push(paragraph(`${current?'':'현재 재확인되지 않은 이전 또는 미확인 근거입니다. '}${branch.name} head SHA의 CI는 ${result}.${runs.some(run=>run.event==='push')?' 직접 푸시로 시작된 실행이 포함되어 있습니다.':''} PR 승인·필수 체크 전체 충족·화면 검수·배포 완료는 확인하지 않았습니다.`,current?'observation':'unknown',[ref,...ciSources]));
+      evidence.push(paragraph('현재 브랜치 커밋과 DAG 작업의 대응 관계는 검증하지 않았습니다. CI 성공이나 직접 푸시를 특정 작업의 완료로 자동 연결하지 않습니다.','unknown',[...sources,ref]));
+    }
+    if(observation.issues?.length) evidence.push(paragraph('외부 관측에 일부 조회 실패·상한·부분 결과가 있습니다. 빠진 CI·리뷰를 완료로 추정하지 않습니다.'));
+    if(observation.issues?.includes('rate-limit')) evidence.push(paragraph('GitHub 공개 조회 한도에 따라 추가 조회를 대기합니다. 관측하지 못한 근거는 미확인입니다.'));
     for (const pull of observation.pulls.slice(0, 8)) {
       const ref: ReadingSource = {kind: 'pull', id: `${observation.repository}#${pull.number}`, sha: pull.headSha, sourceHash: null, observedAt: observation.observedAt};
       const linked = !historical && available && pull.mapping === 'verified' && pull.taskIds.length > 0 && !!dag && pull.taskIds.every(id => dag.tasks.some(t => t.id === id));
@@ -91,7 +105,8 @@ function semantics(input: ReadingInput, pulls: PullState): unknown {
   const {workstream: w, dag: d} = input;
   return {workstreamId: w.id, mapping: w.noteMapping, dag: d ? {dagId: d.dagId, state: d.state,
     doneStatus: d.doneStatus, tasks: d.tasks, taskCount: d.taskCount, displayedTaskCount: d.displayedTaskCount} : null,
-    pulls: pulls.state === 'observed' ? {state: pulls.state, ...pulls.value, observedAt: undefined} : pulls};
+    pulls: pulls.state === 'observed' ? {state: pulls.state, ...pulls.value, observedAt: undefined,
+      ...(pulls.value.branch?{branch:{...pulls.value.branch,ciObservedAt:undefined}}:{})} : pulls};
 }
 
 /** Called after successful collection, using its cadence; owns no background service.
@@ -113,7 +128,7 @@ export function createReadingScheduler(options: {adapter?: PullObservationAdapte
   }
   return {
     cancel,
-    update(inputs: ReadingInput[], signal: AbortSignal): Promise<ReadingSummary[]> {
+    update(inputs: ReadingInput[], signal: AbortSignal, intent: 'scheduled'|'manual' = 'scheduled'): Promise<ReadingSummary[]> {
       if (signal.aborted) return Promise.reject(new Error('Reading cancelled'));
       if (inputs.length > 1_000 || new Set(inputs.map(i => i.workstream.id)).size !== inputs.length) return Promise.reject(new Error('Reading scope limit'));
       inputs = structuredClone(inputs);
@@ -140,7 +155,7 @@ export function createReadingScheduler(options: {adapter?: PullObservationAdapte
               adapterReads++;
               const pending = Promise.resolve().then(() => {
                 if (owned.signal.aborted || readController.signal.aborted) throw new Error('Reading cancelled');
-                return options.adapter!.read(query, readController.signal);
+                return options.adapter!.read(query, readController.signal, intent);
               });
               const bounded = new Promise<never>((_, reject) => {
                 abortRead = () => {adapterRetired = true; readController.abort(); reject(new Error('Reading cancelled'));};
@@ -150,7 +165,8 @@ export function createReadingScheduler(options: {adapter?: PullObservationAdapte
               const value = parsePullObservation(await Promise.race([pending, bounded]), query);
               if (Date.parse(value.observedAt) > now() || now() - Date.parse(value.observedAt) > 300_000) throw new Error('Observation time unavailable');
               pulls = {state: 'observed', value};
-            } catch {pulls = {state: 'error', retained: retainedPulls.get(`${selection.workstreamId}:${selection.dagId}`)};}
+            } catch(error) {pulls = {state: 'error', retained: retainedPulls.get(`${selection.workstreamId}:${selection.dagId}`),
+              ...(error&&typeof error==='object'&&'kind' in error&&error.kind==='rate-limit'?{reason:'rate-limit' as const}:{})};}
             finally {if (timer) clearTimeout(timer); if (abortRead) owned.signal.removeEventListener('abort', abortRead);}
           }
           if (pulls.state === 'observed') nextPulls.set(`${selection.workstreamId}:${selection.dagId}`, pulls.value);

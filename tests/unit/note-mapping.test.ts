@@ -51,6 +51,23 @@ async function reason(expected: string): Promise<void> {
 }
 
 describe('bounded read-only mapping and canonical identity', () => {
+  it('resolves explicit read registration without creating a missing docs/note link',async()=>{
+    await fs.unlink(path.join(worktree,'docs','note'));row().registeredScopeId='project-scope';row().selectedDagRelativePath='dag.json';
+    const before=await fs.stat(path.join(project,'dag.json')),result=await mapWorktreesToNotes(request);
+    expect(result.mappings[0]).toMatchObject({state:'resolved',registration:'explicit-read-only',canonicalDagPath:path.join(project,'dag.json')});
+    await expect(fs.lstat(path.join(worktree,'docs','note'))).rejects.toMatchObject({code:'ENOENT'});
+    expect((await fs.stat(path.join(project,'dag.json'))).mtimeMs).toBe(before.mtimeMs);
+  });
+  it('does not overwrite an existing unrelated link when an explicit read registration is used',async()=>{
+    const other=path.join(root,'other');await fs.mkdir(other);await noteTarget(other);
+    row().registeredScopeId='project-scope';row().selectedDagRelativePath='dag.json';
+    expect((await mapWorktreesToNotes(request)).mappings[0].state).toBe('resolved');expect(await fs.readlink(path.join(worktree,'docs','note'))).toBe(other);
+  });
+  it('rejects an unknown scope and missing/outside exact DAG selection',async()=>{
+    row().registeredScopeId='foreign';row().selectedDagRelativePath='dag.json';await reason('no-allowed-scope');
+    row().registeredScopeId='project-scope';row().selectedDagRelativePath='../outside';expect((await mapWorktreesToNotes(request)).status).toBe('invalid-request');
+    delete row().selectedDagRelativePath;expect((await mapWorktreesToNotes(request)).status).toBe('invalid-request');
+  });
   it('maps an explicit project note to a registered regular DAG file', async () => {
     const result = await mapWorktreesToNotes(request);
     expect(result.status).toBe('complete');

@@ -103,6 +103,15 @@ describe('reading scheduler',()=>{
     const same=await scheduler.update([input()],signal());expect(same[0]).toMatchObject({changed:false,revision:1,generatedAt:first[0].generatedAt});
     await scheduler.update([],signal());const returned=await scheduler.update([input()],signal());expect(returned[0].changed).toBe(true);
   });
+  it('preserves branch/CI evidence time across polls, reports stale CI and visible rate limits honestly',async()=>{
+    let value=parsed();value.pulls=[];value.branch={name:'feat/phase1-foundation',headSha:'a'.repeat(40),ci:[{id:3,sha:'a'.repeat(40),state:'success',event:'push'}],ciFreshness:'current',ciObservedAt:at};
+    const read=vi.fn(async()=>structuredClone(value));const scheduler=createReadingScheduler({adapter:{read}});
+    const first=await scheduler.update([input()],signal());vi.setSystemTime(Date.parse(at)+20_000);value.observedAt=new Date().toISOString();value.branch.ciObservedAt=value.observedAt;
+    const same=await scheduler.update([input()],signal());expect(same[0].changed).toBe(false);expect(same[0].generatedAt).toBe(first[0].generatedAt);
+    value.branch.ciFreshness='historical';const stale=await scheduler.update([input()],signal());expect(stale[0].sections.flatMap(s=>s.paragraphs.map(p=>p.text)).join('\n')).toContain('현재 재확인되지 않은 이전');
+    read.mockRejectedValueOnce({kind:'rate-limit'});const limited=await scheduler.update([input()],signal());
+    expect(limited[0].sections.flatMap(s=>s.paragraphs.map(p=>p.text)).join('\n')).toContain('공개 조회 한도');
+  });
   it('joins concurrent manual/scheduled same-scope requests and snapshots caller input',async()=>{
     const pending=deferred<unknown>();const read=vi.fn(()=>pending.promise);const scheduler=createReadingScheduler({adapter:{read}});const data=input();
     const scheduled=scheduler.update([data],signal());const manual=scheduler.update([data],signal());expect(manual).toBe(scheduled);

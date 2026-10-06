@@ -6,6 +6,8 @@ export interface NoteWorktree {
   worktreePath: string;
   /** Exact registered path, relative to the selected scope, when several DAGs exist. */
   selectedDagRelativePath?: string;
+  /** Trusted main-only explicit read registration; creates no docs/note link. */
+  registeredScopeId?: string;
 }
 
 export interface AllowedNoteScope {
@@ -62,6 +64,7 @@ export interface ResolvedNoteMapping {
   canonicalNotePath: string;
   canonicalDagPath: string;
   dagId: string;
+  registration?: 'explicit-read-only';
 }
 
 export interface UnresolvedNoteMapping extends MappingProblem {

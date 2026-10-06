@@ -71,6 +71,7 @@ function inputError(request: NoteMappingRequest): NoteMappingResult['inputError'
       || !validString(row.hostId, NOTE_MAPPING_LIMITS.idCharacters)
       || !(row.hostId === request.localHostId ? validAbsolute(row.worktreePath) : validString(row.worktreePath, NOTE_MAPPING_LIMITS.pathCharacters))
       || (row.selectedDagRelativePath !== undefined && !validRelative(row.selectedDagRelativePath))) return 'invalid-input';
+    if(row.registeredScopeId!==undefined && (!validString(row.registeredScopeId,NOTE_MAPPING_LIMITS.idCharacters)||!row.selectedDagRelativePath))return 'invalid-input';
     const key = JSON.stringify([row.hostId, row.worktreeId]);
     if (worktreeIds.has(key)) return 'duplicate-identity';
     worktreeIds.add(key);
@@ -252,7 +253,12 @@ async function mapWorktree(reads: BoundedReads, worktree: NoteWorktree, localHos
     reads.check('worktree');
     if (scopes.length === 0) fail('no-allowed-scope', 'scope');
     const canonicalWorktreePath = await canonicalDirectory(reads, worktree.worktreePath, 'worktree', 'worktree-unavailable', 'worktree-not-directory');
-    const { notePath, docsPath, scope } = await resolveNote(reads, canonicalWorktreePath, scopes);
+    let notePath:string,docsPath:string|null,scope:ResolvedScope;
+    if(worktree.registeredScopeId!==undefined) {
+      const registered=scopes.filter(s=>s.source.scopeId===worktree.registeredScopeId);
+      if(registered.length!==1)fail('no-allowed-scope','scope');
+      scope=registered[0];notePath=scope.scopeRoot;docsPath=null;
+    } else {({notePath,docsPath,scope}=await resolveNote(reads,canonicalWorktreePath,scopes));}
     const canonicalDagPath = await resolveDag(reads, scope, notePath, worktree.selectedDagRelativePath);
     // This is still an observation, not an atomic filesystem capability. Detect
     // replacements of the authority/link chain while resolving registered DAGs.
@@ -260,15 +266,14 @@ async function mapWorktree(reads: BoundedReads, worktree: NoteWorktree, localHos
       [worktree.worktreePath, canonicalWorktreePath, 'worktree'],
       [scope.source.vaultRootPath, scope.vaultRoot, 'vault'],
       [scope.source.scopePath, scope.scopeRoot, 'scope'],
-      [path.join(canonicalWorktreePath, 'docs'), docsPath, 'docs'],
-      [path.join(docsPath, 'note'), notePath, 'note'],
+      ...(docsPath?[[path.join(canonicalWorktreePath,'docs'),docsPath,'docs'],[path.join(docsPath,'note'),notePath,'note']] as const:[]),
     ] as const) {
       await safely('path-changed', stage, async () => {
         if (await reads.run(stage, () => fs.realpath(original)) !== expected) fail('path-changed', stage);
       });
     }
     const dagId = `dag:${createHash('sha256').update(JSON.stringify(['note-dag-v1', localHostId, canonicalDagPath])).digest('hex')}`;
-    return { state: 'resolved', ...identity, scopeId: scope.source.scopeId, canonicalWorktreePath, canonicalNotePath: notePath, canonicalDagPath, dagId };
+    return { state: 'resolved', ...identity, scopeId: scope.source.scopeId, canonicalWorktreePath, canonicalNotePath: notePath, canonicalDagPath, dagId,...(worktree.registeredScopeId?{registration:'explicit-read-only' as const}:{}) };
   } catch (error) {
     return { state: 'unresolved', ...identity, ...problemFrom(error, 'note') };
   }
