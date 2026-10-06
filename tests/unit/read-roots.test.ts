@@ -50,6 +50,9 @@ describe('explicit read roots',()=>{
   it('canonicalizes a chosen alias for review without silently following later changes',async()=>{
     const alias=path.join(root,'alias');await symlink(vault,alias);const s=service([]),p=await s.prepare(alias);expect(p.path).toBe(vault);await s.confirm({proposalId:p.proposalId,readOnlyConfirmed:true});expect((await s.view()).roots[0].path).toBe(vault);
   });
+  it('preserves the explicitly configured vault root for retained legacy projects',async()=>{
+    const s=service();expect(await s.scopesFor([],[{...scope,vaultRootPath:path.dirname(note)}])).toEqual([scope]);
+  });
   it('keeps an explicitly retained project bounded after its worktree disappears',async()=>{
     const s=service([]);await allow(s);const scopes=await s.scopesFor(worktree());await rm(tree,{recursive:true});expect(await s.scopesFor([],scopes)).toEqual(scopes);const view=await s.view();await s.revoke({rootId:view.roots[0].id,expectedRevision:view.revision,confirmed:true});expect(await s.filterScopes(scopes)).toEqual([]);
   });

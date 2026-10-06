@@ -54,7 +54,7 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
   }
   async function scopesFor(worktrees:readonly NoteWorktree[],retained:readonly AllowedNoteScope[]=[],signal?:AbortSignal){
     await load();if(worktrees.length>1000)throw Error('워크트리 범위 초과');const usable=await Promise.all(roots.map(async r=>await valid(r)?r:null));
-    const normalized=[...options.initialScopes,...retained].map(s=>{const root=usable.find(r=>r&&inside(r.path,s.scopePath));return root?.kind==='vault'?{...s,vaultRootPath:root.path}:s;});
+    const normalized=[...options.initialScopes,...retained].map(s=>{const root=usable.find(r=>r&&inside(r.path,s.scopePath));const initial=options.initialScopes.find(original=>original.scopeId===s.scopeId&&original.hostId===s.hostId);return root?.kind==='vault'?{...s,vaultRootPath:root.path}:root?.kind==='project'&&initial?initial:s;});
     const scopes=new Map((await filterScopes(normalized,signal)).map(s=>[s.scopeId,s]));
     for(const w of worktrees){if(signal?.aborted)throw Error('읽기 범위 확인 취소');if(w.hostId!==options.hostId)continue;
       try{const tree=await directory(w.worktreePath),docs=await directory(path.join(tree.path,'docs'));if(!inside(tree.path,docs.path))continue;const link=path.join(docs.path,'note');if(!(await lstat(link)).isSymbolicLink())continue;const target=await realpath(link);const root=usable.find(r=>r?.kind==='vault'&&target!==r.path&&inside(r.path,target));if(!root)continue;const note=await directory(target);if(note.path!==target)continue;
