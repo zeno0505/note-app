@@ -38,3 +38,11 @@
 타입/빌드·관련 55개·전체 947 pass/16 skip와 [제품 exact-SHA CI](https://github.com/zeno0505/note-app/actions/runs/37490086534)가 통과했다. 실제 Mac에서 첫 소스 수집, 공개 상세/수동 버튼, 네 섹션 저장·표시, 같은 버튼 추가 호출 0을 검증했다. 모델 요청 수는 소유 native 프로세스의 Claude `-p` spawn을 관찰했고 auth/status·CodeBurn 조회와 구분했다. 기존 하네스의 취소/늦은 결과·실패 시 이전 성공/stale·재시작 dedup은 관련 테스트로 확인했다.
 
 비공개 증거는 작업 루트 아래 `native-public-AI-7fc1a04/{report.json,controller.log,actual-public-model.png}`와 `public-AI-implementation/`에 있다. 원본 사용자 프로필과 검증용 앱 상태는 별도 보존했다. 실제 모델 취소·실패를 만들기 위한 추가 유료 요청은 수행하지 않았다. 일반 프로필 OS 선택창 취소는 입력 차단 때문에 미검증이며 이 AI 결과와 분리한다.
+
+## 최종 패키지·실제 앱 확인
+
+생성/검증 수정 요청 수와 앱 스타일을 보완한 최종 제품 SHA는 `467a88c6a2ed3aa5c9b832b849f1e651472bae66`이며 [exact-SHA CI 37491875866](https://github.com/zeno0505/note-app/actions/runs/37491875866)가 성공했다. 실제 패키지 재실행에서 네 섹션/검수 주석 복원, 생성 시각 유지, 버튼 재실행의 새 모델 호출 0과 760/1600 화면 시각 검토가 통과했다. 고정 입력은 변경하지 않았다.
+
+실제 기존 앱 경로 `artifacts/87a28ca/note-app.app`를 백업·교체하고 PID 91486으로 정상 실행했다. 경로 이름과 내부 소스 SHA는 다르다. 설치된 전체 dist와 검증 패키지가 일치하고 서명/내부 SHA를 확인했다. 교체 전후 프로젝트 캐시는 동일하며 정상 실행 뒤 상태·이력과 읽기 권한·최신 AI cache·호출 방지 ledger가 보존됐다. 설정 변경은 승인된 공개 수동 Claude 경로 추가뿐이며 디버그 포트 없이 실행한다. 이번 전체 작업의 실제 생성은 1회, 수정 0회다.
+
+최종 비공개 근거는 `native-public-AI-final-467a88c/report.json`, `app-update-public-AI-467a88c/update-report.json`에 있다. T-033은 구현/검증 근거를 갖춘 in_review이고 사용자 내용 평가를 기다린다.
