@@ -130,6 +130,25 @@ describe('main-owned live read-only orchestration',()=>{
     await x.runtime.disconnect();await vi.advanceTimersByTimeAsync(60_000);expect(x.collect).toHaveBeenCalledTimes(3);expect(x.runtime.getState().freshness).toBe('stale');
     await x.runtime.connect();expect(x.collect).toHaveBeenCalledTimes(4);expect(x.dagReader).toHaveBeenCalledTimes(1);
   });
+  it.each([false,true])('recovers cancelled first connect on focus without manual refresh (resume before settlement=%s)',async earlyResume=>{
+    const x=setup();let finish!: (value:OrcaResult<OrcaObservation>)=>void;let firstSignal!:AbortSignal;
+    x.collect.mockImplementationOnce(({signal}={})=>{firstSignal=signal!;return new Promise(resolve=>{finish=resolve;});});
+    const connecting=x.runtime.connect();await flush();expect(x.collect).toHaveBeenCalledTimes(1);
+    x.runtime.setActivity({visible:true,active:false});expect(firstSignal.aborted).toBe(true);
+    expect(x.runtime.getState()).toMatchObject({observedAt:null,freshness:'unknown',workstreams:[],lastError:'The observation was cancelled.'});
+    if(earlyResume)x.runtime.setActivity({visible:true,active:true});
+    await vi.advanceTimersByTimeAsync(60_000);expect(x.collect).toHaveBeenCalledTimes(1);
+    // Even a cancelled loader returning late success must not become an observation.
+    finish({ok:true,value:observation()});await connecting;await flush();
+    if(!earlyResume){
+      expect(x.runtime.getState()).toMatchObject({observedAt:null,freshness:'unknown',workstreams:[]});
+      expect(vi.getTimerCount()).toBe(0);
+      x.runtime.setActivity({visible:true,active:true});await flush();
+    }
+    const recovered=x.runtime.getState();expect(x.collect).toHaveBeenCalledTimes(2);
+    expect(recovered).toMatchObject({connection:'connected',freshness:'current',lastError:null});
+    expect(recovered.workstreams).toHaveLength(2);expect(recovered.observedAt).not.toBeNull();
+  });
   it('keeps last-good observations after Orca failure and still runs all independent CodeBurn queries',async()=>{
     const x=setup(),first=await x.runtime.connect();
     x.collect.mockResolvedValue({ok:false,error:{kind:'access_denied',query:'status',message:'PRIVATE_REMOTE_ERROR',runtimeId:null}});

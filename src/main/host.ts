@@ -8,6 +8,7 @@ import type { AppEnvironment } from '../shared/bridge';
 import { loadLiveConfiguration } from './live-config';
 import { createLiveRuntime } from './live-runtime';
 import { boundedStartup } from './startup-boundary';
+import { observeWindowActivity } from './window-activity';
 import { createSummaryWorkflow } from '../summary/workflow';
 import { createNoteLinkWorkflow } from '../collector/notes/link-workflow';
 import type { Phase1Options } from '../shared/phase1-options';
@@ -49,9 +50,7 @@ async function createWindow(): Promise<void> {
     },
   });
   mainWindow = window;
-  const activity=()=>liveRuntime.setActivity({visible:window.isVisible()&&!window.isMinimized(),active:window.isFocused()});
-  window.on('show',activity);window.on('hide',activity);window.on('focus',activity);
-  window.on('blur',activity);window.on('minimize',activity);window.on('restore',activity);
+  observeWindowActivity(window,activity=>liveRuntime.setActivity(activity));
   window.removeMenu();
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',event=>event.preventDefault());
