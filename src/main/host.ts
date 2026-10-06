@@ -1,4 +1,5 @@
 import {trayIconPng} from './tray-icon';
+import {finishQuit} from './quit-lifecycle';
 import { app, BrowserWindow, ipcMain, session, shell, Tray, nativeImage, powerMonitor, Menu } from 'electron';
 import { join } from 'node:path';
 import { mkdir, realpath, lstat } from 'node:fs/promises';
@@ -171,7 +172,7 @@ app.on('window-all-closed',()=>{});
 app.on('before-quit',event=>{
   quitting=true;for(const controller of linkControllers)controller.abort();summaryWorkflow?.dispose();liveRuntime?.dispose();
   if(!quitSettled){event.preventDefault();if(waitingForMutation)return;waitingForMutation=true;
-    void Promise.allSettled([...mutations,liveRuntime?.settleRegistry()??Promise.resolve()]).then(()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
+    void finishQuit([...mutations,liveRuntime?.settleRegistry()??Promise.resolve()],()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
   }
 });
 let waitingForMutation=false;
