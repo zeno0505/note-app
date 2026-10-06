@@ -58,6 +58,8 @@ export interface SnapshotState<T, C, E extends SnapshotError> {
   refreshing: boolean;
   disposed: boolean;
   nextPollAt: string | null;
+  nextRefreshReason: 'poll' | 'resume' | null;
+  resumeCountdownSeconds: number;
 }
 export interface SnapshotStoreOptions<T, C, E extends SnapshotError> {
   load(context: SnapshotLoadContext): Promise<SnapshotLoadResult<T, C, E>>;
@@ -68,6 +70,9 @@ export interface SnapshotStoreOptions<T, C, E extends SnapshotError> {
   staleAfterMs?: number;
   active?: boolean;
   visible?: boolean;
+  /** Opt-in read-only policy: continue slow background polls; delay foreground return. */
+  backgroundIntervalMs?: number;
+  resumeDelayMs?: number;
 }
 export interface SnapshotStore<T, C, E extends SnapshotError> {
   /** Starts with an immediate observation when active and visible. Idempotent. */
@@ -80,5 +85,7 @@ export interface SnapshotStore<T, C, E extends SnapshotError> {
   setActivity(activity: { active?: boolean; visible?: boolean }): void;
   /** Cancels the current attempt; a future active poll may retry. */
   cancel(): void;
+  /** Explicit disconnect: stop all timers and invalidate current/queued work. */
+  stop(): void;
   dispose(): void;
 }

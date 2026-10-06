@@ -362,6 +362,7 @@ export function createLiveRuntime(options: {
 
   const store = createSnapshotStore<CollectedView, LiveWorkspaceView['coverage'], {kind: string; message: string}>({
     clock: deps.clock, intervalMs: INTERVAL_MS, staleAfterMs: STALE_MS, active: false, visible: true,
+    backgroundIntervalMs: 300_000, resumeDelayMs: 5_000,
     async load({signal}) {
       const budgets = readCodeburn(signal);
       let result;
@@ -401,6 +402,8 @@ export function createLiveRuntime(options: {
     }
     return structuredClone({ mode: 'live-read-only', connection: connected ? 'connected' : 'disconnected', configuration: loaded.view,
       refreshing: connected && snapshot.refreshing, observedAt: snapshot.observedAt, freshness,
+      polling: {activity: !connected ? 'stopped' : activity.active && activity.visible ? 'foreground' : 'background',
+        nextRefreshAt: connected ? snapshot.nextPollAt : null, countdownSeconds: connected ? snapshot.resumeCountdownSeconds : 0},
       lastError: snapshot.lastAttempt?.error?.message ?? null, coverage: snapshot.coverage,
       workstreams: value?.workstreams ?? [], dags, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
   }
@@ -457,14 +460,13 @@ export function createLiveRuntime(options: {
     },
     async disconnect(): Promise<LiveWorkspaceView> {
       connected = false;
-      store.setActivity({active: false, visible: activity.visible});
-      store.cancel();
+      store.stop();
       publish();
       return getState();
     },
     setActivity(next: {visible: boolean; active: boolean}): void {
       activity = {...next};
-      if (!disposed) store.setActivity({visible: activity.visible, active: connected && activity.active});
+      if (!disposed) store.setActivity(activity);
     },
     subscribe(listener: (view: LiveWorkspaceView) => void): () => void {
       if (disposed) return () => {};

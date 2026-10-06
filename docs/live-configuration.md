@@ -150,7 +150,13 @@ reported as a successful rollback. See the
 - Terminal attachment, observed agent state and declared DAG status remain independent
 - Quota data availability does not prove an agent can run; unavailable quota is not zero usage
 - Refresh failure retains last-good observations with their original timestamps and a stale warning
-- Visibility/focus-aware polling uses the existing 20-second cadence; explicit disconnect cancels outstanding collection
+- 연결된 읽기 전용 Orca/CodeBurn은 전경에서 기존 20초, 배경에서 5분 간격으로
+  조회합니다. 주기는 요청 완료 시점부터 예약하며 동시에 한 번만 수집합니다.
+  창 복귀 시 5초 카운트다운을 표시한 뒤 재조회하고, 다시 배경으로 가면 카운트다운을
+  정리합니다. 개요/설정의 기존 ‘실제 소스 새로고침’ 버튼은 대기 없이 조회하며
+  진행 중인 요청에 합류합니다. 마지막 관측과 다음 조회 시각은 실패 후에도 표시합니다.
+  blur/hide는 진행 중인 읽기를 취소하지 않습니다. 명시적 연결 해제/종료는 모든
+  조회·카운트다운을 중단하고 늦은 응답을 차단합니다. AI 자동 호출은 없습니다.
 - Startup and cache responses are deadline-bounded; an interrupted/timed-out cache or metadata reader can remain retired until app restart rather than accumulate overlapping kernel IO
 
 A bounded response is not a guarantee that an operating-system filesystem call

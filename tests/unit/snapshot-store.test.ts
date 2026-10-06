@@ -59,6 +59,87 @@ function setup(extra: Partial<Parameters<typeof createSnapshotStore<Value, Cover
   return { clock, calls, store };
 }
 
+describe('opt-in read-only background and foreground-return schedule', () => {
+  const policy = {backgroundIntervalMs: 300_000, resumeDelayMs: 5_000};
+  it('starts while background, polls at five minutes, and emits a main-owned five-second countdown', async () => {
+    const x=setup({...policy,active:false}); await x.store.start(); expect(x.calls).toHaveLength(1);
+    expect(x.store.getState().nextPollAt).toBe(new Date(EPOCH+300_000).toISOString());
+    await x.clock.advance(299_999);expect(x.calls).toHaveLength(1);await x.clock.advance(1);expect(x.calls).toHaveLength(2);
+    const counts:number[]=[];x.store.subscribe(s=>counts.push(s.resumeCountdownSeconds));x.store.setActivity({active:true});
+    await x.clock.advance(4999);expect(x.calls).toHaveLength(2);expect(counts.slice(0,5)).toEqual([5,4,3,2,1]);
+    await x.clock.advance(1);expect(x.calls.map(c=>c.reason)).toEqual(['initial','poll','resume']);
+    expect(x.store.getState().nextPollAt).toBe(new Date(x.clock.now()+20_000).toISOString());
+    x.store.dispose();expect(x.clock.timers.size).toBe(0);
+  });
+  it('clears a return countdown on blur/hide and does not accumulate repeated focus events', async () => {
+    const x=setup(policy);await x.store.start();x.store.setActivity({active:false});x.store.setActivity({active:true});
+    await x.clock.advance(2000);const due=x.store.getState().nextPollAt;x.store.setActivity({active:true,visible:true});expect(x.store.getState().nextPollAt).toBe(due);
+    x.store.setActivity({visible:false});expect(x.store.getState().resumeCountdownSeconds).toBe(0);
+    await x.clock.advance(5000);expect(x.calls).toHaveLength(1);
+    x.store.setActivity({visible:true});await x.clock.advance(5000);expect(x.calls).toHaveLength(2);
+    x.store.dispose();expect(x.clock.timers.size).toBe(0);
+  });
+  it('manual refresh immediately replaces countdown and cannot leave a delayed duplicate', async () => {
+    const x=setup(policy);await x.store.start();x.store.setActivity({active:false});x.store.setActivity({active:true});await x.clock.advance(2000);
+    await x.store.refresh();expect(x.calls.map(c=>c.reason)).toEqual(['initial','manual']);expect(x.store.getState().resumeCountdownSeconds).toBe(0);
+    await x.clock.advance(5000);expect(x.calls).toHaveLength(2);await x.clock.advance(15000);expect(x.calls).toHaveLength(3);
+  });
+  it('does not abort a read on blur; manual/resume/poll join one pending flight', async () => {
+    const clock=new TestClock(),pending=deferred<Result>();let count=0;let signal!:AbortSignal;
+    const store=createSnapshotStore<Value,Coverage,SnapshotError>({...policy,clock,load:async context=>{count++;signal=context.signal;return pending.promise;}});
+    const first=store.start();store.setActivity({active:false});expect(signal.aborted).toBe(false);
+    store.setActivity({active:true});await clock.advance(5000);expect(count).toBe(1);
+    const manual=store.refresh(),repeat=store.refresh();expect(manual).toBe(first);expect(repeat).toBe(first);
+    pending.resolve(success(clock));await first;expect(count).toBe(1);expect(store.getState().nextPollAt).toBe(new Date(clock.now()+20_000).toISOString());
+    store.dispose();expect(clock.timers.size).toBe(0);
+  });
+  it('retains return countdown when an earlier flight finishes before its deadline', async () => {
+    const clock=new TestClock(),pending=deferred<Result>();let count=0;
+    const store=createSnapshotStore<Value,Coverage,SnapshotError>({...policy,clock,load:async()=>++count===1?pending.promise:success(clock)});
+    const first=store.start();store.setActivity({active:false});store.setActivity({active:true});await clock.advance(2000);
+    pending.resolve(success(clock));await first;expect(store.getState().resumeCountdownSeconds).toBe(3);
+    await clock.advance(3000);expect(count).toBe(2);expect(store.getState().lastAttempt?.reason).toBe('resume');
+  });
+  it('keeps last-good data and the next scheduled retry after failure in background', async () => {
+    const clock=new TestClock();let count=0;
+    const store=createSnapshotStore<Value,Coverage,SnapshotError>({...policy,clock,load:async()=>++count===1?success(clock):failure});
+    await store.start();const before=store.getState();store.setActivity({active:false});await clock.advance(300_000);
+    expect(store.getState()).toMatchObject({value:before.value,observedAt:before.observedAt,freshness:'stale',
+      lastAttempt:{outcome:'error'},nextPollAt:new Date(clock.now()+300_000).toISOString()});
+    store.dispose();expect(clock.timers.size).toBe(0);
+  });
+  it('stops/disposes countdown and rejects late collection after disconnect, including reconnect', async () => {
+    const clock=new TestClock(),pending=deferred<Result>();let count=0;let signal!:AbortSignal;
+    const store=createSnapshotStore<Value,Coverage,SnapshotError>({...policy,clock,load:async context=>{count++;signal=context.signal;return count===1?pending.promise:success(clock,{runtimeId:'new-runtime'});}});
+    const old=store.start();store.setActivity({active:false});store.setActivity({active:true});store.stop();expect(signal.aborted).toBe(true);
+    expect(store.getState()).toMatchObject({started:false,nextPollAt:null,resumeCountdownSeconds:0});expect(clock.timers.size).toBe(0);
+    const next=store.start();pending.resolve(success(clock,{runtimeId:'old-runtime'}));await old;await next;
+    expect(store.getState().runtimeId).toBe('new-runtime');expect(count).toBe(2);
+    store.dispose();await clock.advance(3_600_000);expect(count).toBe(2);expect(clock.timers.size).toBe(0);
+  });
+  it('after sleep runs one overdue poll and schedules from completion, without catch-up bursts', async () => {
+    const x=setup({...policy,active:false});await x.store.start();x.clock.time+=3_600_000;
+    // Resume the event loop at the new wall time, rather than simulating an hour of awake ticks.
+    const overdue=[...x.clock.timers].filter(([,t])=>t.at<=x.clock.now());for(const [id] of overdue)x.clock.timers.delete(id);
+    for(const [,t] of overdue)t.callback();await flush();expect(x.calls).toHaveLength(2);
+    expect(x.store.getState().nextPollAt).toBe(new Date(x.clock.now()+300_000).toISOString());
+    await x.clock.advance(299_999);expect(x.calls).toHaveLength(2);x.store.dispose();
+  });
+  it('merges manual refresh with a pending periodic poll and cancels countdown immediately in the view', async () => {
+    const clock=new TestClock(),pending=deferred<Result>();let count=0;
+    const store=createSnapshotStore<Value,Coverage,SnapshotError>({...policy,clock,load:async()=>++count===1?success(clock):pending.promise});
+    await store.start();await clock.advance(20_000);expect(count).toBe(2);
+    store.setActivity({active:false});store.setActivity({active:true});const published:number[]=[];store.subscribe(s=>published.push(s.resumeCountdownSeconds));
+    const manual=store.refresh(),repeat=store.refresh();expect(manual).toBe(repeat);expect(count).toBe(2);expect(published).toEqual([0]);
+    pending.resolve(success(clock));await manual;await clock.advance(5000);expect(count).toBe(2);store.dispose();
+  });
+  it('does not leak a countdown tick if a state consumer disconnects during its callback', async () => {
+    const x=setup(policy);await x.store.start();x.store.setActivity({active:false});x.store.setActivity({active:true});
+    x.store.subscribe(s=>{if(s.resumeCountdownSeconds===4)x.store.stop();});await x.clock.advance(1000);
+    expect(x.clock.timers.size).toBe(0);await x.clock.advance(600_000);expect(x.calls).toHaveLength(1);
+  });
+});
+
 describe('snapshot polling and lifetime', () => {
   it('does not collect or allocate a timer merely on construction', () => {
     const { store, calls, clock } = setup();

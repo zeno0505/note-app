@@ -4,7 +4,7 @@ import type {LiveWorkspaceView,LiveWorkstreamView} from '../../src/shared/live';
 import {DemoStore} from '../../src/main/demo-store';
 
 function state(overrides:Partial<LiveWorkspaceView>={}):LiveWorkspaceView {
-  return {mode:'live-read-only',connection:'disconnected',configuration:{state:'ready',message:'Ready',orcaExecutable:'/trusted/orca',codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked'},refreshing:false,observedAt:null,freshness:'unknown',lastError:null,coverage:null,workstreams:[],dags:[],codeburn:{state:'unconfigured',results:[]},...overrides};
+  return {mode:'live-read-only',polling:{activity:'stopped',nextRefreshAt:null,countdownSeconds:0},connection:'disconnected',configuration:{state:'ready',message:'Ready',orcaExecutable:'/trusted/orca',codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked'},refreshing:false,observedAt:null,freshness:'unknown',lastError:null,coverage:null,workstreams:[],dags:[],codeburn:{state:'unconfigured',results:[]},...overrides};
 }
 function deferred<T>() {let resolve!:(value:T)=>void;let reject!:(error:unknown)=>void;const promise=new Promise<T>((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};}
 let store:typeof import('../../src/renderer/store');
@@ -88,6 +88,15 @@ describe('live renderer disclosure and escaping',()=>{
     app.component('RouterLink',defineComponent({setup(_props,{slots}){return ()=>h('a',slots.default?.());}}));
     return renderToString(app);
   }
+  it('renders the main-owned return countdown, background schedule and last-good failure without a UI timer',async()=>{
+    const {default:Status}=await import('../../src/renderer/components/LiveStatus.vue');
+    const next='2026-10-03T00:05:00.000Z',observed='2026-10-03T00:00:00.000Z';
+    store.liveState.value=state({connection:'connected',observedAt:observed,polling:{activity:'foreground',nextRefreshAt:next,countdownSeconds:5}});
+    const countdown=await render(Status,{});expect(countdown).toContain('복귀 후 5초 뒤 새로고침');expect(countdown).toContain('다음 조회');expect(countdown).toContain('바로 조회');
+    store.liveState.value=state({connection:'connected',observedAt:observed,freshness:'stale',lastError:'failed',polling:{activity:'background',nextRefreshAt:next,countdownSeconds:0}});
+    const failed=await render(Status,{});expect(failed).toContain('백그라운드 · 5분 간격 조회');expect(failed).toContain('갱신 실패 · 이전 관측 유지');expect(failed).toContain('마지막 관측');expect(failed).toContain('다음 조회');
+    store.liveState.value=state();const stopped=await render(Status,{});expect(stopped).not.toContain('다음 조회');expect(stopped).not.toContain('5초');
+  });
   it('distinguishes historical candidate/approval and safely escapes source text',async()=>{
     const {default:Summary}=await import('../../src/renderer/components/LiveSummary.vue');
     const claim={claim:{claimId:'claim',aspect:'next',kind:'inference',text:'<img src=x onerror="steal()">',intent:'proposal',citations:[],assertions:[]},freshness:'stale',reasons:['source:changed']};

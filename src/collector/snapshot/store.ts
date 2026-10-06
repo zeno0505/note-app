@@ -51,6 +51,10 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
     throw new RangeError('Active refresh interval must be between 15000 and 30000 milliseconds.');
   }
   const staleAfterMs = options.staleAfterMs ?? intervalMs * 2;
+  const backgroundIntervalMs = options.backgroundIntervalMs;
+  const resumeDelayMs = options.resumeDelayMs ?? 5000;
+  if (backgroundIntervalMs !== undefined && (!Number.isInteger(backgroundIntervalMs) || backgroundIntervalMs < intervalMs || backgroundIntervalMs > 2_147_483_647
+    || !Number.isInteger(resumeDelayMs) || resumeDelayMs < 1000 || resumeDelayMs > 30000)) throw new RangeError('Invalid read-only background/resume policy');
   if (!Number.isInteger(staleAfterMs) || staleAfterMs <= 0 || staleAfterMs > 2_147_483_647) {
     throw new RangeError('Stale threshold must be a positive, supported timer interval.');
   }
@@ -61,7 +65,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   let disposed = false;
   let active = options.active ?? true;
   let visible = options.visible ?? true;
-  let timer: { handle: unknown; at: number } | null = null;
+  let timer: { handle: unknown; at: number; reason: 'poll' | 'resume' } | null = null;
+  let countdownTimer: unknown | null = null;
   let freshnessTimer: { handle: unknown; at: number } | null = null;
   let flight: Flight | null = null;
   let queued: Pending | null = null;
@@ -76,7 +81,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   let runtimeChange: State['runtimeChange'] = null;
   const listeners = new Set<(state: State) => void>();
   const nowIso = () => new Date(clock.now()).toISOString();
-  const enabled = () => started && active && visible && !disposed;
+  const foreground = () => active && visible;
+  const enabled = () => started && !disposed && (backgroundIntervalMs !== undefined || foreground());
   const getState = (): State => {
     const stale = retained !== null && (failedSinceSuccess || retained.sourceStale || disposed
       || clock.now() - Date.parse(retained.observedAt) >= staleAfterMs);
@@ -95,6 +101,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
       refreshing: flight !== null && !disposed,
       disposed,
       nextPollAt: timer === null ? null : new Date(timer.at).toISOString(),
+      nextRefreshReason: timer?.reason ?? null,
+      resumeCountdownSeconds: timer?.reason === 'resume' ? Math.max(0, Math.ceil((timer.at-clock.now())/1000)) : 0,
     }) as State;
   };
   const syncFreshnessTimer = () => {
@@ -124,16 +132,35 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   };
   const clearTimer = () => {
     if (timer !== null) clock.clearTimeout(timer.handle);
+    if (countdownTimer !== null) clock.clearTimeout(countdownTimer);
+    countdownTimer = null;
     timer = null;
   };
   const arm = () => {
     clearTimer();
     if (!enabled() || flight !== null) return;
-    const at = clock.now() + intervalMs;
-    timer = { at, handle: clock.setTimeout(() => {
+    const delay = backgroundIntervalMs !== undefined && !foreground() ? backgroundIntervalMs : intervalMs;
+    const at = clock.now() + delay;
+    timer = { at, reason: 'poll', handle: clock.setTimeout(() => {
       timer = null;
       if (enabled()) void request('poll');
-    }, intervalMs) };
+    }, delay) };
+  };
+  const scheduleResume = () => {
+    clearTimer();
+    if (!enabled()) return;
+    const at = clock.now() + resumeDelayMs;
+    timer = { at, reason: 'resume', handle: clock.setTimeout(() => {
+      clearTimer();
+      if (enabled() && foreground()) void request('resume');
+    }, resumeDelayMs) };
+    const tick = () => {
+      countdownTimer = null;
+      if (timer?.reason !== 'resume' || !enabled() || !foreground()) return;
+      publish();
+      if (timer?.reason === 'resume' && enabled() && foreground()) countdownTimer = clock.setTimeout(tick, 1000);
+    };
+    countdownTimer = clock.setTimeout(tick, 1000);
   };
   const finishError = (current: Flight, error: E | SnapshotStoreError) => {
     failedSinceSuccess = true;
@@ -193,7 +220,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
         const promise = request(next.reason);
         void promise.then(next.resolve);
       } else {
-        arm();
+        // A collection finishing during the return countdown must not erase it.
+        if (timer?.reason !== 'resume') arm();
         if (!disposed) publish();
         next?.resolve(getState());
       }
@@ -202,8 +230,10 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   };
   function request(reason: RefreshReason): Promise<State> {
     if (disposed) return Promise.resolve(getState());
+    const replacedCountdown = reason === 'manual' && timer?.reason === 'resume';
+    if (reason === 'manual') clearTimer();
     if (flight !== null) {
-      if (flight.valid) return flight.promise;
+      if (flight.valid) { if (replacedCountdown) publish(); return flight.promise; }
       if (queued === null) queued = { ...deferred<State>(), reason };
       else if (reason === 'manual') queued.reason = 'manual';
       return queued.promise;
@@ -256,8 +286,17 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
       const nextVisible = activity.visible ?? visible;
       if (nextActive === active && nextVisible === visible) return;
       const wasEnabled = enabled();
+      const wasForeground = foreground();
       active = nextActive;
       visible = nextVisible;
+      if (backgroundIntervalMs !== undefined) {
+        if (started && wasForeground !== foreground()) {
+          // Blur/hide changes cadence; it never aborts read-only work.
+          if (foreground()) scheduleResume(); else arm();
+        }
+        publish();
+        return;
+      }
       if (wasEnabled && !enabled()) {
         clearTimer();
         cancelFlight();
@@ -276,6 +315,10 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
       clearQueued();
       arm();
       publish();
+    },
+    stop() {
+      if (disposed) return;
+      started = false; clearTimer(); cancelFlight(); clearQueued(); publish();
     },
     dispose() {
       if (disposed) return;

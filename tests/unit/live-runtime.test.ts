@@ -121,33 +121,36 @@ describe('main-owned live read-only orchestration',()=>{
     expect(x.summaryCache).toHaveBeenCalledWith({directory:path.join(cacheRoot,contextScopeId(DAG)),codec:summaryCacheCodec});
     expect(view.dags[0].summary).toMatchObject({state:'empty',candidateClaims:[],approvedClaims:[],context:{selectedTaskCount:1,recordCount:1,truncated:false}});
   });
-  it('polls at 20 seconds only when visible and active, ages data, and resumes immediately',async()=>{
+  it('polls foreground at 20 seconds, background at five minutes and resumes after five seconds',async()=>{
     const x=setup();await x.runtime.connect();await vi.advanceTimersByTimeAsync(19_999);expect(x.collect).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);expect(x.collect).toHaveBeenCalledTimes(2);
-    x.runtime.setActivity({visible:false,active:true});expect(vi.getTimerCount()).toBe(0);
-    await vi.advanceTimersByTimeAsync(45_000);expect(x.collect).toHaveBeenCalledTimes(2);expect(x.runtime.getState().freshness).toBe('stale');
-    x.runtime.setActivity({visible:true,active:true});await flush();expect(x.collect).toHaveBeenCalledTimes(3);expect(x.runtime.getState().freshness).toBe('current');
-    await x.runtime.disconnect();await vi.advanceTimersByTimeAsync(60_000);expect(x.collect).toHaveBeenCalledTimes(3);expect(x.runtime.getState().freshness).toBe('stale');
-    await x.runtime.connect();expect(x.collect).toHaveBeenCalledTimes(4);expect(x.dagReader).toHaveBeenCalledTimes(1);
+    x.runtime.setActivity({visible:false,active:false});
+    expect(x.runtime.getState().polling).toMatchObject({activity:'background',countdownSeconds:0,nextRefreshAt:new Date(Date.now()+300_000).toISOString()});
+    await vi.advanceTimersByTimeAsync(299_999);expect(x.collect).toHaveBeenCalledTimes(2);expect(x.runtime.getState().freshness).toBe('stale');
+    await vi.advanceTimersByTimeAsync(1);expect(x.collect).toHaveBeenCalledTimes(3);
+    x.runtime.setActivity({visible:true,active:true});expect(x.runtime.getState().polling.countdownSeconds).toBe(5);
+    await vi.advanceTimersByTimeAsync(4_999);expect(x.collect).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1);expect(x.collect).toHaveBeenCalledTimes(4);expect(x.runtime.getState().freshness).toBe('current');
+    await x.runtime.disconnect();expect(x.runtime.getState().polling).toEqual({activity:'stopped',nextRefreshAt:null,countdownSeconds:0});
+    await vi.advanceTimersByTimeAsync(600_000);expect(x.collect).toHaveBeenCalledTimes(4);
+    await x.runtime.connect();expect(x.collect).toHaveBeenCalledTimes(5);expect(x.dagReader).toHaveBeenCalledTimes(1);
   });
-  it.each([false,true])('recovers cancelled first connect on focus without manual refresh (resume before settlement=%s)',async earlyResume=>{
-    const x=setup();let finish!: (value:OrcaResult<OrcaObservation>)=>void;let firstSignal!:AbortSignal;
-    x.collect.mockImplementationOnce(({signal}={})=>{firstSignal=signal!;return new Promise(resolve=>{finish=resolve;});});
-    const connecting=x.runtime.connect();await flush();expect(x.collect).toHaveBeenCalledTimes(1);
-    x.runtime.setActivity({visible:true,active:false});expect(firstSignal.aborted).toBe(true);
-    expect(x.runtime.getState()).toMatchObject({observedAt:null,freshness:'unknown',workstreams:[],lastError:'The observation was cancelled.'});
-    if(earlyResume)x.runtime.setActivity({visible:true,active:true});
-    await vi.advanceTimersByTimeAsync(60_000);expect(x.collect).toHaveBeenCalledTimes(1);
-    // Even a cancelled loader returning late success must not become an observation.
-    finish({ok:true,value:observation()});await connecting;await flush();
-    if(!earlyResume){
-      expect(x.runtime.getState()).toMatchObject({observedAt:null,freshness:'unknown',workstreams:[]});
-      expect(vi.getTimerCount()).toBe(0);
-      x.runtime.setActivity({visible:true,active:true});await flush();
-    }
-    const recovered=x.runtime.getState();expect(x.collect).toHaveBeenCalledTimes(2);
-    expect(recovered).toMatchObject({connection:'connected',freshness:'current',lastError:null});
-    expect(recovered.workstreams).toHaveLength(2);expect(recovered.observedAt).not.toBeNull();
+  it('does not abort first collection on blur, and merges the return countdown with pending work',async()=>{
+    const x=setup();let finish!: (value:OrcaResult<OrcaObservation>)=>void;let signal!:AbortSignal;
+    x.collect.mockImplementationOnce(({signal:current}={})=>{signal=current!;return new Promise(resolve=>{finish=resolve;});});
+    const connecting=x.runtime.connect();await flush();x.runtime.setActivity({visible:true,active:false});expect(signal.aborted).toBe(false);
+    x.runtime.setActivity({visible:true,active:true});await vi.advanceTimersByTimeAsync(5000);expect(x.collect).toHaveBeenCalledTimes(1);
+    finish({ok:true,value:observation()});await connecting;
+    expect(x.runtime.getState()).toMatchObject({freshness:'current',lastError:null});
+    expect(x.runtime.getState().polling.nextRefreshAt).toBe(new Date(Date.now()+20_000).toISOString());
+  });
+  it('explicit disconnect still cancels and ignores a late first collection',async()=>{
+    const x=setup();let finish!: (value:OrcaResult<OrcaObservation>)=>void;let signal!:AbortSignal;
+    x.collect.mockImplementationOnce(({signal:current}={})=>{signal=current!;return new Promise(resolve=>{finish=resolve;});});
+    const connecting=x.runtime.connect();await flush();await x.runtime.disconnect();expect(signal.aborted).toBe(true);
+    finish({ok:true,value:observation()});await connecting;expect(x.runtime.getState()).toMatchObject({connection:'disconnected',observedAt:null,workstreams:[]});
+    await vi.advanceTimersByTimeAsync(600_000);expect(x.collect).toHaveBeenCalledTimes(1);
+    await x.runtime.connect();expect(x.runtime.getState().freshness).toBe('current');expect(x.collect).toHaveBeenCalledTimes(2);
   });
   it('keeps last-good observations after Orca failure and still runs all independent CodeBurn queries',async()=>{
     const x=setup(),first=await x.runtime.connect();

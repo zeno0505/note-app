@@ -1,6 +1,6 @@
 /** Native events are the activity authority. On macOS, isFocused/isVisible can
  * still report the prior value inside a focus/show callback. Re-reading those
- * values in every callback can strand the collector paused after a real resume.
+ * values in every callback can misclassify foreground/background after a resume.
  */
 type ActivityEvent = 'show' | 'hide' | 'focus' | 'blur' | 'minimize' | 'restore';
 interface ActivityWindow {

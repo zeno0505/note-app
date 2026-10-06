@@ -56,6 +56,7 @@ export interface LiveWorkspaceView {
   connection: 'disconnected' | 'connected';
   configuration: LiveConfigurationView;
   refreshing: boolean;
+  polling: {activity: 'stopped' | 'foreground' | 'background'; nextRefreshAt: string | null; countdownSeconds: number};
   observedAt: string | null;
   freshness: 'unknown' | 'current' | 'stale';
   lastError: string | null;

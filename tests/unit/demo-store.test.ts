@@ -3,7 +3,7 @@ import type {LiveWorkspaceView} from '../../src/shared/live';
 import {DemoStore} from '../../src/main/demo-store';
 import {snapshot,scenario,refreshDemo,exitDemo,busy,bridgeError,connectionStatus} from '../../src/renderer/store';
 
-const disconnected:LiveWorkspaceView={mode:'live-read-only',connection:'disconnected',configuration:{state:'unconfigured',message:'Test configuration',orcaExecutable:null,codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked'},refreshing:false,observedAt:null,freshness:'unknown',lastError:null,coverage:null,workstreams:[],dags:[],codeburn:{state:'unconfigured',results:[]}};
+const disconnected:LiveWorkspaceView={mode:'live-read-only',polling:{activity:'stopped',nextRefreshAt:null,countdownSeconds:0},connection:'disconnected',configuration:{state:'unconfigured',message:'Test configuration',orcaExecutable:null,codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked'},refreshing:false,observedAt:null,freshness:'unknown',lastError:null,coverage:null,workstreams:[],dags:[],codeburn:{state:'unconfigured',results:[]}};
 const disconnectLive=()=>Promise.resolve(disconnected);
 describe('stateful synthetic last-good handling',()=>{
   it('does not invent a prior success',()=>{expect(()=>new DemoStore().read('failure')).toThrow('No previous observation');});

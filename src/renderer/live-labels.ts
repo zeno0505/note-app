@@ -30,7 +30,7 @@ export function mappingLabel(reason:string|null):string {
 }
 export const isCancelledObservation=(reason:string|null|undefined):boolean=>reason==='The observation was cancelled.';
 const diagnosticLabels:Record<string,string>={
-  'The observation was cancelled.':'관측이 취소되었습니다. 창을 다시 활성화하면 관측을 다시 시도합니다. 직접 새로고침할 수도 있습니다.',
+  'The observation was cancelled.':'관측이 취소되었습니다. 창을 다시 활성화하면 5초 뒤 관측을 다시 시도합니다. 직접 새로고침할 수도 있습니다.',
   'No explicit summary task selection resolves to this canonical DAG.':'이 DAG에 연결되는 명시적 요약 작업 선택이 없습니다. 시작 설정의 summarySelections를 확인하세요.',
   'The explicit summary selection could not be verified; retained claims are historical and current evidence is unavailable.':'명시된 요약 작업 선택을 확인하지 못했습니다. 표시된 요약은 이전 기록이며 현재 근거는 확인할 수 없습니다.',
   'The combined explicit selection exceeds the 32-task context limit; current evidence is unavailable.':'선택한 작업이 컨텍스트 상한인 32개를 초과했습니다. 현재 근거를 확인할 수 없습니다.',
