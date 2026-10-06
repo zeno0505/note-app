@@ -36,7 +36,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       : paragraph('현재 표시 범위의 DAG에는 완료로 선언된 작업이 없습니다. 실제 구현이 없다는 뜻은 아닙니다.', 'declaration', sources));
     if (running.length) implemented.push(paragraph(`DAG는 ${names(running)}을 진행 중으로 기록합니다. 현재 에이전트 실행 여부와는 별개입니다.`, 'declaration', sources));
     const ready = remaining.filter(t => t.status === 'pending' && t.displayOmissions.dependencies === 0 && t.dependencies.every(d => d.scope === 'internal' && dag.tasks.some(other => other.id === d.id && other.status === doneStatus)));
-    if (ready.length) next.push(paragraph(`${names(ready)}은 표시된 내부 의존성의 완료 선언을 기준으로 다음 구현 후보입니다. 설계 합의·우선순위·실행 승인은 확인하지 않았습니다.`, 'proposal', sources));
+    if (ready.length) next.push(paragraph(`원문 DAG 기준에서만 ${names(ready)}은 표시된 내부 의존성의 완료 선언을 기준으로 다음 구현 후보입니다. 실제 코드에서 이미 구현되었는지는 확인하지 않았습니다. 새로 구현하기 전에 기존 코드·검증 근거와의 대응을 확인해야 합니다. 설계 합의·우선순위·실행 승인은 확인하지 않았습니다.`, 'proposal', sources));
     else next.push(paragraph(remaining.length ? `남은 선언 작업은 ${names(remaining)}입니다. 다음 착수 후보를 확정할 근거는 부족합니다.` : '표시 범위에 남은 선언 작업이 없습니다. 전체 구현이 검증되었다는 뜻은 아닙니다.', 'declaration', sources));
     const blocked = dag.tasks.filter(t => t.status === 'blocked');
     if (blocked.length) decisions.push(paragraph(`${names(blocked)}은 DAG에 차단 상태로 선언되어 있습니다. 차단 이유와 필요한 결정은 별도 기록 확인이 필요합니다.`, 'declaration', sources));
@@ -46,7 +46,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
     }
   }
   decisions.push(paragraph('현재 구조화된 관측에는 설계 합의 여부가 없습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
-  evidence.push(paragraph('실제 화면 검증, 테스트 코드 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));
+  evidence.push(paragraph('DAG 작업별 실제 화면 검증, 테스트 항목별 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));
   if (pulls.state !== 'observed') {
     evidence.push(paragraph(pulls.state === 'error' ? 'PR·CI·리뷰 조회를 완료하지 못했습니다. 이 실패를 승인 또는 검증 완료로 바꾸지 않습니다.' : '실제 PR·CI·리뷰 조회 대상과 연결이 설정되지 않았습니다. DAG가 최신이라고 가정하지 않습니다.'));
     partial = true;
@@ -61,6 +61,10 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
     if(observation.branch) {
       const branch=observation.branch;
       const ref:ReadingSource={kind:'git',id:`${observation.repository}:${branch.name}`,sha:branch.headSha,sourceHash:null,observedAt:observation.observedAt};
+      if(!historical&&available) {
+        implemented.unshift(paragraph('DAG의 완료·미완료 선언과 저장소 브랜치의 커밋이 함께 관측됩니다. 이 DAG 선언을 현재 구현된 기능 목록이나 전체 미구현 판정으로 바꾸지 않습니다. 실제 구현 범위는 코드·검증 근거와 작업별 대응을 확인해야 합니다.','unknown',[...sources,ref]));
+        next.unshift(paragraph('현재 먼저 확인할 일은 DAG의 착수 후보와 기존 코드·검증 기록의 대응입니다. 작업별 연결이 없어 실제 새 구현 순서는 아직 확정할 수 없습니다.','unknown',[...sources,ref]));
+      }
       evidence.push(paragraph(`${historical?'이전 관측에서 ':''}${branch.name} 브랜치의 head 커밋을 확인했습니다. 브랜치 커밋과 PR 병합 근거는 구별합니다.`,historical?'unknown':'observation',[ref]));
       const current=!historical&&branch.ciFreshness==='current';
       const runs=branch.ci;

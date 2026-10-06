@@ -112,6 +112,15 @@ describe('reading scheduler',()=>{
     read.mockRejectedValueOnce({kind:'rate-limit'});const limited=await scheduler.update([input()],signal());
     expect(limited[0].sections.flatMap(s=>s.paragraphs.map(p=>p.text)).join('\n')).toContain('공개 조회 한도');
   });
+  it('does not treat an older pending DAG as no implementation or ask to redo ready-looking tasks',()=>{
+    const value=parsed();value.pulls=[];value.branch={name:'feat/phase1-foundation',headSha:'a'.repeat(40),ci:[],ciFreshness:'unknown',ciObservedAt:null};
+    const result=explainReading(input(),{state:'observed',value});
+    expect(result.sections[0].paragraphs[0].text).toContain('전체 미구현 판정으로 바꾸지 않습니다');
+    expect(result.sections[1].paragraphs[0].text).toContain('실제 새 구현 순서는 아직 확정할 수 없습니다');
+    expect(text(result)).toContain('실제 코드에서 이미 구현되었는지는 확인하지 않았습니다');
+    expect(text(result)).toContain('새로 구현하기 전에 기존 코드·검증 근거와의 대응');
+    expect(text(result)).not.toContain('구현이 완료되었습니다');
+  });
   it('joins concurrent manual/scheduled same-scope requests and snapshots caller input',async()=>{
     const pending=deferred<unknown>();const read=vi.fn(()=>pending.promise);const scheduler=createReadingScheduler({adapter:{read}});const data=input();
     const scheduled=scheduler.update([data],signal());const manual=scheduler.update([data],signal());expect(manual).toBe(scheduled);
