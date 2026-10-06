@@ -187,3 +187,18 @@ describe('pull adapter response contract',()=>{
     expect(()=>parsePullObservation(data,{workstreamId:fixture.workstreamId,dagId:fixture.dagId})).toThrow();
   });
 });
+
+it('explains project-level document records before DAG limits without upgrading them to task completion or current execution',async()=>{
+ const data=input();data.documents={state:'ready',dagId:fixture.dagId,records:[{schemaVersion:1,id:'feature',section:'implemented',text:'등록된 읽기 기능',verification:null,references:['src/synthetic.ts'],source:{kind:'document',id:'feature',sha:null,sourceHash:'sha256:'+'a'.repeat(64),observedAt:at}},
+ {schemaVersion:1,id:'tests',section:'evidence',text:'합성 검증 결과',verification:{sha:'b'.repeat(40),environment:'Linux / synthetic',result:'passed'},references:['reviews/synthetic.md'],source:{kind:'document',id:'tests',sha:'b'.repeat(40),sourceHash:'sha256:'+'b'.repeat(64),observedAt:at}}]};
+ const result=explainReading(data,{state:'unconfigured'});expect(result.sections[0].paragraphs[0]).toMatchObject({basis:'declaration',text:'등록된 프로젝트 구현 기록: 등록된 읽기 기능'});
+ expect(text(result)).toContain('환경 Linux / synthetic');expect(text(result)).toContain('현재 head의 동작을 재검증한 결과가 아닙니다');expect(text(result)).not.toContain('작업 완료를 선언합니다');
+ const scheduler=createReadingScheduler();const first=(await scheduler.update([data],signal()))[0];vi.advanceTimersByTime(1000);
+ for(const record of data.documents.records)record.source.observedAt=new Date().toISOString();const unchanged=(await scheduler.update([data],signal()))[0];expect(unchanged.changed).toBe(false);expect(unchanged.generatedAt).toBe(first.generatedAt);
+ data.documents.records[0].text='다른 등록 기록';expect((await scheduler.update([data],signal()))[0].changed).toBe(true);
+ data.documents={state:'unavailable'};const failed=(await scheduler.update([data],signal()))[0];expect(failed.sections[0].paragraphs.some(p=>p.text.includes('다른 등록 기록'))).toBe(false);expect(text(failed)).toContain('근거 문서를 현재 범위에서 확인하지 못했습니다');
+});
+it('does not borrow document records from a different DAG or a failed current DAG observation',()=>{
+ const data=input();data.documents={state:'ready',dagId:'foreign',records:[]};expect(text(explainReading(data,{state:'unconfigured'}))).toContain('근거 문서를 현재 범위에서 확인하지 못했습니다');
+ data.documents.dagId=fixture.dagId;data.dag!.state='error';expect(text(explainReading(data,{state:'unconfigured'}))).toContain('근거 문서를 현재 범위에서 확인하지 못했습니다');
+});

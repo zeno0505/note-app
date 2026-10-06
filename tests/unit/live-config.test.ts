@@ -62,3 +62,13 @@ it('accepts exact bounded excerpt registrations only within a registered summary
   for(const invalid of [{...excerpt,relativePath:'../vault.md'},{...excerpt,endLine:0},{...excerpt,command:'cat'},{...excerpt,kind:'source-code'}])
     expect(()=>parseLiveConfiguration({...scoped,summarySelections:[{...scoped.summarySelections[0],excerpts:[invalid]}]})).toThrow();
 });
+
+it('registers exact worktree project documents separately from model excerpts, bounded to eight files and 32 records',()=>{
+ const excerpt={id:'report',kind:'document',relativePath:'reviews/records.jsonl',startLine:1,endLine:1};
+ const document={scopeId:'project',dagRelativePath:'dag.yaml',worktreePath:'/work/example',excerpts:[excerpt]};
+ expect(parseLiveConfiguration({...scoped,readingDocuments:[document]}).readingDocuments).toEqual([document]);
+ for(const entry of [{...document,scopeId:'foreign'},{...document,worktreePath:'/work/../example'},{...document,excerpts:[{...excerpt,kind:'goal-document'}]},
+  {...document,excerpts:[{...excerpt,relativePath:'../private.md'}]},{...document,url:'https://example.com'},{...document,excerpts:[]}])expect(()=>parseLiveConfiguration({...scoped,readingDocuments:[entry]})).toThrow();
+ expect(()=>parseLiveConfiguration({...minimal,readingDocuments:[document]})).toThrow();
+ expect(()=>parseLiveConfiguration({...scoped,readingDocuments:[document,document]})).toThrow();
+});

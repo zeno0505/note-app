@@ -6,6 +6,7 @@ import { createSnapshotStore, type SnapshotClock } from '../collector/snapshot';
 import { createDagReader, type DagReadModel } from '../facts/dag-read-model';
 import { createCodeBurnReader, type CodeBurnQuery, type CodeBurnResult } from '../summary/budget/codeburn';
 import { createSummaryStore, restoreSummaryStoreFromLocalCache, type ClaimView } from '../summary/claims';
+import {observeProjectDocuments,type ProjectDocumentObservation} from '../summary/reading/documents';
 import { createReadingScheduler } from '../summary/reading';
 import type { PullObservationAdapter } from '../summary/reading/pulls';
 import { createPublicGitHubObserver } from '../summary/reading/github';
@@ -97,6 +98,7 @@ export function createLiveRuntime(options: {
     ? (deps.codeburn ?? createCodeBurnReader)({ executablePath: config.codeburnExecutablePath }) : null;
   const dagSessions = new Map<string, DagSession>();
   const excerptReaders = new Map<string, { identity: string; reader: ReturnType<typeof createRegisteredExcerptReader>; retired: boolean }>();
+  const documentReaders=new Map<string,{identity:string;retired:boolean;reader:ReturnType<typeof createRegisteredExcerptReader>}>();
   const codeburnLastGood = new Map<CodeBurnQuery, CodeBurnResult>();
   let codeburnResults: CodeBurnResult[] = [];
   let connected = false;
@@ -175,6 +177,47 @@ export function createLiveRuntime(options: {
     } catch { mappingRetired = true; throw new Error('Mapping unavailable'); }
   }
 
+  async function readBoundedExcerpts(owned:{retired:boolean;reader:ReturnType<typeof createRegisteredExcerptReader>},dagId:string,signal:AbortSignal):Promise<RegisteredExcerptContext> {
+    if (owned.retired || signal.aborted) throw new Error('Registered excerpt reader retired');
+    const deadline = new AbortController(); const combined = AbortSignal.any([signal, deadline.signal]);
+    return await new Promise<RegisteredExcerptContext>((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => deadline.abort(), 5_000);
+      const cleanup = () => { clearTimeout(timer); combined.removeEventListener('abort', abort); };
+      const abort = () => { if (settled) return; settled = true; owned.retired = true; cleanup(); reject(new Error('Registered excerpt response unavailable')); };
+      combined.addEventListener('abort', abort, { once: true });
+      if (combined.aborted) { abort(); return; }
+      void Promise.resolve().then(() => {
+        if (combined.aborted) throw new Error('Registered excerpt read cancelled');
+        return owned.reader.read(dagId, combined);
+      }).then(value => { if (settled) return; settled = true; cleanup(); resolve(value); }, error => {
+        if (settled) return; settled = true; cleanup();
+        if (combined.aborted || (error && typeof error === 'object' && 'code' in error && ['timeout', 'cancelled', 'retired'].includes(String(error.code)))) owned.retired = true;
+        reject(new Error('Registered excerpt read failed'));
+      });
+    });
+  }
+
+  async function readProjectDocuments(workstream:LiveWorkstreamView,source:WorktreeSource|undefined,dag:LiveDagView|undefined,signal:AbortSignal):Promise<ProjectDocumentObservation> {
+    const registration=config?.readingDocuments?.find(d=>d.worktreePath===source?.worktreePath);
+    if(!registration)return {state:'unconfigured'};
+    const scope=config!.noteScopes.find(s=>s.scopeId===registration.scopeId);
+    if(!source||source.hostId!==config!.localHostId||workstream.noteMapping.state!=='resolved'||workstream.noteMapping.dagId!==dag?.dagId||dag?.state!=='ready'||!scope)return {state:'unavailable'};
+    try {
+      const verified=await readMapping({localHostId:config!.localHostId!,scopes:[scope],signal,worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath!,selectedDagRelativePath:registration.dagRelativePath}]});
+      const mapping=verified.mappings[0];
+      if(mapping?.state!=='resolved'||mapping.scopeId!==registration.scopeId||mapping.dagId!==dag.dagId||mapping.canonicalWorktreePath!==registration.worktreePath)throw new Error('Document scope unavailable');
+      const key=JSON.stringify([registration.worktreePath,dag.dagId]);
+      const identity=JSON.stringify(registration);
+      let entry=documentReaders.get(key);
+      if(entry&&entry.identity!==identity)throw new Error('Document identity changed');
+      if(!entry){if(documentReaders.size>=8)throw new Error('Document lifetime limit');entry={identity,retired:false,reader:(deps.excerptReader??createRegisteredExcerptReader)({dagId:dag.dagId,canonicalScopePath:registration.worktreePath,canonicalNotePath:registration.worktreePath,registrations:registration.excerpts,now})};documentReaders.set(key,entry);}
+      const context=await readBoundedExcerpts(entry,dag.dagId,signal);
+      if(signal.aborted||disposed)throw new Error('Document read cancelled');
+      return observeProjectDocuments(context,dag.dagId);
+    }catch{return {state:'unavailable'};}
+  }
+
   async function readRegistered(mapping: ResolvedNoteMapping | undefined, signal: AbortSignal): Promise<RegisteredExcerptContext | undefined> {
     if (!mapping || !config) throw new Error('Verified excerpt scope unavailable');
     const scope = config.noteScopes.find(s => s.scopeId === mapping.scopeId);
@@ -204,25 +247,7 @@ export function createLiveRuntime(options: {
       entry = { identity, retired: false, reader: (deps.excerptReader ?? createRegisteredExcerptReader)({ dagId: mapping.dagId, canonicalScopePath: scope.scopePath, canonicalNotePath: mapping.canonicalNotePath, registrations, now }) };
       excerptReaders.set(mapping.dagId, entry);
     }
-    if (entry.retired || signal.aborted) throw new Error('Registered excerpt reader retired');
-    const owned = entry;
-    const deadline = new AbortController(); const combined = AbortSignal.any([signal, deadline.signal]);
-    return await new Promise<RegisteredExcerptContext>((resolve, reject) => {
-      let settled = false;
-      const timer = setTimeout(() => deadline.abort(), 5_000);
-      const cleanup = () => { clearTimeout(timer); combined.removeEventListener('abort', abort); };
-      const abort = () => { if (settled) return; settled = true; owned.retired = true; cleanup(); reject(new Error('Registered excerpt response unavailable')); };
-      combined.addEventListener('abort', abort, { once: true });
-      if (combined.aborted) { abort(); return; }
-      void Promise.resolve().then(() => {
-        if (combined.aborted) throw new Error('Registered excerpt read cancelled');
-        return owned.reader.read(mapping.dagId, combined);
-      }).then(value => { if (settled) return; settled = true; cleanup(); resolve(value); }, error => {
-        if (settled) return; settled = true; cleanup();
-        if (combined.aborted || (error && typeof error === 'object' && 'code' in error && ['timeout', 'cancelled', 'retired'].includes(String(error.code)))) owned.retired = true;
-        reject(new Error('Registered excerpt read failed'));
-      });
-    });
+    return readBoundedExcerpts(entry,mapping.dagId,signal);
   }
 
   async function readSummary(dag: DagReadModel, session: DagSession, taskIds: string[] | undefined, signal: AbortSignal, mapping: ResolvedNoteMapping | undefined): Promise<LiveSummaryView> {
@@ -408,9 +433,13 @@ export function createLiveRuntime(options: {
       if (!signal.aborted && !disposed) acceptCodeburn(costResults);
       if (!result.ok) return {kind: 'failure', error: { kind: result.error.kind, message: `Orca observation could not be refreshed (${result.error.kind}).` }};
       if (projectionFailed || !value) return {kind: 'failure', error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
-      const summaries = await reading.update(value.workstreams.filter(w => w.archived !== true).map(workstream => ({
-        workstream, dag: value!.dags.find(d => d.dagId === workstream.noteMapping.dagId),
-      })), signal, reason==='manual'?'manual':'scheduled');
+      const inputs=[];
+      for(const workstream of value.workstreams.filter(w=>w.archived!==true)) {
+        const dag=value.dags.find(d=>d.dagId===workstream.noteMapping.dagId);
+        const documents=await readProjectDocuments(workstream,value.worktreeSources.find(s=>s.id===workstream.id),dag,signal);
+        inputs.push({workstream,dag,documents});
+      }
+      const summaries = await reading.update(inputs, signal, reason==='manual'?'manual':'scheduled');
       for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
       const observation = result.value;
       return {kind: 'success', value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,

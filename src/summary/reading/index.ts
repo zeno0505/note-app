@@ -1,9 +1,10 @@
+import type {ProjectDocumentObservation} from './documents';
 import { createHash } from 'node:crypto';
 import type { LiveDagView, LiveWorkstreamView } from '../../shared/live';
 import type { ReadingParagraph, ReadingSection, ReadingSource, ReadingSummary } from '../../shared/reading-summary';
 import { parsePullObservation, type PullObservationAdapter, type PullObservationResult } from './pulls';
 
-export interface ReadingInput { workstream: LiveWorkstreamView; dag?: LiveDagView }
+export interface ReadingInput { workstream: LiveWorkstreamView; dag?: LiveDagView; documents?:ProjectDocumentObservation }
 type PullState = {state: 'unconfigured'} | {state: 'error'; retained?: PullObservationResult;reason?:'rate-limit'} | {state: 'observed'; value: PullObservationResult};
 const LIMITATION = '고정 규칙으로 관측 기록을 설명합니다. 코드의 실제 동작·설계 합의·우선순위를 자유롭게 추론하지 않습니다. 기존 6관점의 저장 요약과 사용자 승인 기록은 별도로 유지합니다.';
 const paragraph = (text: string, basis: ReadingParagraph['basis'] = 'unknown', sources: ReadingSource[] = []): ReadingParagraph => ({text, basis, sources});
@@ -97,6 +98,21 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
     }
     if (observation.pulls.length > 8) {partial = true; evidence.push(paragraph('PR 설명은 8개까지 표시합니다. 추가 PR은 이 요약의 판단 범위에서 제외되었습니다.'));}
   }
+  const documents=input.documents;
+  if(documents?.state==='ready'&&available&&dag&&documents.dagId===dag.dagId) {
+    const destinations={implemented,next,evidence,decisions};
+    const additions:{[K in ReadingSection['id']]:ReadingParagraph[]}={implemented:[],next:[],evidence:[],decisions:[]};
+    for(const record of documents.records) {
+      const prefixes={implemented:'등록된 프로젝트 구현 기록',next:'등록된 남은 작업',evidence:'등록된 검증 기록',decisions:'등록된 결정 필요 항목'};
+      const v=record.verification;
+      const status=v?` 문서 보고: ${v.result==='passed'?'통과':v.result==='failed'?'실패':'미실행'} · 검증 SHA ${v.sha} · 환경 ${v.environment}. 현재 head의 동작을 재검증한 결과가 아닙니다.`:'';
+      additions[record.section].push(paragraph(`${prefixes[record.section]}: ${record.text}${status}`,'declaration',[record.source]));
+    }
+    for(const id of ['implemented','next','evidence','decisions'] as const)destinations[id].unshift(...additions[id]);
+    evidence.push(paragraph('등록 문서의 기능·검증 기록은 프로젝트 수준의 근거입니다. 참조 경로는 문서가 선언한 연결이며, 자동 코드 분석이나 DAG 작업별 완료 인증은 수행하지 않습니다.','unknown',documents.records.map(r=>r.source)));
+  } else if(documents&&documents.state!=='unconfigured') {
+    partial=true;evidence.push(paragraph('등록된 프로젝트 근거 문서를 현재 범위에서 확인하지 못했습니다. 이전 문장이나 다른 프로젝트 문서를 현재 구현 근거로 사용하지 않습니다.'));
+  }
   return {partial, sections: [
     {id: 'implemented', title: '현재 어디까지 구현되었나요?', paragraphs: implemented},
     {id: 'next', title: '다음에는 무엇을 구현하나요?', paragraphs: next},
@@ -109,6 +125,7 @@ function semantics(input: ReadingInput, pulls: PullState): unknown {
   const {workstream: w, dag: d} = input;
   return {workstreamId: w.id, mapping: w.noteMapping, dag: d ? {dagId: d.dagId, state: d.state,
     doneStatus: d.doneStatus, tasks: d.tasks, taskCount: d.taskCount, displayedTaskCount: d.displayedTaskCount} : null,
+    documents:input.documents?.state==='ready'?{...input.documents,records:input.documents.records.map(r=>({...r,source:{...r.source,observedAt:undefined}}))}:input.documents,
     pulls: pulls.state === 'observed' ? {state: pulls.state, ...pulls.value, observedAt: undefined,
       ...(pulls.value.branch?{branch:{...pulls.value.branch,ciObservedAt:undefined}}:{})} : pulls};
 }

@@ -1,10 +1,11 @@
 /** Read-only explanations, independent of model candidates and user approvals. */
 export interface ReadingSource {
-  kind: 'dag' | 'orca' | 'pull' | 'ci' | 'review' | 'git';
+  kind: 'dag' | 'orca' | 'pull' | 'ci' | 'review' | 'git' | 'document';
   id: string;
   sha: string | null;
   sourceHash: string | null;
   observedAt: string | null;
+  document?: {relativePath:string;lineStart:number;lineEnd:number;environment:string|null;result:'passed'|'failed'|'not-run'|null;references:string[]};
 }
 export interface ReadingParagraph {
   text: string;

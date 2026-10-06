@@ -34,7 +34,7 @@ function list(value: unknown, maximum: number): unknown[] {
 }
 /** Explicit, bounded startup configuration. Never accepts renderer data. */
 export function parseLiveConfiguration(value: unknown): LiveConfiguration {
-  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink','publicGitHub'],['schemaVersion','orcaExecutablePath']);
+  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink','publicGitHub','readingDocuments'],['schemaVersion','orcaExecutablePath']);
   if(v.schemaVersion!==1) fail();
   const noteScopes: AllowedNoteScope[] = list(v.noteScopes ?? [],8).map(raw=>{
     const s=fields(raw,['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths'],['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths']);
@@ -70,6 +70,16 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
     });
     if(!publicGitHub.length||new Set(publicGitHub.map(p=>p.worktreePath)).size!==publicGitHub.length)fail();
   }
+  let readingDocuments:LiveConfiguration['readingDocuments'];
+  if(v.readingDocuments!==undefined) {
+    readingDocuments=list(v.readingDocuments,8).map(raw=>{
+      const d=fields(raw,['scopeId','dagRelativePath','worktreePath','excerpts'],['scopeId','dagRelativePath','worktreePath','excerpts']);
+      const scopeId=text(d.scopeId,128),dagRelativePath=relative(d.dagRelativePath),worktreePath=absolute(d.worktreePath),excerpts=parseExcerptRegistrations(d.excerpts);
+      if(!dagQuery||!localHostId||!excerpts.length||excerpts.some(e=>e.kind!=='document')||!noteScopes.some(s=>s.scopeId===scopeId&&s.dagRelativePaths.includes(dagRelativePath)))fail();
+      return {scopeId,dagRelativePath,worktreePath,excerpts};
+    });
+    if(!readingDocuments.length||new Set(readingDocuments.map(d=>d.worktreePath)).size!==readingDocuments.length||readingDocuments.reduce((n,d)=>n+d.excerpts.length,0)>32||new Set(readingDocuments.flatMap(d=>d.excerpts.map(e=>JSON.stringify([d.worktreePath,e.relativePath])))).size>8)fail();
+  }
   let noteLink: LiveConfiguration['noteLink'];
   if(v.noteLink!==undefined){
     const n=fields(v.noteLink,['gitExecutablePath','allowedCommonGitDirs'],['gitExecutablePath','allowedCommonGitDirs']);
@@ -79,7 +89,7 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
   }
   return {schemaVersion:1,orcaExecutablePath:absolute(v.orcaExecutablePath),
     ...(v.codeburnExecutablePath===undefined?{}:{codeburnExecutablePath:absolute(v.codeburnExecutablePath)}),
-    ...(localHostId?{localHostId}:{}),noteScopes,...(dagQuery?{dagQuery}:{}),...(noteLink?{noteLink}:{}),summarySelections,...(publicGitHub?{publicGitHub}:{})};
+    ...(localHostId?{localHostId}:{}),noteScopes,...(dagQuery?{dagQuery}:{}),...(noteLink?{noteLink}:{}),summarySelections,...(publicGitHub?{publicGitHub}:{}),...(readingDocuments?{readingDocuments}:{})};
 }
 async function readLiveConfiguration(filename: string | undefined): Promise<LoadedLiveConfiguration> {
   const base={orcaExecutable:null,codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked' as const};

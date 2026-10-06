@@ -409,3 +409,31 @@ it('surfaces an unsupported scope alias instead of dropping its explicitly confi
   const view=await f.runtime.connect();expect(view.dags[0].summary.state).toBe('error');expect(excerptReader).toHaveBeenCalled();
   await expect(f.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow('Synthetic unsupported alias');
 });
+
+function projectDocumentFixture() {
+ const registration={id:'project-record',kind:'document' as const,relativePath:'reviews/project.jsonl',startLine:1,endLine:1};
+ const content=JSON.stringify({schemaVersion:1,id:'project-feature',section:'implemented',text:'합성 프로젝트의 등록된 읽기 기능',verification:null,references:['src/synthetic.ts']});
+ const sourceHash=`sha256:${createHash('sha256').update(content).digest('hex')}`,id=registeredExcerptId(DAG,registration),observedAt=new Date().toISOString();
+ const context:RegisteredExcerptContext={schemaVersion:1,scopeDagId:DAG,excerpts:[{scopeDagId:DAG,id,kind:'document',text:content,sourceHash,observedAt}],provenance:[{excerptId:id,kind:'document',sourceHash,observedAt,registration,canonicalPath:'/synthetic/worktree/0/reviews/project.jsonl',fileHash:sourceHash,fileBytes:Buffer.byteLength(content),byteStart:0,byteEnd:Buffer.byteLength(content),lineStart:1,lineEnd:1}]};
+ const config=configuration();config.configuration!.summarySelections=[];config.configuration!.readingDocuments=[{scopeId:'scope-one',dagRelativePath:'dag.yaml',worktreePath:'/synthetic/worktree/0',excerpts:[registration]}];return {config,registration,context};
+}
+it('production-wires project documents only for the exact verified worktree and keeps them separate from model context',async()=>{
+ const {config,registration,context}=projectDocumentFixture();const read=vi.fn(async()=>structuredClone(context));const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});
+ const first=await f.runtime.connect();expect(excerptReader).toHaveBeenCalledTimes(1);expect(excerptReader.mock.calls[0][0]).toMatchObject({canonicalScopePath:'/synthetic/worktree/0',canonicalNotePath:'/synthetic/worktree/0',registrations:[registration]});
+ expect(first.workstreams[0].readingSummary?.sections[0].paragraphs[0].text).toContain('등록된 프로젝트 구현 기록');
+ expect(first.workstreams[1].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
+ expect(first.dags[0].summary.context).toBeNull();const again=await f.runtime.refresh();expect(again.workstreams[0].readingSummary?.changed).toBe(false);
+ read.mockRejectedValueOnce(new Error('Missing current document'));const missing=await f.runtime.refresh();expect(missing.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
+ expect(missing.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('근거 문서를 현재 범위에서 확인하지 못했습니다'))).toBe(true);
+});
+it('bounds a non-cooperative project document reader, retires it and rejects late publication',async()=>{
+ const {config,context}=projectDocumentFixture();let finish!:(context:RegisteredExcerptContext)=>void;const read=vi.fn((..._args:Parameters<ReturnType<LiveRuntimeDependencies['excerptReader']>['read']>)=>new Promise<RegisteredExcerptContext>(resolve=>{finish=resolve;}));
+ const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});const connecting=f.runtime.connect();await vi.waitFor(()=>expect(read).toHaveBeenCalledTimes(1));await vi.advanceTimersByTimeAsync(5000);const first=await connecting;
+ expect(read.mock.calls[0][1]?.aborted).toBe(true);expect(first.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
+ finish(context);await flush();await f.runtime.refresh();expect(read).toHaveBeenCalledTimes(1);expect(excerptReader).toHaveBeenCalledTimes(1);
+});
+it('does not open a document reader when the mapper resolves another canonical worktree',async()=>{
+ const {config}=projectDocumentFixture();const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>();const f=setup(config,true,{excerptReader});
+ f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved')m.canonicalWorktreePath='/synthetic/other';return result;});
+ await f.runtime.connect();expect(excerptReader).not.toHaveBeenCalled();
+});

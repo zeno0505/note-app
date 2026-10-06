@@ -16,7 +16,7 @@ defineProps<{summary:ReadingSummary;historical:boolean}>();
       <div v-for="(paragraph,index) in section.paragraphs" :key="index">
         <p>{{paragraph.text}}</p>
         <details v-if="paragraph.sources.length" class="claim-citations"><summary>출처 · {{paragraph.basis==='declaration'?'원문 선언':paragraph.basis==='proposal'?'제안':paragraph.basis==='unknown'?'미확인':'관측'}}</summary>
-          <p v-for="(source,sourceIndex) in paragraph.sources" :key="sourceIndex" class="muted">{{source.kind}} · {{source.id}}<br/>SHA {{source.sha??'미확인'}} · 출처 해시 {{source.sourceHash??'미확인'}}<br/>관측 {{source.observedAt?formatTime(source.observedAt):'미확인'}}</p>
+          <p v-for="(source,sourceIndex) in paragraph.sources" :key="sourceIndex" class="muted">{{source.kind}} · {{source.id}}<br/>SHA {{source.sha??'미확인'}} · 출처 해시 {{source.sourceHash??'미확인'}}<br/>관측 {{source.observedAt?formatTime(source.observedAt):'미확인'}}<template v-if="source.document"><br/>등록 문서 {{source.document.relativePath}} · {{source.document.lineStart}}–{{source.document.lineEnd}}행<br/>검증 환경 {{source.document.environment??'미등록'}} · 문서 보고 결과 {{source.document.result??'검증 기록 없음'}}<br/>문서의 참조 선언 {{source.document.references.join(', ')||'없음'}}</template></p>
         </details>
       </div>
     </section>
