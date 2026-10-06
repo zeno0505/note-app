@@ -33,6 +33,7 @@ export interface OrcaProject {
   id: string;
   displayName: string | null;
   sourceRepoIds: string[] | null;
+  providerIdentity?: {provider:'github';owner:string;repo:string};
 }
 export interface OrcaIdentity {
   hostId: string | null;
@@ -50,6 +51,7 @@ export interface OrcaWorktree {
   displayName: string | null;
   isArchived: boolean | null;
   isMainWorktree: boolean | null;
+  workspaceStatus?:'in-progress'|'in-review'|'completed'|'unknown';
 }
 export interface OrcaAgent {
   paneKey: string | null;
@@ -66,6 +68,7 @@ export interface OrcaProcessObservation {
   isArchived: boolean | null;
   /** Orca's isActive flag; not normalized into selection, agent, or DAG state. */
   isActive: boolean | null;
+  hasHostSidebarActivity?:boolean|null;
   activityStatus: 'active' | 'inactive' | 'unknown';
   liveTerminalCount: number | null;
   hasAttachedPty: boolean | null;

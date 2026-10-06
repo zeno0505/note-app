@@ -50,6 +50,8 @@ export interface LiveWorkstreamView {
   id: string;
   title: string;
   projectName: string | null;
+  repository?:{key:string;id:string|null;hostId:string|null;projectId:string|null;label:string};
+  observation?:{worktree:'observed'|'not-observed'|'unknown';sidebarActivity:boolean|null;selected:boolean|null;workspaceStatus:'in-progress'|'in-review'|'completed'|'unknown'};
   branch: string | null;
   archived: boolean | null;
   terminalConnected: boolean | null;

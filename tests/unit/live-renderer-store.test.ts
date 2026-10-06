@@ -75,9 +75,9 @@ describe('explicit sample mode isolation',()=>{
 
 describe('observation-only view semantics',()=>{
   it('keeps unknown connection and archive values distinct from known false',()=>{
-    const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:null,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:'missing-note',dagId:null}};
-    store.liveState.value=state({workstreams:[workstream,{...workstream,id:'two',archived:false,terminalConnected:true},{...workstream,id:'three',archived:true,terminalConnected:true}]});
-    expect(store.liveConnectedCount.value).toBe(1);expect(store.liveWorkstreams.value).toHaveLength(2);expect(store.visibleLiveWorkstreams.value).toHaveLength(1);store.filter.value='all';expect(store.visibleLiveWorkstreams.value).toHaveLength(2);expect(store.visibleLiveWorkstreams.value[0].terminalCount).toBeNull();
+    const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:null,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:'missing-note',dagId:null},observation:{worktree:'observed',sidebarActivity:false,selected:null,workspaceStatus:'unknown'}};
+    store.liveState.value=state({workstreams:[workstream,{...workstream,id:'two',archived:false,terminalConnected:true,observation:{...workstream.observation!,sidebarActivity:true}},{...workstream,id:'three',archived:true,terminalConnected:true}]});
+    expect(store.liveConnectedCount.value).toBe(1);expect(store.liveWorkstreams.value).toHaveLength(2);expect(store.visibleLiveWorkstreams.value).toHaveLength(1);store.liveScope.value='observed';expect(store.visibleLiveWorkstreams.value).toHaveLength(2);expect(store.visibleLiveWorkstreams.value[0].terminalCount).toBeNull();
   });
   it('does not infer project identity or detached branch from incomplete values',async()=>{
     const labels=await import('../../src/renderer/live-labels');expect(labels.diagnosticText('No existing local summary cache. Summary generation is unavailable.')).toContain('저장된 로컬 요약이 없습니다');expect(labels.diagnosticText('unrecognized diagnostic')).toBe('unrecognized diagnostic');expect(labels.branchLabel(null)).toBe('브랜치 없음 / 미확인');expect(labels.branchLabel('HEAD')).toBe('HEAD');expect(store.formatTime('invalid')).toBe('관측 시각 미확인');

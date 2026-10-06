@@ -88,13 +88,16 @@ function validateHosts<T extends { identity: OrcaIdentity }>(rows: T[], scope: O
   }
 }
 function project(row: RecordValue): OrcaProject {
-  return { id: requiredText(row, 'id'), displayName: text(row, 'displayName', 512), sourceRepoIds: strings(row, 'sourceRepoIds', 10_000) };
+  const provider=nested(row,'providerIdentity');
+  const providerIdentity=provider?.provider==='github'?{provider:'github' as const,owner:requiredText(provider,'owner'),repo:requiredText(provider,'repo')}:undefined;
+  return { id: requiredText(row, 'id'), displayName: text(row, 'displayName', 512), sourceRepoIds: strings(row, 'sourceRepoIds', 10_000),...(providerIdentity?{providerIdentity}:{}) };
 }
 function worktree(row: RecordValue): OrcaWorktree {
   return {
     id: requiredText(row, 'id'), identity: identity(row), repoId: text(row, 'repoId'), projectId: text(row, 'projectId'),
     path: text(row, 'path'), branch: branch(row), displayName: text(row, 'displayName', 512),
     isArchived: bool(row, 'isArchived'), isMainWorktree: bool(row, 'isMainWorktree'),
+    ...(row.workspaceStatus!==undefined?{workspaceStatus:['in-progress','in-review','completed'].includes(String(row.workspaceStatus))?row.workspaceStatus as 'in-progress'|'in-review'|'completed':'unknown' as const}:{}),
   };
 }
 function agent(row: RecordValue): OrcaAgent {
@@ -109,6 +112,7 @@ function processObservation(row: RecordValue): OrcaProcessObservation {
   return {
     worktreeId: requiredText(row, 'worktreeId'), identity: identity(row, true), repoId: text(row, 'repoId'),
     isArchived: bool(row, 'isArchived'), isActive: bool(row, 'isActive'),
+    ...(row.hasHostSidebarActivity!==undefined?{hasHostSidebarActivity:bool(row,'hasHostSidebarActivity')}:{}),
     activityStatus: status === 'active' || status === 'inactive' ? status : 'unknown',
     liveTerminalCount: integer(row, 'liveTerminalCount'), hasAttachedPty: bool(row, 'hasAttachedPty'),
     lastOutputAt: timestamp(row, 'lastOutputAt'),

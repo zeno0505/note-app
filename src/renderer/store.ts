@@ -3,6 +3,7 @@ import type { WorkspaceSnapshot, Workstream } from '../domain';
 import { retainLastGoodSnapshot } from '../domain';
 import type { AppEnvironment } from '../shared/bridge';
 import type { LiveWorkspaceView } from '../shared/live';
+import {filterLiveWorkstreams,inLiveScope,repositoryKey,type LiveScope} from './live-filters';
 
 export const mode = ref<'live'|'demo'>('live');
 export const snapshot = ref<WorkspaceSnapshot|null>(null);
@@ -13,6 +14,8 @@ export const liveBusy = ref(false);
 export const bridgeError = ref<string|null>(null);
 export const filter = ref<'connected'|'all'>('connected');
 export const projectFilter=ref<'active'|'completed'|'all'>('active');
+export const liveScope=ref<LiveScope>('activity');
+export const repositoryFilter=ref('all');
 export const scenario = ref<'normal'|'empty'|'failure'>('normal');
 export const search = ref('');
 let requestGeneration = 0;
@@ -34,9 +37,13 @@ export const visibleWorkstreams = computed(()=>workstreams.value.filter(w=>
 ));
 export const liveWorkstreams = computed(()=>liveState.value?.workstreams.filter(w=>w.archived!==true)??[]);
 export const liveConnectedCount = computed(()=>liveWorkstreams.value.filter(w=>w.terminalConnected===true).length);
-export const visibleLiveWorkstreams = computed(()=>liveWorkstreams.value.filter(w=>
-  (w.project?(projectFilter.value==='all'||w.project.status===projectFilter.value):(filter.value==='all'||w.terminalConnected===true)) && `${w.title} ${w.projectName??''} ${w.branch??''}`.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase())
-));
+export const liveScopeCounts=computed(()=>Object.fromEntries((['activity','observed','retained'] as const).map(scope=>[scope,(liveState.value?.workstreams??[]).filter(w=>inLiveScope(w,scope)).length])));
+export const repositoryOptions=computed(()=>{
+  const options=new Map<string,string>();
+  for(const w of liveState.value?.workstreams??[])options.set(repositoryKey(w),w.repository?.label??'저장소 미확인');
+  return [...options].map(([key,label])=>({key,label})).sort((a,b)=>a.label.localeCompare(b.label));
+});
+export const visibleLiveWorkstreams = computed(()=>filterLiveWorkstreams(liveState.value?.workstreams??[],{scope:liveScope.value,repository:repositoryFilter.value,project:projectFilter.value,search:search.value}));
 export const livePending = computed(()=>liveBusy.value||liveState.value?.refreshing===true);
 
 export async function initialize() {

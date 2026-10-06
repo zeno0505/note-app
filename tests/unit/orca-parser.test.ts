@@ -3,6 +3,22 @@ import { parseOrcaResponse } from '../../src/collector/orca';
 import { fixture } from '../../fixtures/orca/test-helpers';
 
 describe('Orca allowlisted response projection', () => {
+  it('projects verified provider identity and strips credential-bearing remote fields',async()=>{
+    const value=await fixture('projects');Object.assign(value.result.projects[0],{providerIdentity:{provider:'github',owner:'example',repo:'demo',remoteUrl:'PRIVATE_REMOTE_CANARY'}});
+    const result=parseOrcaResponse('projects',JSON.stringify(value));expect(result.ok).toBe(true);
+    if(result.ok)expect(result.value.data.records[0].providerIdentity).toEqual({provider:'github',owner:'example',repo:'demo'});
+    expect(JSON.stringify(result)).not.toContain('PRIVATE_REMOTE_CANARY');
+  });
+  it('preserves sidebar activity separately from selected and terminal dimensions',async()=>{
+    const value=await fixture('processes');Object.assign(value.result.worktrees[0],{hasHostSidebarActivity:true,isActive:false,hasAttachedPty:false,liveTerminalCount:0});
+    const result=parseOrcaResponse('processes',JSON.stringify(value));expect(result.ok).toBe(true);
+    if(result.ok)expect(result.value.data.records[0]).toMatchObject({hasHostSidebarActivity:true,isActive:false,hasAttachedPty:false,liveTerminalCount:0});
+  });
+  it('does not turn an unfamiliar workspace status into completion',async()=>{
+    const value=await fixture('worktrees');value.result.worktrees[0].workspaceStatus='future-status';
+    const result=parseOrcaResponse('worktrees',JSON.stringify(value));expect(result.ok).toBe(true);
+    if(result.ok)expect(result.value.data.records[0].workspaceStatus).toBe('unknown');
+  });
   it('accepts the observed project list without invented pagination requirements', async () => {
     const result = parseOrcaResponse('projects', JSON.stringify(await fixture('projects')));
     expect(result.ok).toBe(true);
