@@ -1,0 +1,199 @@
+{
+  "kind": "public-manual-model-trial",
+  "productSha": "7fc1a04722eba874a998d9d978855613c5c006a5",
+  "inputSha": "9243fee53ea151816289f651b09b7665b428316f",
+  "inputHash": "9c4536398951fdd040216c1d8d8d13a9d2e217c0d00b938826fc59eb94d8bd4e",
+  "generatedAt": "2026-10-06T15:50:23.866Z",
+  "provider": "claude-subscription-cli",
+  "generationRequests": 1,
+  "repairRequests": 0,
+  "duplicateAdditionalCalls": 0,
+  "runtimeMs": 30550,
+  "observedUsage": {
+    "inputTokens": 2,
+    "cacheCreationInputTokens": 10830,
+    "cacheReadInputTokens": 0,
+    "outputTokens": 3830,
+    "reportedTurns": 2
+  },
+  "sections": [
+    {
+      "id": "implemented",
+      "text": "소스에는 프로젝트 목록과 요약을 나누는 UI가 구현되어 있습니다. 목록에서 프로젝트를 선택하면 그 프로젝트의 요약이 별도 영역에 표시됩니다. 일반 앱의 '지금 요약'은 전체 설정 소스를 새로 읽는 규칙 기반 갱신입니다. 기존 production 모델 실행은 차단되어 있으므로 자동 모델 호출은 없습니다. 또한 CodeBurn 사용량 통계를 독립 /usage 경로로 분리했고, 프로젝트 현황에 있던 중복 패널은 제거했습니다. 실제 페이지 이동과 좁은 화면을 검증한 기록이 있습니다. 다만 T-028의 원래 의존성과 수용기준을 무시하고 이를 전체 완료로 바꾸지는 않습니다.",
+      "facts": [
+        {
+          "id": "F1",
+          "state": "known"
+        },
+        {
+          "id": "F2",
+          "state": "none"
+        },
+        {
+          "id": "F7",
+          "state": "known"
+        }
+      ],
+      "sourceIds": [
+        "S1",
+        "S2",
+        "S3",
+        "S7",
+        "S8",
+        "S11"
+      ]
+    },
+    {
+      "id": "next",
+      "text": "다음 작업은 모두 계획 태스크입니다. Phase 2에서는 계정별 사용 한도와 메모리 여유·압력을 함께 고려해 동시 실행 수를 제어할 계획입니다. 이 밖에 T-029 쿼터·메모리 자원 정책, T-030 근거 있는 개발 위임, T-031 DAG 갱신 제안, T-032 트레이 최근 프로젝트가 계획되어 있습니다. 이번 공개 입력은 이들의 실제 구현을 입증하지 않습니다. 다른 note 프로젝트의 모델 연결은 공개 note-app 선행 실험 결과를 평가한 뒤 점진적으로 적용할 후속 작업입니다.",
+      "facts": [
+        {
+          "id": "F3",
+          "state": "known"
+        }
+      ],
+      "sourceIds": [
+        "S4",
+        "S10",
+        "S9"
+      ]
+    },
+    {
+      "id": "evidence",
+      "text": "공개 소스 SHA 9243fee53ea151816289f651b09b7665b428316f의 CI 조회 결과는 성공입니다. workflow 환경은 Ubuntu 24.04와 Node 24.19.0이며, 타입 검사·단위 테스트·빌드를 실행합니다. 다만 CI 성공은 Mac GUI 검수와 별개입니다. Mac 근거는 별도 검증 기록에 있으며 배포 완료를 입증하지 않습니다. PR 병합도 테스트나 배포와 별개이므로 Phase 1 전체 완료로 확대하지 않습니다. 공개 Mac 검증 기록의 제품 source SHA는 7b0f42d90c1d51257db2afa503c148e7765bfb2d입니다. 이 기록에서 단위 테스트는 941개 통과, 16개 skip이고 타입 검사와 빌드도 통과했습니다. 실제 Orca 관측은 74개 작업이며 CodeBurn status/quota 조회는 성공했습니다. 입력 SHA와 실제 실행 앱 SHA는 같은 개념이 아닙니다. 따라서 이 기록으로 현재 앱 전체 상태를 추정하지 않습니다.",
+      "facts": [
+        {
+          "id": "F4",
+          "state": "known"
+        },
+        {
+          "id": "F5",
+          "state": "none"
+        },
+        {
+          "id": "F8",
+          "state": "known"
+        }
+      ],
+      "sourceIds": [
+        "S5",
+        "S12",
+        "S11"
+      ]
+    },
+    {
+      "id": "decisions",
+      "text": "일반 읽기 요약에서 프로젝트별 설계 상태는 미기재입니다. 이 미기재를 결정 사항 없음이나 설계 완료로 바꾸지 않습니다. 2026-10-06에는 공개 note-app의 선별 근거만 기존 Claude 구독으로 보내는 수동 선행 실험 정책이 승인됐습니다. 조건은 동시 1개 실행, 생성 1회, 검증 실패 수정 최대 1회, 동일 입력 재호출 0, 최신 성공 본문 1개 유지입니다. 구현 진행과 승인 사실이 실험 내용의 정확성이나 일반 자동 실행의 완료를 뜻하지는 않습니다. 다른 프로젝트의 모델 전송 대상, 권한, 자동 실행 경계는 이번 공개 실험 뒤에 별도로 확인해야 합니다.",
+      "facts": [
+        {
+          "id": "F6",
+          "state": "unrecorded"
+        },
+        {
+          "id": "F9",
+          "state": "known"
+        }
+      ],
+      "sourceIds": [
+        "S6",
+        "S9"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "path": "src/renderer/components/LiveOverview.vue",
+      "lineStart": 48,
+      "lineEnd": 52,
+      "sha256": "821fa51a841cfb44ee019fc52be04b0b56785821e3cb2b857225dddd182fbe7f"
+    },
+    {
+      "id": "S2",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 209,
+      "lineEnd": 215,
+      "sha256": "d664105a10979506be3cf099ee1346d1ca323447a6beabd58988a3b88c5ae176"
+    },
+    {
+      "id": "S3",
+      "path": "src/summary/workflow/transport.ts",
+      "lineStart": 12,
+      "lineEnd": 17,
+      "sha256": "ac29aa2e1294ad00d28a3eed7fb26044d2b04fbf05331732e130867df31b9d7f"
+    },
+    {
+      "id": "S4",
+      "path": "docs/phase2-resource-planning.md",
+      "lineStart": 1,
+      "lineEnd": 8,
+      "sha256": "c267e3fa7b82df97639afb8bcd60aa22eff945f9a4a92a70ec74d21019f6a7da"
+    },
+    {
+      "id": "S5",
+      "path": ".github/workflows/check.yml",
+      "lineStart": 11,
+      "lineEnd": 26,
+      "sha256": "12d3880c5bc9e590b67f9a3d9bb15dedae7f9993325db36d5c3123f9e819bf3d"
+    },
+    {
+      "id": "S6",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 48,
+      "lineEnd": 52,
+      "sha256": "deeee079fc57d86dbf43160860c6dc802af25193964b3c172987ad0e6a4c6f33"
+    },
+    {
+      "id": "S7",
+      "path": "src/main/live-runtime.ts",
+      "lineStart": 600,
+      "lineEnd": 606,
+      "sha256": "38a169e6f6a6d976582c2ae45ca1c6ee9920830ff3a7d6dbe7c56184d8fe5246"
+    },
+    {
+      "id": "S8",
+      "path": "src/renderer/routes.ts",
+      "lineStart": 7,
+      "lineEnd": 13,
+      "sha256": "85b7712efd64564e2c62480968b639572cc01d254a250cfb7b0d3c6fefc27fe9"
+    },
+    {
+      "id": "S9",
+      "path": "docs/plans/project-model-reading-integration.md",
+      "lineStart": 2,
+      "lineEnd": 7,
+      "sha256": "8093606e1a146ff8e75a6f8cdb0c9b7ca54b047b5309712543c24809008bf99b"
+    },
+    {
+      "id": "S10",
+      "path": "docs/plans/phase2-task-scope.md",
+      "lineStart": 5,
+      "lineEnd": 11,
+      "sha256": "c670a8159fbdcfba192ebc64dbeec4fd737bb6ccf4e4d2c3ad5973b50fb9984d"
+    },
+    {
+      "id": "S11",
+      "path": "reviews/usage-statistics-mac.md",
+      "lineStart": 3,
+      "lineEnd": 21,
+      "sha256": "317c3309281544fa9b7dc2e5a193df1bfe2bc544d415c74c86b256c82d101935"
+    },
+    {
+      "id": "S12",
+      "path": ".github/workflows/check.yml#public-actions-observation",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "sha256": "e325e7fc7aede41967ac310a31c818216852f039f05601fa5380f4cedcb78d33"
+    }
+  ],
+  "machineValidation": {
+    "schema": "passed",
+    "requiredFacts": "passed",
+    "semanticTruthProof": false
+  },
+  "agentReview": {
+    "state": "reviewed-with-scope-note",
+    "note": "에이전트가 12개 공개 출처와 9개 사실을 대조했습니다. 필수 누락·새 수치·구현/계획/미확인 혼동·미기재를 설계 완료로 바꾼 주장은 발견하지 못했습니다. 일반 지금 요약은 전체 소스 규칙 갱신을 뜻하며 새 공개 AI 버튼과 구분해야 합니다. 고정 입력 시점의 요약이므로 이후 앱 전체 상태를 입증하지 않습니다. 전체 SHA와 근거 문단은 길어 가독성 개선 여지가 있습니다. 사용자 최종 내용 평가는 대기 중입니다.",
+    "userAcceptance": "pending"
+  }
+}
