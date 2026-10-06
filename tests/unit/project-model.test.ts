@@ -28,3 +28,20 @@ it('prioritizes recent review work and current CI over older document excerpts a
   const binding={runId:'fixture',project:p.project,inputHash:readingInputHash(p),version:'connected-project-reading-v2',attempt:1 as const},out=answer(binding,p);
   expect(validateModelAnswer(out,binding,p)).toEqual([]);out.sections[3].text='과거 기록대로 production model transport 차단이며 별도 승인 필요';expect(validateModelAnswer(out,binding,p).join()).toContain('F1');
 });
+
+it('keeps an unchanged running snapshot across ageing while new stale starts remain blocked',async()=>{
+ const f=await fixture();let release!:()=>void;try{
+  let aged=false,started!:()=>void;const ready=new Promise<void>(r=>started=r),gate=new Promise<void>(r=>release=r);
+  const resolve=vi.fn(async(id:string,signal:AbortSignal,phase?:'start'|'revalidate')=>{if(aged&&phase==='start')throw Error('Fresh start required');return f.options.resolve(id);});
+  const generate=vi.fn(async({binding,pack})=>{started();await gate;return {answer:answer(binding,pack),usage:{},provider:'synthetic-only',runtimeMs:1};});
+  const c=createProjectModelController({...f.options,resolve,adapter:{generate}}),flight=c.run('a');await ready;aged=true;c.invalidate();release();
+  expect((await flight).state).toBe('idle');expect((await f.storage.readLatest(source().projectKey)).state).toBe('ready');expect(resolve.mock.calls.map(c=>c[2])).toEqual(['start','revalidate','revalidate']);
+  const stale=await c.run('b');expect(stale.state).toBe('failed');expect(generate).toHaveBeenCalledTimes(1);
+ }finally{release?.();await f.clean();}
+});
+it('still enforces the model deadline and no-replay ledger on a stable snapshot',async()=>{
+ const f=await fixture();try{
+  const generate=vi.fn((_request,signal:AbortSignal)=>new Promise<never>((_,reject)=>signal.addEventListener('abort',()=>reject(Error('Synthetic deadline')),{once:true})));
+  const c=createProjectModelController({...f.options,adapter:{generate},timeoutMs:30});expect((await c.run('a')).state).toBe('failed');expect((await f.storage.readLatest(source().projectKey)).state).toBe('empty');await c.run('a');expect(generate).toHaveBeenCalledTimes(1);
+ }finally{await f.clean();}
+});

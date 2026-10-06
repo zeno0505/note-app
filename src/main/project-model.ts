@@ -20,7 +20,7 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   for(const e of source.registeredExcerpts?.excerpts??[])assertSafeModelInput(e.text);
   const sources:ProjectReadingPack['sources']=[],facts:ProjectReadingPack['facts']=[];
   const add=(path:string,excerpt:string)=>{const id='S'+(sources.length+1);sources.push({id,path,excerpt,lineStart:1,lineEnd:excerpt.split('\n').length,sha256:hash(excerpt)});return id;};
-  const runtime='이 프로젝트의 지금 요약은 기존 로그인된 Claude를 사용하는 수동 AI 요약입니다. 자동 호출 없음. 아래 프로젝트 기록의 과거 모델 차단 설명은 당시 범위의 기록이며 현재 수동 AI 실행을 부정하지 않습니다.';
+  const runtime='이 프로젝트의 지금 요약은 기존 로그인된 Claude를 사용하는 수동 AI 요약입니다. 자동 호출 없음. 요청 시작 시점에 확인한 프로젝트 근거를 요약하며 실행 중 배경 전환이나 관측 시각 경과만으로 실제 근거가 바뀌었다고 판단하지 않습니다. 아래 프로젝트 기록의 과거 모델 차단 설명은 당시 범위의 기록이며 현재 수동 AI 실행을 부정하지 않습니다.';
   const decisionScope='현재 이 프로젝트의 수동 Claude 요약은 사용자 승인 범위에서 전송 안내 확인 후 실행합니다. 과거 production model transport 차단은 기존 후보 승인 워크플로와 자동·일괄 실행의 제한입니다. 자동 호출 없음. 과거의 별도 승인 필요 기록을 현재 수동 요약의 미승인 판정으로 바꾸지 않습니다.';
   const runtimeSource=add('runtime/manual-ai.txt',runtime+'\n'+decisionScope);
   facts.push({id:'F0',section:'implemented',state:'known',text:runtime,sourceIds:[runtimeSource],anchors:['Claude','수동','자동 호출 없음']});
@@ -57,14 +57,14 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   const content={project:source.projectKey,scope:'connected-project' as const,sources,facts};
   const pack={...content,sourceSha:hash(JSON.stringify(content)).slice(0,40)};readingInputHash(pack);return pack;
 }
-export function createProjectModelController(options:{storage:ReturnType<typeof createModelReadingStorage>;adapter?:ModelAdapter;resolve(workstreamId:string,signal:AbortSignal):Promise<ProjectModelSource>;identify(workstreamId:string):string|null;revision?(workstreamId:string):string|null;timeoutMs?:number}){
+export function createProjectModelController(options:{storage:ReturnType<typeof createModelReadingStorage>;adapter?:ModelAdapter;resolve(workstreamId:string,signal:AbortSignal,phase?:'start'|'revalidate'):Promise<ProjectModelSource>;identify(workstreamId:string):string|null;revision?(workstreamId:string):string|null;timeoutMs?:number}){
   const views=new Map<string,ProjectModelView>();let active:{id:string;abort:AbortController;harness:ReturnType<typeof createPublicReadingHarness>|null;flight:Promise<ProjectModelView>}|undefined,disposed=false;
   const bindings=new Map<string,string>();
   const empty=(state:ProjectModelView['state'],message:string):ProjectModelView=>({state,message,inputHash:null,latest:{state:'empty',message:'저장된 AI 요약이 없습니다. 화면 조회는 모델을 호출하지 않습니다.'}});
   async function view(id:string):Promise<ProjectModelView>{const project=options.identify(id),previous=views.get(id);return {...previous??empty(options.adapter?'idle':'disabled',options.adapter?'선택한 프로젝트만 수동 요약합니다.':'Claude 실행 경로가 설정되지 않았습니다.'),latest:project?await options.storage.readLatest(project,bindings.get(id)!==options.revision?.(id)?'0'.repeat(64):previous?.inputHash??'0'.repeat(64)):{state:'unavailable',message:'현재 프로젝트 연결을 확인할 수 없습니다. 저장 결과를 다른 프로젝트에 표시하지 않습니다.'}};}
-  const current=async(id:string,signal:AbortSignal)=>{const s=await options.resolve(id,signal);if(signal.aborted||disposed||s.projectKey!==options.identify(id))throw Error('Source retired');return buildProjectModelPack(s);};
+  const current=async(id:string,signal:AbortSignal,phase:'start'|'revalidate'='start')=>{const s=await options.resolve(id,signal,phase);if(signal.aborted||disposed||s.projectKey!==options.identify(id))throw Error('Source retired');return buildProjectModelPack(s);};
   function cancel(id?:string,message='취소했습니다. 늦은 결과는 저장하지 않습니다.'){if(active&&(!id||active.id===id)){active.abort.abort();active.harness?.cancel();views.set(active.id,empty('cancelled',message));}}
-  return {view,cancel,invalidate(){if(active&&bindings.has(active.id)&&bindings.get(active.id)!==(options.revision?.(active.id)??''))cancel(undefined,'현재 관측·프로젝트 연결·읽기 권한이 변경되어 취소했습니다. 늦은 결과는 저장하지 않으며 같은 입력을 자동 재전송하지 않습니다.');},dispose(){disposed=true;cancel();},settle(){return active?.flight??Promise.resolve();},
+  return {view,cancel,invalidate(){if(active&&bindings.has(active.id)&&bindings.get(active.id)!==(options.revision?.(active.id)??''))cancel(undefined,'프로젝트 근거·연결·읽기 권한이 변경되어 취소했습니다. 늦은 결과는 저장하지 않으며 같은 입력을 자동 재전송하지 않습니다.');},dispose(){disposed=true;cancel();},settle(){return active?.flight??Promise.resolve();},
     run(id:string):Promise<ProjectModelView>{if(disposed||!options.adapter)return view(id);if(active){if(active.id===id)return active.flight;return Promise.resolve(empty('failed','다른 프로젝트 요약이 진행 중입니다. 동시에 실행하지 않습니다.'));}
       const abort=new AbortController();const own={id,abort,harness:null as ReturnType<typeof createPublicReadingHarness>|null,flight:null as unknown as Promise<ProjectModelView>};active=own;
       views.set(id,empty('running','현재 근거와 민감정보를 검사하고 있습니다.'));
@@ -72,13 +72,13 @@ export function createProjectModelController(options:{storage:ReturnType<typeof 
         const pack=await current(id,abort.signal),inputHash=readingInputHash(pack);bindings.set(id,options.revision?.(id)??'');
         views.set(id,{...empty('running','Claude 수동 요약 중입니다.'),inputHash});
         const adapter:ModelAdapter={generate:async(request,signal)=>{
-          if(readingInputHash(await current(id,signal))!==inputHash)throw Error('Source changed before send');
+          if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before send');
           const receipt=await options.adapter!.generate(request,signal);assertSafeModelInput(JSON.stringify(receipt.answer));
-          if(readingInputHash(await current(id,signal))!==inputHash)throw Error('Source changed before publish');return receipt;
+          if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before publish');return receipt;
         }};
         own.harness=createPublicReadingHarness(adapter,options.storage.ledger(pack),options.timeoutMs);
         const result=await own.harness.summarize(pack);
-        if(!abort.signal.aborted&&!disposed)views.set(id,{...empty(result.status==='model'?'idle':'failed',result.status==='model'?'최신 성공 요약을 저장했습니다. 같은 입력은 재호출하지 않습니다.':'완료하지 못했습니다. 이전 성공 결과를 보존하며 자동 재전송하지 않습니다.'),inputHash});
+        if(!abort.signal.aborted&&!disposed)views.set(id,{...empty(result.status==='model'?'idle':'failed',result.status==='model'?'시작 시점 근거의 성공 요약을 저장했습니다. 같은 입력은 재호출하지 않습니다.':'완료하지 못했습니다. 이전 성공 결과를 보존하며 자동 재전송하지 않습니다.'),inputHash});
       }catch{if(!abort.signal.aborted&&!disposed)views.set(id,{...views.get(id)??empty('failed',''),state:'failed',message:'근거·읽기 권한·민감정보 검사를 통과하지 못했거나 실행에 실패했습니다. 원문을 표시하지 않으며 이전 성공 결과를 보존합니다.'});}
       return view(id);})().finally(()=>{if(active===own)active=undefined;});return own.flight;
     },

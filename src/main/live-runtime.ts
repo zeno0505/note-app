@@ -554,14 +554,17 @@ export function createLiveRuntime(options: {
   return {
     getState,
     /** Main-only authority resolution. These raw paths/models never cross the live view IPC. */
-    async resolveSummarySource(workstreamId: string, signal: AbortSignal = new AbortController().signal) {
+    // A running manual request may outlive the display freshness window. Only
+    // time ageing is relaxed on revalidation: mapping, root grants, DAG bytes,
+    // registered excerpts, runtime identity and failed observations still gate it.
+    async resolveSummarySource(workstreamId: string, signal: AbortSignal = new AbortController().signal, revalidateSnapshot=false) {
       const snapshot=store.getState();
-      if(disposed || !connected || snapshot.refreshing || signal.aborted || snapshot.freshness!=='current' || !snapshot.value || !config?.localHostId) throw new Error('Current source unavailable');
+      if(disposed || !connected || snapshot.refreshing || signal.aborted || (!revalidateSnapshot&&snapshot.freshness!=='current') || ['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'') || !snapshot.value || !config?.localHostId) throw new Error('Current source unavailable');
       const workstream=snapshot.value.workstreams.find(w=>w.id===workstreamId);
       const mapping=workstream?.noteMapping;
       const dagView=mapping?.dagId?snapshot.value.dags.find(d=>d.dagId===mapping.dagId):undefined;
       const session=mapping?.dagId?dagSessions.get(mapping.dagId):undefined;
-      if(mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || now()-Date.parse(session.model.observedAt)>=STALE_MS) throw new Error('Current DAG unavailable');
+      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) throw new Error('Current DAG unavailable');
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new Error('Current mapping unavailable');
       const verified=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
@@ -572,11 +575,11 @@ export function createLiveRuntime(options: {
       if(!currentDag.ok||signal.aborted)throw new Error('Current DAG could not be verified');
       const registeredExcerpts=await readRegistered(currentMapping,signal);
       const after=store.getState();
-      if(disposed||!connected||after.refreshing||after.freshness!=='current'||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new Error('Source changed during validation');
+      if(disposed||!connected||after.refreshing||(!revalidateSnapshot&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new Error('Source changed during validation');
       session.model=currentDag.value;
       return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
-    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&snapshot.freshness==='current'&&w?.noteMapping.state==='resolved'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
+    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
     identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''):null;},
     resolveNoteSelection(worktreeId: string, scopeId: string) {
       const snapshot=store.getState();

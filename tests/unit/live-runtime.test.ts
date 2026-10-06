@@ -150,6 +150,23 @@ describe('connected-project rule reading integration',()=>{
 async function flush() { for(let i=0;i<50;i++)await Promise.resolve(); }
 
 describe('main-owned live read-only orchestration',()=>{
+  it('requires fresh starts but revalidates the same background snapshot after time-only ageing',async()=>{
+    const x=setup();const view=await x.runtime.connect();const id=view.workstreams[0].id,revision=x.runtime.modelSourceRevision(id);
+    x.runtime.setActivity({visible:false,active:false});await vi.advanceTimersByTimeAsync(41000);
+    expect(x.runtime.getState().freshness).toBe('stale');expect(x.runtime.modelSourceRevision(id)).toBe(revision);
+    await expect(x.runtime.resolveSummarySource(id)).rejects.toThrow('Current source unavailable');
+    x.mapNotes.mockClear();x.readDag.mockClear();const source=await x.runtime.resolveSummarySource(id,new AbortController().signal,true);
+    expect(source.readingSummary).toBeDefined();expect(x.mapNotes).toHaveBeenCalledTimes(1);expect(x.readDag).toHaveBeenCalledTimes(1);
+    x.mapNotes.mockImplementation(async request=>{const result=mapping(request);const m=result.mappings[0];if(m.state==='resolved')m.canonicalDagPath='/synthetic/revoked';return result;});
+    await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow('Source mapping changed');
+    await x.runtime.disconnect();expect(x.runtime.modelSourceRevision(id)).toBeNull();await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow();
+  });
+  it('does not treat a failed observation as mere time ageing when revalidating a model snapshot',async()=>{
+    const x=setup();const view=await x.runtime.connect(),id=view.workstreams[0].id;
+    x.collect.mockResolvedValueOnce({ok:false,error:{kind:'access_denied',query:'status',runtimeId:null,message:'Synthetic failure'}});
+    await x.runtime.refresh();expect(x.runtime.modelSourceRevision(id)).toBeNull();await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow();
+  });
+
   it('rereads the selected mapping and DAG for summary authorization instead of trusting the poll cache',async()=>{
     const x=setup();const view=await x.runtime.connect();x.mapNotes.mockClear();x.readDag.mockClear();
     const changed=dag();changed.tasks[0].status='done';changed.sourceHash='c'.repeat(64);x.readDag.mockResolvedValue({ok:true,value:changed,unchanged:false});
