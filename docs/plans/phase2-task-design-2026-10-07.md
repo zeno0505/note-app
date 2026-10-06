@@ -279,3 +279,12 @@ flowchart LR
 사용자는 Codex 두 계정과 Claude 두 계정을 사용하며 UsageScope floating widget으로 계정별 한도를 확인한다. T-043은 provider/account/profile별 관측 모델과 프로젝트 소비량 모델을 분리해야 한다. 현재 활성 계정의 quota를 모든 계정의 합계나 특정 프로젝트 소비량으로 확대하지 않고, CodeBurn 집계 기록0/hasUsage=false와도 동일시하지 않는다. 비밀 없는 stable account reference, 출처·관측 시각·연결 범위·unknown 표시 계약을 후속 설계에 포함한다.
 
 UsageScope의 설치 앱 식별·공식 자료·멀티계정 구현 방식은 독립 읽기 조사 중이며 결과를 기다린다. 선언된 계정 수만 계획에 기록하며 현재 모든 계정 연결/수집이 지원된다고 주장하지 않는다. credential/keychain 복사, 새 계정 연결, 인증·설정 변경과 제품 구현은 이번 범위에 없다. 원래 T-043의 pending 상태·수용 기준·의존성은 보존한다.
+
+독립 조사 보고에서 설치 앱은 UsageScope1.2.20/build127(`com.usagescope.app`)로 식별됐고 계정 추가/관리·계정별 gauge·last success를 지원한다고 확인했다. 이 기록은 설치 버전이며 최신 버전이라는 주장은 아니다. [공식 소개](https://usagescope.com/)는 한도와 사용 이력을 소개하며, [공식 지원](https://usagescope.com/support)은 제공 한도·리셋 시각이 서비스와 계정에 따라 달라진다고 설명한다. [개인정보 정책](https://usagescope.com/privacy)은 credential과 usage cache가 보호된 로컬 저장소에 있다고 설명한다. 이번 조사에서 문서화된 외부 export/API/CLI는 찾지 못했으며, 존재하지 않는다고 확정하지 않는다. private credential/cache/UI는 읽지 않았다.
+
+현재 note-app의 quota decoder는 provider별 한 행이며 account/profile 필드가 없고 같은 provider 중복을 거절한다. 여러 계정은 기존 배열에 행을 추가하는 것만으로 해결되지 않으므로 T-043에 다음 두 조사 작업을 명확히 포함한다.
+
+1. **계정 모델:** `provider → account/profile reference → quota window`. 계정마다 observedAt·lastSuccess·리셋·error를 보존한다. 프로젝트 소비량은 별도 관측으로 두고 귀속을 증명하지 못하면 unknown을 유지한다. 서로 다른 계정의 퍼센트를 합산하거나 평균하지 않는다.
+2. **수집 인터페이스:** 공식 또는 사용자 승인 가능한 계정별 read-only 수집의 identity·scope·capability·권한·오류 계약을 조사한다. UsageScope 인증정보/keychain/private cache를 복사하거나 내부 저장을 임의 bridge로 쓰지 않는다. 새 계정 연결은 대상/권한/입력을 구체화하고 추가 승인 이후 수행한다.
+
+현재 CodeBurn quota는 **조회 계정 식별 미확인**이다. 이를 명시하는 Phase1 최소 표시를 후속으로 검토하되 이번 결정은 설계 기록만이며 제품 구현·새 연결은 하지 않는다. 계정별 현재 퍼센트와 개인정보를 공개 문서에 옮기지 않는다.
