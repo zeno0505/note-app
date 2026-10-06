@@ -273,3 +273,9 @@ flowchart LR
 이번 검증은 계획 문서·DAG 구조·ID 중복/누락 참조/cycle·기존 태스크 불변·7개 필터/관계 일치 및 정확 Git SHA CI 범위다. planning의 e2e.required=false/covered_by=[]는 실제 구현 검증 완료나 향후 검증 면제를 뜻하지 않는다. 실제 성능·capability·모델 의미 검수·시각 검토·설치는 후속 구현 승인 이후 T-040~T-048 계획에 따른다.
 
 상태 Select 질문은 해소됐다. 남은 후속 결정은 라이브러리 정확 버전/성능·라이선스 채택, Orca 메모리·전환 capability, 수집 귀속/비용과 지원 OS·성능 수용 목표다. 기존 수동 요약 승인과 새 태스크 AI의 실제 실행 범위는 착수 시 구분한다. Phase 1 사용자 읽기 수용과 native 미검증을 이 계획 등록으로 완료 처리하지 않는다.
+
+## 후속 요구: 여러 계정과 프로젝트 소비량의 구분
+
+사용자는 Codex 두 계정과 Claude 두 계정을 사용하며 UsageScope floating widget으로 계정별 한도를 확인한다. T-043은 provider/account/profile별 관측 모델과 프로젝트 소비량 모델을 분리해야 한다. 현재 활성 계정의 quota를 모든 계정의 합계나 특정 프로젝트 소비량으로 확대하지 않고, CodeBurn 집계 기록0/hasUsage=false와도 동일시하지 않는다. 비밀 없는 stable account reference, 출처·관측 시각·연결 범위·unknown 표시 계약을 후속 설계에 포함한다.
+
+UsageScope의 설치 앱 식별·공식 자료·멀티계정 구현 방식은 독립 읽기 조사 중이며 결과를 기다린다. 선언된 계정 수만 계획에 기록하며 현재 모든 계정 연결/수집이 지원된다고 주장하지 않는다. credential/keychain 복사, 새 계정 연결, 인증·설정 변경과 제품 구현은 이번 범위에 없다. 원래 T-043의 pending 상태·수용 기준·의존성은 보존한다.
