@@ -14,7 +14,7 @@ Phase 1은 로컬 Mac 앱, 실제 프로젝트의 근거 있는 한국어 설명
 
 깨끗한 검증 SHA에서 `npm run package:mac:local -- --output /absolute/new/note-app.app --config /absolute/private/config.json`을 사용한다. `--config`는 선택이며 기존 시작 설정 형식이다. Finder는 셸 환경을 상속하지 않으므로 이 명시적 로컬 설정을 앱 Resources에 넣는다. 원본·설치 앱을 덮어쓰지 않으며 새 출력이 필요하다. 설정은 private regular file이어야 한다. 개인 경로가 든 설정과 앱은 공개 저장소에 넣지 않는다.
 
-패키징은 다시 빌드하고 소스 SHA/트리와 entry/preload 해시를 manifest에 기록한다. 복사본만 ad hoc 서명하고 구조·서명을 검사한다. 계정 인증서·보안 설정·자동 업데이트·설치는 변경하지 않는다.
+패키징은 다시 빌드하고 소스 SHA/트리와 entry/preload 해시를 manifest에 기록한다. 복사본 실행 파일과 CFBundleExecutable을 note-app으로 맞춰 실제 packaged 실행과 내장 설정 선택이 가능하도록 한 뒤 ad hoc 서명하고 구조·서명을 검사한다. 계정 인증서·보안 설정·자동 업데이트·설치는 변경하지 않는다.
 
 ## 최종 정확한 SHA에서 필요한 실제 Mac 검수
 

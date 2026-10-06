@@ -1,6 +1,6 @@
 import {parseArgs} from 'node:util';
 import {execFileSync} from 'node:child_process';
-import {cp,mkdir,readFile,writeFile,lstat} from 'node:fs/promises';
+import {cp,mkdir,readFile,writeFile,lstat,rename} from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 const {values}=parseArgs({options:{output:{type:'string'},config:{type:'string'}}});
@@ -20,6 +20,10 @@ const resources=path.join(target,'Contents','Resources'),appRoot=path.join(resou
 await writeFile(path.join(appRoot,'package.json'),JSON.stringify({name:'note-app',version:'0.1.0',private:true,main:'dist/main/index.cjs'},null,2)+'\n');
 if(config)await writeFile(path.join(resources,'live-config.json'),config,{mode:0o600});
 const plist=path.join(target,'Contents','Info.plist');
+// Electron's macOS isPackaged checks the executable basename. Keeping Electron
+// would disable bundled startup configuration even after a Finder launch.
+await rename(path.join(target,'Contents','MacOS','Electron'),path.join(target,'Contents','MacOS','note-app'));
+execFileSync('/usr/libexec/PlistBuddy',['-c','Set :CFBundleExecutable note-app',plist]);
 for(const [key,value] of [['CFBundleDisplayName','note-app'],['CFBundleName','note-app'],['CFBundleIdentifier','dev.noteapp.local'],['CFBundleShortVersionString','0.1.0'],['CFBundleVersion','1']])execFileSync('/usr/libexec/PlistBuddy',['-c',`Set :${key} ${value}`,plist]);
 execFileSync('/usr/bin/plutil',['-lint',plist],{stdio:'inherit'});
 // Ad hoc signing of this owned copy only. No account, certificate or OS setting changes.
