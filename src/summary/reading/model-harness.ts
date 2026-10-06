@@ -53,6 +53,7 @@ export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:Publ
 export function modelOutputSchema(binding:ModelBinding){
   return {type:'object',additionalProperties:false,required:['runId','project','inputHash','version','attempt','sections'],properties:{...Object.fromEntries(Object.entries(binding).map(([k,v])=>[k,{const:v,type:typeof v==='number'?'integer':'string'}])),sections:{type:'array',minItems:4,maxItems:4,items:{type:'object',additionalProperties:false,required:['id','text','facts','sourceIds'],properties:{id:{type:'string',enum:SECTION_IDS},text:{type:'string',minLength:8,maxLength:1800},facts:{type:'array',maxItems:24,items:{type:'object',additionalProperties:false,required:['id','state'],properties:{id:{type:'string'},state:{type:'string',enum:['known','none','unrecorded','query-failed']}}}},sourceIds:{type:'array',maxItems:12,items:{type:'string'}}}}}}};
 }
+const fallback=(pack:PublicReadingPack)=>({kind:'rules-only' as const,sections:SECTION_IDS.map(id=>({id,text:pack.facts.filter(f=>f.section===id).map(f=>f.text).join(' ')}))});
 let globalFlight:Promise<HarnessRecord>|undefined,globalHash:string|undefined,globalRetire:(()=>void)|undefined,quarantined=false;
 /** No provider racing. A durable ledger reserves each attempt before the paid call. */
 export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLedger,timeoutMs=120000){
@@ -66,7 +67,11 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
       const ownGeneration=++generation;controller=new AbortController();const signal=controller.signal;
       const flight=(async():Promise<HarnessRecord>=>{
         const unlock=await ledger.lock();let release=true;try{
-          const saved=await ledger.get(inputHash);if(saved)return saved.status==='running'?{...saved,status:'fallback',errors:[...saved.errors,'Interrupted prior attempt; no automatic replay']}:saved;
+          const saved=await ledger.get(inputHash);if(saved){
+            if(signal.aborted||generation!==ownGeneration)return {...saved,status:'cancelled',answer:undefined};
+            if(saved.status==='model'&&(!saved.answer||validateModelAnswer(saved.answer,{runId:saved.answer.runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt:saved.answer.attempt},pack).length))throw Error('Stored model answer invalid; no automatic replay');
+            return saved.status==='running'?{...saved,status:'fallback',fallback:fallback(pack),errors:[...saved.errors,'Interrupted prior attempt; no automatic replay']}:saved;
+          }
           const record:HarnessRecord={inputHash,attempts:0,status:'running',errors:[],receipts:[]};
           const runId=randomUUID();
           for(const attempt of [1,2] as const){
@@ -74,21 +79,22 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
             record.attempts=attempt;await ledger.put(record);
             const binding:ModelBinding={runId,project:pack.project,inputHash,version:MODEL_HARNESS_VERSION,attempt};
             let timer:ReturnType<typeof setTimeout>|undefined;
+            let timedOut=false;
             let settled=false,adapterFlight:Promise<ModelReceipt>|undefined;
             try{
               adapterFlight=adapter.generate({binding,pack,repairErrors:record.errors},signal).finally(()=>{settled=true;});
-              const receipt=await Promise.race([adapterFlight,new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller?.abort();reject(Error('Model deadline'));},timeoutMs);signal.addEventListener('abort',()=>reject(Error('Model cancelled')),{once:true});})]);
+              const receipt=await Promise.race([adapterFlight,new Promise<never>((_,reject)=>{timer=setTimeout(()=>{timedOut=true;controller?.abort();reject(Error('Model deadline'));},timeoutMs);signal.addEventListener('abort',()=>reject(Error('Model cancelled')),{once:true});})]);
               if(signal.aborted||generation!==ownGeneration){record.status='cancelled';break;}
               record.receipts.push({provider:receipt.provider,usage:receipt.usage,runtimeMs:receipt.runtimeMs});
               record.errors=validateModelAnswer(receipt.answer,binding,pack);
               if(!record.errors.length){record.status='model';record.answer=receipt.answer as ModelAnswer;break;}
               if(attempt===2)record.status='fallback';
-            }catch(error){record.status=signal.aborted?'cancelled':'fallback';record.errors=[String(error)];
+            }catch(error){record.status=timedOut?'fallback':signal.aborted?'cancelled':'fallback';record.errors=[String(error)];
               if(adapterFlight&&!settled){let drainTimer:ReturnType<typeof setTimeout>|undefined;await Promise.race([adapterFlight.catch(()=>{}),new Promise<void>(resolve=>{drainTimer=setTimeout(resolve,2000);})]);if(drainTimer)clearTimeout(drainTimer);if(!settled){quarantined=true;release=false;record.errors.push('Adapter did not settle; durable global slot retained');}}
               break;
             }finally{if(timer)clearTimeout(timer);}
           }
-          if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback={kind:'rules-only',sections:SECTION_IDS.map(id=>({id,text:pack.facts.filter(f=>f.section===id).map(f=>f.text).join(' ')}))};await ledger.put(record);return record;
+          if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback=fallback(pack);await ledger.put(record);return record;
         }finally{if(release)await unlock();}
       })();globalFlight=flight;globalHash=inputHash;globalRetire=()=>{generation++;controller?.abort();};
       try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalHash=undefined;globalRetire=undefined;}}

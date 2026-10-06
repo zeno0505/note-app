@@ -101,6 +101,10 @@ describe('live renderer disclosure and escaping',()=>{
     app.component('RouterLink',defineComponent({setup(_props,{slots}){return ()=>h('a',slots.default?.());}}));
     return renderToString(app);
   }
+  it('shows the stored public model experiment with scope and usage, without any model bridge call',async()=>{
+    const component=(await import('../../src/renderer/components/PublicModelReview.vue')).default;
+    const html=await render(component,{});expect(html).toContain('공개 note-app 모델 요약 검증 결과');expect(html).toContain('이 화면을 열어도 모델을 호출하지 않습니다');expect(html).toContain('입력 SHA');expect(html).toContain('현재 어디까지 구현되었나요?');expect(html).toContain('조회한 결과는 성공');expect(bridge.runSummary).not.toHaveBeenCalled();expect(bridge.summarizeNow).not.toHaveBeenCalled();
+  });
   it('keeps long reading summaries out of project list items and makes selection keyboard reachable',async()=>{
     const {default:Item}=await import('../../src/renderer/components/ProjectListItem.vue');
     const workstream:LiveWorkstreamView={id:'one',title:'<script>long Korean project</script>',projectName:null,branch:'refs/heads/long-topic',archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null}};

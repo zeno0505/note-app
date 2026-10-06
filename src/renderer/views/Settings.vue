@@ -5,6 +5,7 @@ import {environment,mode,liveState,livePending,busy,bridgeError,exitDemo,refresh
 import {configurationLabels} from '../live-labels';
 import ReadRootsSettings from '../components/ReadRootsSettings.vue';
 import LiveCodeBurn from '../components/LiveCodeBurn.vue';
+import PublicModelReview from '../components/PublicModelReview.vue';
 const router=useRouter();
 function stopDemo(){exitDemo();void router.push('/');}
 </script>
@@ -17,6 +18,7 @@ function stopDemo(){exitDemo();void router.push('/');}
       <div class="setting-actions" v-if="mode==='live'"><Button v-if="liveState?.configuration.state==='ready'&&liveState.connection==='disconnected'" label="설정된 소스 연결" data-testid="live-connect" :loading="livePending" :disabled="busy" @click="connectLive"/><template v-if="liveState?.connection==='connected'"><Button label="실제 소스 새로고침" data-testid="live-refresh" outlined :loading="livePending" @click="refreshLive"/><Button label="연결 해제" data-testid="live-disconnect" outlined :disabled="busy" @click="disconnectLive"/></template></div>
     </div>
     <ReadRootsSettings v-if="mode==='live'"/>
+    <PublicModelReview v-if="mode==='live'"/>
     <div class="setting-row"><div><h2>시작 설정 파일</h2><p>로컬 JSON 설정 파일의 절대 경로를 NOTE_APP_CONFIG 환경 변수로 지정한 뒤 앱을 다시 시작하세요. 설정 스키마와 실행 예시는 저장소 docs/live-configuration.md를 참고하세요.</p><p>실행 파일 경로와 노트 연결 쓰기 설정은 시작 파일에서 정합니다. 노트 읽기 허용 폴더는 위 선택·확인 절차로 앱에 저장할 수 있습니다.</p></div></div>
     <div class="setting-row"><div><h2>요약 백엔드</h2><p>선택한 작업의 제한된 컨텍스트를 미리 보고 로컬 요약 후보를 검토·승인할 수 있습니다. 이전 승인 기록은 새 후보와 구분해 보존됩니다. 실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.</p></div><span class="state-badge">새 요약 생성 비활성</span></div>
     <div class="setting-row"><div><h2>데이터 처리 범위</h2><p>소스 연결은 설정된 CLI와 명시된 노트·DAG를 읽기 전용으로 관측합니다. 요약 승인은 로컬 검토 기록이며 작업 실행 권한이 아닙니다. 모델 전송과 개발 위임은 차단되어 있습니다. 샘플 모드로 전환하면 실제 소스 수집을 중단합니다.</p></div><span class="state-badge safe">소스 관측은 읽기 전용</span></div>

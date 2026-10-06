@@ -42,11 +42,15 @@ console.log(JSON.stringify({stage:'prepared',sha,inputHash,sourceCount:sources.l
 if(!values.execute)process.exit(0);
 if(!values['claude-path']||!path.isAbsolute(values['claude-path']))throw Error('Explicit installed Claude executable required');
 const cwd=path.join(out,'empty-workspace');await mkdir(cwd,{mode:0o700,recursive:true});
-const ledger=adapterModule.createFileHarnessLedger(path.join(out,'ledger'));
+// Every experiment directory shares one durable per-user reservation/lock.
+// Changing --output must not create another paid-call allowance.
+const ledgerDirectory=process.platform==='darwin'?path.join(process.env.HOME,'Library','Application Support','note-app','public-model-harness'):path.join(process.env.HOME,'.local','share','note-app','public-model-harness');
+const ledger=adapterModule.createFileHarnessLedger(ledgerDirectory);
 const adapter=adapterModule.createClaudePublicAdapter(values['claude-path'],cwd,process.env);
-const harness=harnessModule.createPublicReadingHarness(adapter,ledger);
+let adapterInvocationsThisRun=0;
+const harness=harnessModule.createPublicReadingHarness({generate(...args){adapterInvocationsThisRun++;return adapter.generate(...args);}},ledger);
 process.once('SIGINT',()=>harness.cancel());process.once('SIGTERM',()=>harness.cancel());
 const first=await harness.summarize(pack),before=first.attempts,second=await harness.summarize(pack);
-await writeFile(path.join(out,'result.json'),JSON.stringify({sha,inputHash,first,duplicate:{sameAnswer:JSON.stringify(first)===JSON.stringify(second),additionalCalls:second.attempts-before},billingInterpretation:'Returned usage is observed metadata, not a subscription charge guarantee.'},null,2),{mode:0o600});
-console.log(JSON.stringify({stage:'completed',status:first.status,attempts:first.attempts,errors:first.errors,duplicateAdditionalCalls:second.attempts-before,receipts:first.receipts}));
+await writeFile(path.join(out,'result.json'),JSON.stringify({sha,inputHash,first,adapterInvocationsThisRun,duplicate:{sameAnswer:JSON.stringify(first)===JSON.stringify(second),additionalCalls:second.attempts-before},billingInterpretation:'Returned usage is observed metadata, not a subscription charge guarantee.'},null,2),{mode:0o600});
+console.log(JSON.stringify({stage:'completed',status:first.status,attempts:first.attempts,adapterInvocationsThisRun,errors:first.errors,duplicateAdditionalCalls:second.attempts-before,receipts:first.receipts}));
 if(first.status!=='model')process.exitCode=1;

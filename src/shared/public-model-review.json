@@ -1,0 +1,178 @@
+{
+  "kind": "public-model-verification",
+  "sourceSha": "aedcb6c6c093f10d20354e46f00cf49952109654",
+  "inputHash": "c68761e16fc782708ad523344acf33b83a03a346f143df621d2b2438ecdeb11e",
+  "runId": "11b0cef5-ec09-467c-83cf-e0770c953e1a",
+  "version": "public-reading-v1",
+  "provider": "claude-subscription-cli",
+  "generationRequests": 1,
+  "repairRequests": 0,
+  "duplicateAdditionalRequests": 0,
+  "runtimeMs": 16165,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 7761,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 1578,
+    "output_tokens_details": {
+      "thinking_tokens": 330
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7761,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1578,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 7761,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7761
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "reportedTurns": 2,
+  "sections": [
+    {
+      "id": "implemented",
+      "text": "소스에는 프로젝트 목록과 요약을 분리하는 UI가 구현되어 있습니다. 목록에서 프로젝트를 선택하면 선택한 프로젝트 요약이 별도 영역에 표시됩니다. 일반 앱의 '지금 요약'은 전체 설정 소스를 새로 읽어 규칙 기반으로 갱신하는 방식입니다. 기존 production 모델 실행은 차단되어 있으며, 자동 모델 호출은 없습니다.",
+      "facts": [
+        {
+          "id": "F1",
+          "state": "known"
+        },
+        {
+          "id": "F2",
+          "state": "none"
+        }
+      ],
+      "sourceIds": [
+        "S1",
+        "S2",
+        "S3",
+        "S7"
+      ]
+    },
+    {
+      "id": "next",
+      "text": "Phase 2에서 다룰 계정별 사용 한도와 메모리 여유를 기준으로 한 동시 실행 제어는 아직 계획 문서에만 있습니다. 이번 공개 입력은 이 기능이 실제로 구현되었음을 입증하지 않습니다. 또한 공개 입력 검증을 마친 뒤 실제 프로젝트에 모델 요약을 연결하려면 별도의 구현과 검증이 필요합니다.",
+      "facts": [
+        {
+          "id": "F3",
+          "state": "known"
+        }
+      ],
+      "sourceIds": [
+        "S4",
+        "S3"
+      ]
+    },
+    {
+      "id": "evidence",
+      "text": "공개 소스 SHA aedcb6c6c093f10d20354e46f00cf49952109654를 기준으로 CI를 조회한 결과는 성공입니다. 이 SHA는 입력으로 받은 값일 뿐, 현재 실행 중인 앱의 SHA라는 뜻은 아닙니다. workflow 환경은 Ubuntu 24.04와 Node 24.19.0이며, 타입 검사·단위 테스트·빌드를 실행합니다. 다만 이 CI는 Mac GUI 검수, 패키지 검수, 배포 완료를 입증하지 않으며, 이러한 검수·배포 결과는 공개 입력에 미기재되어 있습니다. PR 병합은 테스트 통과나 배포 완료와 별개이므로 그렇게 취급하지 않습니다.",
+      "facts": [
+        {
+          "id": "F4",
+          "state": "known"
+        },
+        {
+          "id": "F5",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S5",
+        "S8",
+        "S3"
+      ]
+    },
+    {
+      "id": "decisions",
+      "text": "일반 읽기 요약에는 프로젝트별 설계 상태가 미기재되어 있습니다. 이 미기재 상태를 '결정할 사항 없음'이나 '설계 완료'로 해석해서는 안 됩니다. 실제 프로젝트에 모델 요약을 붙이려면 모델 전송 대상, 권한, 검증 경계를 별도로 확인해야 합니다.",
+      "facts": [
+        {
+          "id": "F6",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S6",
+        "S3"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "path": "src/renderer/components/LiveOverview.vue",
+      "lineStart": 45,
+      "lineEnd": 49,
+      "sha256": "7cee579fe7d6b3f1992b1508a5c7c3550a68e121e3ceb8acc45f533a5f431091"
+    },
+    {
+      "id": "S2",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 209,
+      "lineEnd": 215,
+      "sha256": "d664105a10979506be3cf099ee1346d1ca323447a6beabd58988a3b88c5ae176"
+    },
+    {
+      "id": "S3",
+      "path": "src/summary/workflow/transport.ts",
+      "lineStart": 12,
+      "lineEnd": 17,
+      "sha256": "ac29aa2e1294ad00d28a3eed7fb26044d2b04fbf05331732e130867df31b9d7f"
+    },
+    {
+      "id": "S4",
+      "path": "docs/phase2-resource-planning.md",
+      "lineStart": 1,
+      "lineEnd": 8,
+      "sha256": "c267e3fa7b82df97639afb8bcd60aa22eff945f9a4a92a70ec74d21019f6a7da"
+    },
+    {
+      "id": "S5",
+      "path": ".github/workflows/check.yml",
+      "lineStart": 11,
+      "lineEnd": 26,
+      "sha256": "12d3880c5bc9e590b67f9a3d9bb15dedae7f9993325db36d5c3123f9e819bf3d"
+    },
+    {
+      "id": "S6",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 48,
+      "lineEnd": 52,
+      "sha256": "deeee079fc57d86dbf43160860c6dc802af25193964b3c172987ad0e6a4c6f33"
+    },
+    {
+      "id": "S7",
+      "path": "src/main/live-runtime.ts",
+      "lineStart": 600,
+      "lineEnd": 606,
+      "sha256": "38a169e6f6a6d976582c2ae45ca1c6ee9920830ff3a7d6dbe7c56184d8fe5246"
+    },
+    {
+      "id": "S8",
+      "path": ".github/workflows/check.yml#public-actions-observation",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "sha256": "ae29c2fe2f532d7cf12d22d2b222eb5d100ad02dfa87e58c3ca04f31d5c83523"
+    }
+  ],
+  "manualReview": {
+    "result": "passed-with-scope-note",
+    "note": "네 섹션을 공개 입력과 대조했습니다. 다음 작업의 계획 문서에만 있다는 표현은 지정 공개 입력 범위로 제한하며 저장소 전체 코드 부재를 인증하지 않습니다. 현재 앱·실프로젝트 전체·역사 문서 최신성 판단은 포함하지 않습니다."
+  }
+}

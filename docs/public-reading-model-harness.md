@@ -8,9 +8,9 @@
 node scripts/public-reading-model.mjs --output /absolute/private/evidence --approved-public-sha PUBLIC_COMMIT_SHA
 ```
 
-실행에는 별도로 승인된 `--execute --claude-path /absolute/installed/claude`가 필요하다. 기존 HOME의 로그인 인증은 CLI가 정상적으로 사용한다. 인증 파일을 읽거나 출력·복사하지 않는다. API 키·provider 라우팅 환경을 상속하지 않고 `--bare`, 권한 우회, 새 로그인은 사용하지 않는다. 설치 버전에서 `--safe-mode --restricted --tools '' --strict-mcp-config --mcp-config '{"mcpServers":{}}' --setting-sources '' --permission-prompts none --no-chrome --no-session-persistence`를 모델 실행 전 스키마 오류로 확인한 뒤 실행한다. 실제 호출 cwd는 새로 만든 빈 디렉터리다. 관리자 정책은 계속 적용되며 거절을 우회하지 않는다.
+실행에는 별도로 승인된 `--execute --claude-path /absolute/installed/claude`가 필요하다. 기존 HOME의 로그인 인증은 CLI가 정상적으로 사용한다. 인증 파일을 읽거나 출력·복사하지 않는다. API 키·provider 라우팅 환경을 상속하지 않고 `--bare`, 권한 우회, 새 로그인은 사용하지 않는다. 설치 버전에서 `--safe-mode --restricted --tools '' --strict-mcp-config --mcp-config '{"mcpServers":{}}' --setting-sources '' --permission-prompts none --no-chrome --no-session-persistence`를 모델 실행 전 스키마 오류로 확인한 뒤 실행한다. 매 호출 전 정상 CLI auth status의 로그인 방식·구독 유형만 확인하고 claude.ai/firstParty 구독이 아니면 모델 실행을 중단한다. 이메일·계정 식별자·자격증명은 기록하지 않는다. 실제 호출 cwd는 새로 만든 빈 디렉터리다. 관리자 정책은 계속 적용되며 거절을 우회하지 않는다.
 
-전역 실행 슬롯은 프로세스 내 공유하고, 로컬 영구 파일 잠금으로 별도 프로세스의 겹침도 막는다. 입력 해시에는 공개 근거·SHA·프롬프트 및 스키마 버전이 포함된다. 같은 입력은 생성 한 번, 완료 응답의 검증 실패만 수정 한 번까지 허용한다. 네트워크 오류·크래시·timeout은 자동 재실행하지 않는다. SDK/CLI 내부 서비스 재시도 횟수는 이 계약으로 확인한 값이 아니다. 중단된 예약이나 잠금은 자동 삭제하지 않는다.
+전역 실행 슬롯은 프로세스 내 공유하고, 사용자별 앱 전용 public-model-harness 저장소의 영구 파일 잠금으로 별도 프로세스의 겹침도 막는다. 실험 출력 경로를 바꿔도 같은 예약·잠금을 공유한다. 입력 해시에는 공개 근거·SHA·프롬프트 및 스키마 버전이 포함된다. 같은 입력은 생성 한 번, 완료 응답의 검증 실패만 수정 한 번까지 허용한다. 네트워크 오류·크래시·timeout은 자동 재실행하지 않는다. SDK/CLI 내부 서비스 재시도 횟수는 이 계약으로 확인한 값이 아니다. 중단된 예약이나 잠금은 자동 삭제하지 않는다.
 
 모델에 네 섹션, 모든 필수 fact의 식별자·출처·상태를 요구한다. `none`, `unrecorded`, `query-failed`를 구분하고 숫자·SHA·필수 문구·출력 상한·run ID·프로젝트·입력 해시·버전을 검증한다. PR 병합, CI, 화면 검수, 배포는 별개이며 설계 문서는 구현 증거가 아니다. 원문 지시는 데이터로 취급한다. 역사 문서가 최신인지 판정하지 않는다.
 
@@ -23,3 +23,11 @@ Claude 프로그램 실행: https://code.claude.com/docs/en/headless
 Codex 프로그램 실행: https://learn.chatgpt.com/docs/non-interactive-mode
 
 Orca 터미널 전송 계약은 `accepted`와 `turn_started`를 구별한다. `tui-idle`도 요약 완료가 아니다. 설치판의 중단 명령은 `terminal send --interrupt`이며 `terminal cancel`은 없다. 미등록 체크아웃은 `selector_not_found`여서 실제 생성·송신·중단 계약은 아직 검증되지 않았다. 이 공개 실험은 Orca TUI 대신 제한된 로그인 CLI 프로세스를 직접 소유한다.
+
+## 승인된 실제 대표 입력 결과
+
+공개 입력 SHA `aedcb6c6c093f10d20354e46f00cf49952109654`, 입력 해시 `c68761e16fc782708ad523344acf33b83a03a346f143df621d2b2438ecdeb11e`, 지정 소스 8개·필수 fact 6개·8,894바이트를 사용했다. Claude Code 2.1.291의 기존 claude.ai Team 구독으로 생성 요청 1회, 수정 0회, 동일 입력 재요청의 추가 호출 0회였다. Codex는 호출하지 않았다.
+
+반환 실측: 일반 입력 token 2, 캐시 생성 입력 token 7,761, 출력 token 1,578, 실행 16,165ms. CLI의 num_turns는 2이며 앱의 생성 요청 횟수와 다른 값이다. 반환 server_tool_use의 웹 검색·웹 fetch는 모두 0이다. 반환 list-cost 0.093656 USD는 구독 청구액으로 해석하지 않는다. quota의 전후 변화는 다른 사용자 작업도 포함하므로 이 요청에 귀속하지 않는다.
+
+한국어 네 섹션을 공개 근거와 대조했다. 다음 작업의 “계획 문서에만 있습니다”라는 표현은 지정된 공개 입력 범위로 한정하며 저장소 전체에 구현이 없다는 인증이 아니다. 입력 SHA를 실행 앱 SHA로 보거나 이 CI를 Mac 화면 검수·배포로 바꾸지 않았다. 일반 프로젝트 자동 호출과 역사 문서 freshness 판단은 추가하지 않았다. 저장 결과는 앱 연결 및 설정의 접힌 공개 검증 영역에서 읽을 수 있으며 그 화면은 모델을 호출하지 않는다.
