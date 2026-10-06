@@ -288,3 +288,53 @@ UsageScope의 설치 앱 식별·공식 자료·멀티계정 구현 방식은 �
 2. **수집 인터페이스:** 공식 또는 사용자 승인 가능한 계정별 read-only 수집의 identity·scope·capability·권한·오류 계약을 조사한다. UsageScope 인증정보/keychain/private cache를 복사하거나 내부 저장을 임의 bridge로 쓰지 않는다. 새 계정 연결은 대상/권한/입력을 구체화하고 추가 승인 이후 수행한다.
 
 현재 CodeBurn quota는 **조회 계정 식별 미확인**이다. 이를 명시하는 Phase1 최소 표시를 후속으로 검토하되 이번 결정은 설계 기록만이며 제품 구현·새 연결은 하지 않는다. 계정별 현재 퍼센트와 개인정보를 공개 문서에 옮기지 않는다.
+
+## 추가 등록: 계정 관측과 프로젝트 미등록 작업의 귀속
+
+후속 사용자 요청에 따라 두 범위를 T-050/T-051로 별도 등록했다. 모두 `planning/pending`이며 T-043은 사용량 화면 본체, T-044는 세션/메모리 관측 원천을 맡는다. 기존 T-043의 상세 멀티계정 요구는 이력과 근거로 유지하고 실제 상세 계약 소유자는 T-050으로 정리해 중복 구현하지 않는다. T-048의 기존 의존성은 보존하고 T-050/T-051을 추가했다. 원래 수용 기준·상태·commits/e2e는 변경하지 않았다.
+
+| ID | 범위 | 의존성 | 상태 |
+| --- | --- | --- | --- |
+| T-050 | 멀티계정 quota 모델·UsageScope 공식 수집 인터페이스 조사 | T-036,T-043 | planning/pending |
+| T-051 | 프로젝트 미등록 작업의 저장소별 사용량·메모리 귀속과 별도뷰 설계 | T-036,T-043,T-044,T-050 | planning/pending |
+
+### T-050 · 멀티계정 quota 모델과 UsageScope 수집 인터페이스 조사
+
+T-043 사용량 화면의 계정 관측 하위 설계. Codex/Claude 복수 계정별 provider→account/profile→window 구조, 관측시각/lastSuccess/리셋/error/unknown과 공식 read-only 수집 capability를 조사한다. 현재 decoder는 provider별1행·중복provider거절·account필드없음이므로 모델 변경 필요성을 설계한다. UsageScope 설치 및 공식자료 조사 결과를 재사용하며 external export/API/CLI 미발견을 부재 확정으로 바꾸지 않는다. 프로젝트/repo 소비량과 계정 한도는 다른 축이다. 설계/등록만이며 private cache/keychain/credential 복사와 새 계정 연결은 하지 않는다.
+
+수용 기준:
+
+1. provider/account/profile/window identity와 각 관측시각·마지막 성공·리셋·오류·unknown 계약 및 현재 provider-only decoder 호환/이관안을 정의
+2. 서로 다른 계정 한도 퍼센트 합산/평균 금지; 조회 계정 식별 미확인과 전체계정 미관측을 표시하며 프로젝트 소비량으로 추정하지 않음
+3. UsageScope 공식 연동/export/API/CLI 및 공급자 read-only 계정별 수집 가능성을 근거/조회일/capability로 검토; 미발견≠부재와 접근 거절을 구분
+4. credential/keychain/private cache 복사 금지; 새 실제 계정 연결은 대상/입력/권한 구체화와 추가 승인 필요를 명시
+5. 계정 둘씩·한 계정 오류·stale lastSuccess·account unknown·부분 관측의 후속 검증 사례를 설계하고 구현/실제 연결 성공으로 주장하지 않음
+
+### T-051 · 프로젝트 미등록 작업의 저장소별 사용량·메모리 귀속과 별도뷰 설계
+
+T-043 사용량 화면과 T-044 세션/메모리 관측을 연결하는 미등록 작업 하위 설계. 등록 프로젝트 / 저장소 확인·프로젝트 미등록 / 저장소 미확인의3단계를 보존한다. 알려진 프로젝트의 DAG 미등재 태스크와 완전 미등록 프로젝트를 구분하고 무분별한 미등재 합산을 금지한다. 이미 관측된 session cwd/worktree/Git common-dir/검증된 remote 메타데이터만으로 repository identity를 증명하며 외부 폴더 추정 스캔은 하지 않는다. 역사 사용량·현재 메모리·계정 quota를 별도 축으로 보이고 귀속·시점·누락unknown을 유지한다. 계획만이며 신규 프로세스 접근/소스 스캔/제품 구현은 하지 않는다.
+
+수용 기준:
+
+1. 등록 프로젝트 / 저장소 확인·프로젝트 미등록 / 저장소 미확인3단계와 알려진 프로젝트 내 DAG 미등재 작업 여부를 서로 다른 필드로 정의
+2. 이미 연결·관측된 session cwd/worktree/Git common-dir 및 검증된 remote 메타데이터로 저장소 귀속을 검토하고 remote 이름 단독 동일성 추정·외부 폴더 추정 스캔 금지
+3. 등록 프로젝트와 분리된 사용량 관리 항목에서 확인된 repository별 미등록 작업을 표시하고 미확인 작업만 unknown으로 남기며 모든 미등재를 한 덩어리로 묶지 않음
+4. historical usage/current memory/provider-account quota의 관측시점·기간·귀속 근거·coverage를 분리; 누락/접근미확인≠0, quota에서 repo 소비량 추정 금지
+5. shared process 메모리 중복 합산 금지와 exclusive/shared/unattributed ownership·중복 계수 방지·측정가능/불가능 경계 정의
+6. DAG 없는 간단 수정·알려진 프로젝트 미등재task·완전 미등록project·복수worktree/동명remote/공유PID/귀속불명/역사자료부재의 후속 fixture와 실제Mac 검증 계획 작성; 계획을 측정 성공으로 주장하지 않음
+
+미등록 작업은 단일 잡동사니 항목으로 합산하지 않는다. **등록 프로젝트 / 저장소 확인·프로젝트 미등록 / 저장소 미확인**3단계와, 알려진 프로젝트의 **DAG 미등재 태스크** 여부는 별개 필드다. 이미 관측·허용된 cwd/worktree/Git common-dir/검증된 remote가 repository 귀속의 근거이며 외부 폴더를 찾는 추정 스캔은 범위 밖이다. 같은 remote 이름만으로 저장소를 합치거나 shared process 메모리를 여러 프로젝트에 중복 합산하지 않는다.
+
+소비량의 역사 기간, 메모리의 현재 관측 시점, 계정 quota의 한도 구간을 따로 표기한다. 메모리의 exclusive/shared/unattributed 범주와 coverage를 보존하며 측정 불가능·누락은0이 아니다. 계정 quota를 project/repo 사용량으로 환산하지 않는다. 현재 이는 측정 가능성 조사와 화면 계약 계획이며 실제 귀속·수집·성능 검증 통과를 주장하지 않는다.
+
+### T-051 수집 계약 조사 delta와 추가 수용 기준
+
+독립 조사에서 CodeBurn0.9.25 공식 `src/branch-spend.ts`의 branch JSON은 projectId/선택 originKey, sessionId/provider/선택 workingDirectory, tokens/cost/calls를 후보 귀속 근거로 제공한다고 보고했다. accountId/DAGtaskId는 없다. 현재 status는 provider별 오늘/월 합계이며, flow JSON은 top8 이후 `__other__`로 합쳐 전체 귀속에 부적합하다. branch 명령은 실제 실행하지 않았으므로 실자료 정확도/포함 범위/누락을 통과로 주장하지 않는다.
+
+추가 수용 기준:
+
+7. repository matching과 task linkage를 독립 필드로 유지한다. 알려진 프로젝트의 untracked task와 unregistered project는 다르며, DAGtaskId 없는 응답만으로 실제 DAG 미등재를 확정하지 않는다. 연결 없음 근거와 연결 미확인을 구분한다. branch JSON 후보 계약과 실제 정확도는 별도 검증한다.
+8. `originKey`가 같아도 local checkout은 보존한다. 폴더명이나 remote 이름만으로 병합하지 않고 canonical repository·checkout alias의 검증 근거와 nonGit·unknown reason을 유지한다. top8/other 집약을 전체 귀속으로 확대하지 않는다.
+9. 현재 Orca adapter에는 worktree path/repoId/runtime은 있지만 OS PID/RSS/Codex sessionId는 수집하지 않는다. 메모리 귀속은 PID+startTime+명시 worktree 연계 capability를 먼저 조사한다. 공유 PID는 한 번만 계수하고 미지원 관계를 추정하지 않는다.
+
+이 delta는 T-051 planning 수용 기준에만 반영했다. 새로운 branch 조회, 프로세스 스캔, 수집 구현 또는 credentials 연결은 실행하지 않았다.
