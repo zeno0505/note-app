@@ -79,7 +79,15 @@ keeps the actual total visible. Display limits do not silently select model inpu
 Status categories and task-reference lists have separate display caps and explicit
 omission counts. The overview shows worktree cards in bounded batches.
 
-## Summary and cache boundary
+## Read-only explanations and summary cache boundary
+
+Connected projects now have [four-section rule-based explanations](reading-summary.md).
+They update only when the scoped observation changes; `지금 요약` checks current sources
+through its own read-only request, separately from `실제 소스 새로고침`. Neither invokes
+a model or edits user notes/DAGs. The existing six-aspect candidates and historical
+approval cache below remain separate. Real PR observation has no production adapter.
+
+## Model summary and cache boundary
 
 There is no enabled live agent transport or real model call. The detail view can
 prepare a selected context, explain provider/budget uncertainty, and review an

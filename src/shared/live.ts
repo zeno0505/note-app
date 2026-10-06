@@ -1,6 +1,7 @@
 import type { DagTask } from '../facts/dag-read-model/types';
 import type { CodeBurnResult } from '../summary/budget/codeburn';
 import type { ClaimView } from '../summary/claims';
+import type { ReadingSummary } from './reading-summary';
 
 /** Detached display projection. No arbitrary file, command, prompt or model IPC. */
 export interface LiveConfigurationView {
@@ -27,6 +28,8 @@ export interface LiveDagTaskView extends DagTask {
 }
 export interface LiveDagView {
   dagId: string;
+  sourceHash?: string | null;
+  doneStatus?: string | null;
   state: 'ready' | 'unavailable' | 'error';
   reason: string | null;
   observedAt: string | null;
@@ -50,6 +53,7 @@ export interface LiveWorkstreamView {
   agentState: 'done' | 'unknown';
   projectMapping: string;
   noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null };
+  readingSummary?: ReadingSummary;
 }
 export interface LiveWorkspaceView {
   mode: 'live-read-only';

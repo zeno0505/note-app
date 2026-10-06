@@ -7,7 +7,7 @@ defineProps<{summary:LiveSummaryView;historical?:boolean}>();
 </script>
 <template>
   <section class="live-summary" data-testid="live-summary">
-    <div class="section-heading"><h3>저장된 요약</h3><span class="state-badge">새 요약 생성 비활성</span></div>
+    <div class="section-heading"><h3>저장된 요약</h3><span class="state-badge">모델 요약 생성 비활성</span></div>
     <p v-if="historical" class="warning-text muted">현재 근거 재확인 안 됨 · 최신성 표시는 마지막 관측 기준입니다</p>
     <p class="summary-state" :class="{'warning-text':summary.state==='error'}">{{summaryLabels[summary.state]}}</p>
     <p class="muted">{{diagnosticText(summary.reason)}}</p>

@@ -13,12 +13,16 @@ let listener:((value:LiveWorkspaceView)=>void)|undefined;
 const stop=vi.fn();
 beforeEach(async()=>{
   vi.resetModules();stop.mockClear();listener=undefined;
-  bridge={getEnvironment:vi.fn().mockResolvedValue({version:'test',platform:'linux',dataMode:'configured',summaryBackend:'unconfigured',capabilities:{realOrca:true,noteWrites:false,remoteSummary:false}}),getLiveState:vi.fn().mockResolvedValue(state()),connectLive:vi.fn().mockResolvedValue(state({connection:'connected'})),refreshLive:vi.fn().mockResolvedValue(state({connection:'connected'})),disconnectLive:vi.fn().mockResolvedValue(state()),onLiveState:vi.fn(callback=>{listener=callback;return stop;}),loadDemo:vi.fn().mockResolvedValue(new DemoStore().read('normal')),prepareSummary:vi.fn(),runSummary:vi.fn(),readSummary:vi.fn(),approveSummary:vi.fn(),rejectSummary:vi.fn(),cancelSummary:vi.fn(),onSummary:vi.fn(()=>()=>{}),getPhase1Options:vi.fn().mockResolvedValue({noteLinkConfigured:false,noteLinkMessage:'Not configured',noteScopes:[],summaryTransport:'blocked'}),previewNoteLink:vi.fn(),confirmNoteLink:vi.fn(),cancelNoteLink:vi.fn()};
+  bridge={getEnvironment:vi.fn().mockResolvedValue({version:'test',platform:'linux',dataMode:'configured',summaryBackend:'unconfigured',capabilities:{realOrca:true,noteWrites:false,remoteSummary:false}}),getLiveState:vi.fn().mockResolvedValue(state()),connectLive:vi.fn().mockResolvedValue(state({connection:'connected'})),refreshLive:vi.fn().mockResolvedValue(state({connection:'connected'})),summarizeNow:vi.fn().mockResolvedValue(state({connection:'connected'})),disconnectLive:vi.fn().mockResolvedValue(state()),onLiveState:vi.fn(callback=>{listener=callback;return stop;}),loadDemo:vi.fn().mockResolvedValue(new DemoStore().read('normal')),prepareSummary:vi.fn(),runSummary:vi.fn(),readSummary:vi.fn(),approveSummary:vi.fn(),rejectSummary:vi.fn(),cancelSummary:vi.fn(),onSummary:vi.fn(()=>()=>{}),getPhase1Options:vi.fn().mockResolvedValue({noteLinkConfigured:false,noteLinkMessage:'Not configured',noteScopes:[],summaryTransport:'blocked'}),previewNoteLink:vi.fn(),confirmNoteLink:vi.fn(),cancelNoteLink:vi.fn()};
   vi.stubGlobal('window',{noteApp:bridge});store=await import('../../src/renderer/store');
 });
 afterEach(()=>{store.dispose();vi.unstubAllGlobals();});
 
 describe('live renderer connection ownership',()=>{
+  it('requests now-summary through its own bridge method, without model or approval calls',async()=>{
+    await store.summarizeNow();expect(bridge.summarizeNow).toHaveBeenCalledTimes(1);expect(bridge.refreshLive).not.toHaveBeenCalled();
+    expect(bridge.runSummary).not.toHaveBeenCalled();expect(bridge.approveSummary).not.toHaveBeenCalled();
+  });
   it('loads state and subscribes without connecting or reading demo',async()=>{
     await store.initialize();expect(store.mode.value).toBe('live');expect(store.liveState.value?.configuration.state).toBe('ready');expect(bridge.connectLive).not.toHaveBeenCalled();expect(bridge.loadDemo).not.toHaveBeenCalled();
     await store.initialize();expect(stop).toHaveBeenCalledTimes(1);store.dispose();expect(stop).toHaveBeenCalledTimes(2);
@@ -33,9 +37,9 @@ describe('live renderer connection ownership',()=>{
     const connecting=store.connectLive();await store.connectLive();expect(bridge.connectLive).toHaveBeenCalledTimes(1);expect(store.liveBusy.value).toBe(true);
     pending.resolve(state({connection:'connected'}));await connecting;expect(store.liveState.value?.connection).toBe('connected');expect(store.liveBusy.value).toBe(false);
   });
-  it.each(['connect','refresh'] as const)('disconnect preempts a pending %s and rejects its late result',async action=>{
-    const pending=deferred<LiveWorkspaceView>();vi.mocked(action==='connect'?bridge.connectLive:bridge.refreshLive).mockReturnValue(pending.promise);
-    const work=action==='connect'?store.connectLive():store.refreshLive();await store.disconnectLive();expect(bridge.disconnectLive).toHaveBeenCalledTimes(1);expect(store.liveState.value?.connection).toBe('disconnected');
+  it.each(['connect','refresh','summarize'] as const)('disconnect preempts a pending %s and rejects its late result',async action=>{
+    const pending=deferred<LiveWorkspaceView>();vi.mocked(action==='connect'?bridge.connectLive:action==='refresh'?bridge.refreshLive:bridge.summarizeNow).mockReturnValue(pending.promise);
+    const work=action==='connect'?store.connectLive():action==='refresh'?store.refreshLive():store.summarizeNow();await store.disconnectLive();expect(bridge.disconnectLive).toHaveBeenCalledTimes(1);expect(store.liveState.value?.connection).toBe('disconnected');
     pending.resolve(state({connection:'connected',workstreams:[]}));await work;expect(store.liveState.value?.connection).toBe('disconnected');expect(store.liveBusy.value).toBe(false);
   });
   it('does not let an older RPC replace a newer subscription observation',async()=>{
@@ -88,6 +92,24 @@ describe('live renderer disclosure and escaping',()=>{
     app.component('RouterLink',defineComponent({setup(_props,{slots}){return ()=>h('a',slots.default?.());}}));
     return renderToString(app);
   }
+  it('renders four sentence sections, old-evidence warning and escaped citations independently of approval',async()=>{
+    const {default:Reading}=await import('../../src/renderer/components/ReadingSummary.vue');
+    const {createReadingScheduler}=await import('../../src/summary/reading');
+    const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:false,terminalConnected:false,terminalCount:0,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null}};
+    const [summary]=await createReadingScheduler().update([{workstream}],new AbortController().signal);
+    summary.sections[0].paragraphs.push({text:'<img src=x onerror="steal()">',basis:'unknown',sources:[{kind:'dag',id:'<script>bad</script>',sha:null,sourceHash:null,observedAt:null}]});
+    const html=await render(Reading,{summary,historical:true});
+    for(const title of ['현재 어디까지 구현되었나요?','다음에는 무엇을 구현하나요?','완료 판단에 어떤 근거가 있나요?','논의하거나 결정할 일이 있나요?']) expect(html).toContain(title);
+    expect(html).toContain('모델 호출 없음');expect(html).toContain('이전 관측');expect(html).toContain('설계 합의 여부가 없습니다');expect(html).toContain('고정 규칙');
+    expect(html).toContain('&lt;img');expect(html).not.toContain('<img');expect(html).not.toContain('<script>bad');expect(html).not.toContain('"sections":');
+    expect(html).toContain('SHA 미확인');expect(html).toContain('사용자 승인 요약과 별도');
+  });
+  it('shows distinct source-refresh and now-summary buttons on the connected overview',async()=>{
+    const {default:Overview}=await import('../../src/renderer/views/Overview.vue');
+    store.liveState.value=state({connection:'connected'});const html=await render(Overview,{});
+    expect(html).toContain('data-testid="live-refresh"');expect(html).toContain('data-testid="reading-summary-now"');expect(html).toContain('지금 요약');
+    store.liveState.value=state();const stopped=await render(Overview,{});expect(stopped).not.toContain('data-testid="reading-summary-now"');
+  });
   it('renders the main-owned return countdown, background schedule and last-good failure without a UI timer',async()=>{
     const {default:Status}=await import('../../src/renderer/components/LiveStatus.vue');
     const next='2026-10-03T00:05:00.000Z',observed='2026-10-03T00:00:00.000Z';
@@ -101,7 +123,7 @@ describe('live renderer disclosure and escaping',()=>{
     const {default:Summary}=await import('../../src/renderer/components/LiveSummary.vue');
     const claim={claim:{claimId:'claim',aspect:'next',kind:'inference',text:'<img src=x onerror="steal()">',intent:'proposal',citations:[],assertions:[]},freshness:'stale',reasons:['source:changed']};
     const html=await render(Summary,{summary:{state:'restored',reason:'Historical only',revision:1,candidateClaims:[claim],approvedClaims:[claim],approvedAt:'2026-10-03T00:00:00.000Z',context:null},historical:true});
-    expect(html).toContain('이전 후보 요약');expect(html).toContain('이전 승인 요약');expect(html).toContain('과거 승인 기록');expect(html).toContain('새 요약 생성 비활성');expect(html).toContain('이전 근거 · 변경됨');expect(html).toContain('실행 승인 아님');expect(html).toContain('&lt;img');expect(html).not.toContain('<img');
+    expect(html).toContain('이전 후보 요약');expect(html).toContain('이전 승인 요약');expect(html).toContain('과거 승인 기록');expect(html).toContain('모델 요약 생성 비활성');expect(html).toContain('이전 근거 · 변경됨');expect(html).toContain('실행 승인 아님');expect(html).toContain('&lt;img');expect(html).not.toContain('<img');
   });
   it('labels missing project identity and unknown terminal values without inferring zeros',async()=>{
     const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');

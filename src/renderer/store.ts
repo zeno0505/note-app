@@ -50,19 +50,20 @@ export async function initialize() {
 }
 export function dispose() {unsubscribe?.();unsubscribe=null;}
 
-async function liveAction(action:'connect'|'refresh'|'disconnect') {
+async function liveAction(action:'connect'|'refresh'|'summarize'|'disconnect') {
   if((liveBusy.value&&action!=='disconnect')||busy.value||mode.value==='demo') return;
   const generation=++liveGeneration;
   const observed=observedGeneration;
   liveBusy.value=true;bridgeError.value=null;
   try {
-    const state=await (action==='connect'?window.noteApp.connectLive():action==='refresh'?window.noteApp.refreshLive():window.noteApp.disconnectLive());
+    const state=await (action==='connect'?window.noteApp.connectLive():action==='refresh'?window.noteApp.refreshLive():action==='summarize'?window.noteApp.summarizeNow():window.noteApp.disconnectLive());
     if(generation===liveGeneration&&observed===observedGeneration) liveState.value=state;
   } catch {if(generation===liveGeneration) bridgeError.value=action==='disconnect'?'연결 해제를 확인하지 못했습니다. 다시 시도해 주세요.':'실제 소스 요청을 완료하지 못했습니다. 마지막 관측과 연결 상태를 확인해 주세요.';}
   finally {if(generation===liveGeneration) liveBusy.value=false;}
 }
 export const connectLive=()=>liveAction('connect');
 export const refreshLive=()=>liveAction('refresh');
+export const summarizeNow=()=>liveAction('summarize');
 export const disconnectLive=()=>liveAction('disconnect');
 
 export async function refreshDemo() {

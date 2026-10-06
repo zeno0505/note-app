@@ -6,6 +6,8 @@ import { createSnapshotStore, type SnapshotClock } from '../collector/snapshot';
 import { createDagReader, type DagReadModel } from '../facts/dag-read-model';
 import { createCodeBurnReader, type CodeBurnQuery, type CodeBurnResult } from '../summary/budget/codeburn';
 import { createSummaryStore, restoreSummaryStoreFromLocalCache, type ClaimView } from '../summary/claims';
+import { createReadingScheduler } from '../summary/reading';
+import type { PullObservationAdapter } from '../summary/reading/pulls';
 import { buildContextPack } from '../summary/context';
 import { contextScopeId } from '../summary/context/extract';
 import { extractProjectionContext } from '../summary/context/projection';
@@ -41,6 +43,8 @@ export interface LiveRuntimeDependencies {
   };
   excerptReader: typeof createRegisteredExcerptReader;
   clock: SnapshotClock;
+  /** Internal observation seam only; no production GitHub transport is configured. */
+  pullObservations: PullObservationAdapter;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[] }
@@ -69,6 +73,7 @@ export function createLiveRuntime(options: {
   const config = loaded.configuration;
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
+  const reading = createReadingScheduler({now, adapter: deps.pullObservations});
   const mapNotes = deps.mapNotes ?? mapWorktreesToNotes;
   const makeCache: LiveRuntimeDependencies['summaryCache'] = deps.summaryCache ?? (cacheOptions=>{
     const cache=createLocalSummaryCache<SummaryCachePayload>(cacheOptions);
@@ -329,7 +334,7 @@ export function createLiveRuntime(options: {
       } else if (!reason) reason = 'DAG reader could not be initialized.';
       if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
-      dags.push({ dagId: mapping.dagId, state, reason, observedAt: model?.observedAt ?? null, unchanged,
+      dags.push({ dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
         tasks: model?.tasks.slice(0, MAX_DISPLAY_TASKS).map(task => ({ ...task,
           dependencies: task.dependencies.slice(0, MAX_DISPLAY_REFERENCES),
@@ -377,6 +382,10 @@ export function createLiveRuntime(options: {
       if (!signal.aborted && !disposed) acceptCodeburn(costResults);
       if (!result.ok) return {kind: 'failure', error: { kind: result.error.kind, message: `Orca observation could not be refreshed (${result.error.kind}).` }};
       if (projectionFailed || !value) return {kind: 'failure', error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
+      const summaries = await reading.update(value.workstreams.filter(w => w.archived !== true).map(workstream => ({
+        workstream, dag: value!.dags.find(d => d.dagId === workstream.noteMapping.dagId),
+      })), signal);
+      for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
       const observation = result.value;
       return {kind: 'success', value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,
         coverage: { projects: observation.projects.coverage.state, worktrees: observation.worktrees.coverage.state,
@@ -458,8 +467,14 @@ export function createLiveRuntime(options: {
       if (!disposed && connected) await store.refresh();
       return getState();
     },
+    /** Explicit read-only summary request; joins collection already in flight. */
+    async summarizeNow(): Promise<LiveWorkspaceView> {
+      if (!disposed && connected) await store.refresh();
+      return getState();
+    },
     async disconnect(): Promise<LiveWorkspaceView> {
       connected = false;
+      reading.cancel();
       store.stop();
       publish();
       return getState();
@@ -476,6 +491,7 @@ export function createLiveRuntime(options: {
     dispose(): void {
       if (disposed) return;
       connected = false; disposed = true;
+      reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();
     },
   };

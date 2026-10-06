@@ -1,9 +1,9 @@
 # Phase 1 outcome status after functional journey implementation
 
-**Phase 1 is not complete.** Current read-only refresh policy and headless verification: [2026-10-06 cadence change](read-only-cadence-2026-10-06.md). Offline version-pinned non-model contracts and the proposed approval boundary: [2026-10-06 contract review](nonmodel-contract-2026-10-06.md). Latest automatic-resume and non-model terminal evidence: [2026-10-06 follow-up](mac-resume-terminal-2026-10-06.md). Earlier bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
+**Phase 1 is not complete.** New read-only, four-section rule explanations and changed-content scheduling: [implementation boundary](../docs/reading-summary.md) and [headless verification](reading-summary-2026-10-06.md). This path requires no AI execution. Real-project readability and updated native acceptance remain unverified; model generation is an optional separate blocked path. Current read-only refresh policy and headless verification: [2026-10-06 cadence change](read-only-cadence-2026-10-06.md). Offline version-pinned non-model contracts and the proposed approval boundary: [2026-10-06 contract review](nonmodel-contract-2026-10-06.md). Latest automatic-resume and non-model terminal evidence: [2026-10-06 follow-up](mac-resume-terminal-2026-10-06.md). Earlier bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
 account of an active project's goal, progress, remaining work, current situation,
-next proposal and blockers. The production app cannot yet generate that account
-from a live project's sources. Infrastructure test coverage is not that outcome.
+next proposal and blockers. The production app now prepares bounded rule explanations from live-read projections, but
+their real-project usefulness has not been accepted. Infrastructure test coverage is not that outcome.
 
 ## Implemented foundation and working UI
 
@@ -24,13 +24,15 @@ does not establish the updated production app's Mac behavior.
 
 ## User flows still unavailable or incomplete
 
-1. **Fresh readable project summaries:** no live agent transport, provider call,
-   summary-run orchestration or end-to-end real-source generation/accuracy review
+1. **Fresh readable project summaries:** four-section rule explanations now work
+   through the read-only path; real-project accuracy/readability acceptance remains
+   unverified. Optional model-generated text still has no production transport
 2. **Real generated-candidate acceptance:** review/approval/cache UI is implemented
    and exercised end-to-end with a synthetic response; real model quality, readable
    real-project answers and actual user approval remain unverified
-3. **Source changes to refreshed summaries:** facts and stale claims update; there
-   is no live bounded generation queue that replaces only affected summary claims
+3. **Source changes to refreshed summaries:** rule explanations now regenerate only
+   on scoped content changes; model candidates still have no production generation
+   queue that replaces affected summary claims
 4. **Native setup acceptance:** registered-scope selection, preview, confirmed link
    and local exclude now work in temporary real Git fixtures; native Mac path,
    permission/ACL and actual project acceptance remain unverified

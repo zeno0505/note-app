@@ -88,6 +88,7 @@ app.whenReady().then(async()=>{
     ['note-app:live-state',()=>liveRuntime.getState()],
     ['note-app:live-connect',()=>liveRuntime.connect()],
     ['note-app:live-refresh',()=>liveRuntime.refresh()],
+    ['note-app:reading-summary-now',()=>liveRuntime.summarizeNow()],
     ['note-app:live-disconnect',()=>liveRuntime.disconnect()],
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow) throw new Error('App window unavailable');

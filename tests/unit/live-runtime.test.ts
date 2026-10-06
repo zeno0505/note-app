@@ -78,6 +78,45 @@ function setup(config = configuration(), cacheAvailable = true, extraDependencie
 }
 beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(EPOCH);});
 afterEach(()=>{for(const runtime of runtimes.splice(0))runtime.dispose();vi.useRealTimers();});
+
+describe('connected-project rule reading integration',()=>{
+  it('uses background collection cadence and does not regenerate unchanged content',async()=>{
+    const f=setup();const first=await f.runtime.connect();const reading=first.workstreams[0].readingSummary!;
+    expect(reading.sections).toHaveLength(4);expect(reading.kind).toBe('rules-only');
+    f.runtime.setActivity({active:false,visible:false});
+    await vi.advanceTimersByTimeAsync(299_999);expect(f.collect).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);const next=f.runtime.getState().workstreams[0].readingSummary!;
+    expect(f.collect).toHaveBeenCalledTimes(2);expect(next).toMatchObject({revision:reading.revision,generatedAt:reading.generatedAt,changed:false});
+    expect(next.checkedAt).not.toBe(reading.checkedAt);
+  });
+  it('makes now-summary distinct from refresh but joins an existing collection and preserves saved claims',async()=>{
+    const f=setup();f.cacheRead.mockResolvedValue(persisted());const first=await f.runtime.connect();
+    let finish!:(result:OrcaResult<OrcaObservation>)=>void;
+    f.collect.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    const refresh=f.runtime.refresh();const summary=f.runtime.summarizeNow();
+    expect(f.collect).toHaveBeenCalledTimes(2);finish({ok:true,value:observation()});await Promise.all([refresh,summary]);
+    const next=f.runtime.getState();expect(next.workstreams[0].readingSummary?.revision).toBe(first.workstreams[0].readingSummary?.revision);
+    expect(next.dags[0].summary.approvedClaims).toEqual(first.dags[0].summary.approvedClaims);expect(f.collect).toHaveBeenCalledTimes(2);
+  });
+  it('suppresses late summary on disconnect and runs no collectors while disconnected',async()=>{
+    const f=setup();const before=await f.runtime.summarizeNow();expect(before.workstreams).toEqual([]);expect(f.collect).not.toHaveBeenCalled();
+    const first=await f.runtime.connect();let finish!:(result:OrcaResult<OrcaObservation>)=>void;
+    f.collect.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));const pending=f.runtime.summarizeNow();
+    await f.runtime.disconnect();finish({ok:true,value:observation(0)});await pending;
+    expect(f.runtime.getState().connection).toBe('disconnected');expect(f.runtime.getState().workstreams[0].readingSummary).toEqual(first.workstreams[0].readingSummary);
+    const calls=f.collect.mock.calls.length;await vi.advanceTimersByTimeAsync(600_000);await f.runtime.summarizeNow();expect(f.collect).toHaveBeenCalledTimes(calls);
+  });
+  it('retains old reading after collection failure without asserting current zero work',async()=>{
+    const f=setup();const first=await f.runtime.connect();f.collect.mockResolvedValueOnce({ok:false,error:{kind:'timeout',query:'status',runtimeId:null,message:'Failed'}});
+    const failed=await f.runtime.summarizeNow();expect(failed.freshness).toBe('stale');expect(failed.workstreams[0].readingSummary).toEqual(first.workstreams[0].readingSummary);
+    expect(failed.lastError).toBeTruthy();expect(failed.workstreams).toHaveLength(first.workstreams.length);
+  });
+  it('never connects PR adapter for unresolved notes and never replaces model approvals with rule summaries',async()=>{
+    const read=vi.fn();const f=setup(configuration(),true,{pullObservations:{read}});
+    f.mapNotes.mockImplementation(async request=>({status:'complete',mappings:request.worktrees.map(w=>({state:'unresolved',worktreeId:w.worktreeId,hostId:w.hostId,reason:'note-missing',stage:'note'})),dags:[],scopeIssues:[],filesystemOperations:0}));
+    const result=await f.runtime.connect();expect(read).not.toHaveBeenCalled();expect(result.workstreams[0].readingSummary?.sections[0].paragraphs[0].text).toContain('판단할 수 없습니다');
+  });
+});
 async function flush() { for(let i=0;i<50;i++)await Promise.resolve(); }
 
 describe('main-owned live read-only orchestration',()=>{
