@@ -8,7 +8,7 @@
 
 실제 환경은 macOS 26.5.2 / arm64 / RAM 24 GiB / Electron 44.5.1 / 로그인된 Claude Code 2.1.291이다. 번들 최소 OS 표기는 13.0이지만 제품 지원 최소 OS와 지원 행렬 수용을 뜻하지 않는다. ad hoc 서명이며 배포·notarization·main 병합은 하지 않았다.
 
-검증 패키지를 기존 로컬 앱 경로 `artifacts/87a28ca/note-app.app`에 백업 후 교체했다. 설정은 동일했고 교체 직후 프로필이 동일했다. LaunchServices 일반 실행 PID 78433의 정확 executable·package/manifest SHA·main/preload·전체 dist 15개·서명을 확인했다. 읽기 권한·공개 파일럿·프로젝트별 모델 본문/ledger와 프로젝트 상태·변경 시각·현재 이력을 보존했다. 디버그 옵션과 새로운 권한 부여는 없다. 이력은 기존 최신 12개 정책이며 영구 전체 이력 보존을 주장하지 않는다. 이전 5e3b21a 교체에서는 oldest 1개 제외/나머지 순서·내용 보존을 확인했고, 이번 교체 시점 검사는 기존 이력이 모두 유지됐다.
+검증 패키지를 기존 로컬 앱 경로 `artifacts/87a28ca/note-app.app`에 백업 후 교체했다. 설정은 동일했고 교체 직후 프로필이 동일했다. LaunchServices 일반 실행 PID 78433의 정확 executable·package/manifest SHA·main/preload·전체 dist 15개·서명을 확인했다. 읽기 권한·공개 파일럿·프로젝트별 모델 본문/ledger와 프로젝트 상태·변경 시각·현재 이력을 보존했다. 디버그 옵션과 새로운 권한 부여는 없다. 이력은 기존 최신 12개 정책이며 영구 전체 이력 보존을 주장하지 않는다. 이전 5e3b21a 교체에서는 oldest 1개 제외/나머지 순서·내용 보존을 확인했고, 이번 교체 직후에는 기존 이력이 모두 유지됐고 이후 실제 근거 갱신의 새 관측으로 두 프로젝트에서 각각 oldest 1개가 제외됐다. 재검증에서 기존 최신12개 정책에 따른 oldest prefix만 제외되고 retained suffix의 내용·순서가 유지되는지 확인했다.
 
 ## 실제 동작과 한계
 
