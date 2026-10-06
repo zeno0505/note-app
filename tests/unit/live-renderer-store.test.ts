@@ -98,6 +98,7 @@ describe('live renderer disclosure and escaping',()=>{
     const {createSSRApp,h,defineComponent}=await import('vue');
     const {renderToString}=await import('vue/server-renderer');
     const app=createSSRApp(component,props);
+    app.use((await import('primevue/config')).default,{unstyled:false});
     app.component('RouterLink',defineComponent({setup(_props,{slots}){return ()=>h('a',slots.default?.());}}));
     return renderToString(app);
   }
@@ -105,6 +106,13 @@ describe('live renderer disclosure and escaping',()=>{
     const component=(await import('../../src/renderer/components/PublicModelReview.vue')).default;
     const legacy=(await import('../../src/shared/public-model-review.json')).default;const latest={project:'zeno0505/note-app',inputHash:legacy.inputHash,sourceSha:legacy.sourceSha,version:legacy.version,provider:legacy.provider,generatedAt:'2026-10-06T11:00:00Z',answer:{sections:legacy.sections},sources:legacy.sources,validation:{schema:'passed',facts:'passed',semantic:'reviewed-with-scope-note',note:legacy.manualReview.note},attempts:1,usage:{inputTokens:2,cacheCreationInputTokens:7761,outputTokens:1578,reportedTurns:2},runtimeMs:16165};
     const html=await render(component,{initialView:{state:'ready',message:'saved',latest}});expect(html).toContain('공개 note-app 모델 요약 검증 결과');expect(html).toContain('이 화면을 열어도 모델을 호출하지 않습니다');expect(html).toContain('입력 SHA');expect(html).toContain('현재 어디까지 구현되었나요?');expect(html).toContain('조회한 결과는 성공');expect(bridge.runSummary).not.toHaveBeenCalled();expect(bridge.summarizeNow).not.toHaveBeenCalled();
+  });
+  it('shows a public cached preview only on verified note-app rows and offers an explicit shortcut',async()=>{
+    const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');const {default:Overview}=await import('../../src/renderer/components/LiveOverview.vue');
+    const workstream:LiveWorkstreamView={id:'public-row',title:'Public note-app',projectName:'note-app',branch:null,archived:false,terminalConnected:null,terminalCount:0,agentState:'unknown',projectMapping:'matched',noteMapping:{state:'unresolved',reason:null,dagId:null},repository:{key:'verified-key',id:'repo',hostId:'local',projectId:'github:zeno0505/note-app',label:'zeno0505/note-app'}};
+    const html=await render(Card,{workstream});expect(html).toContain('이전 입력의 모델 저장 요약');expect(html).toContain('open');expect(bridge.runSummary).not.toHaveBeenCalled();
+    store.liveState.value=state({observedAt:'2026-10-06T00:00:00Z',workstreams:[workstream]});expect(await render(Overview,{})).toContain('public-model-shortcut');
+    workstream.repository!.projectId='github:other/note-app';expect(await render(Card,{workstream})).not.toContain('public-model-review');expect(await render(Overview,{})).not.toContain('public-model-shortcut');
   });
   it('keeps long reading summaries out of project list items and makes selection keyboard reachable',async()=>{
     const {default:Item}=await import('../../src/renderer/components/ProjectListItem.vue');

@@ -41,3 +41,5 @@ Mac 앱 저장 위치는 `~/Library/Application Support/note-app/model-reading/`
 최신이 아닌 과거 입력을 다시 요청하면 과거 본문을 복원하거나 모델을 재호출하지 않는다. 기존 hash 예약을 확인해 규칙 기반 fallback으로 표시한다. 현재 최신 입력은 재시작·동시 요청·출력 경로 변경 뒤에도 그대로 복원된다. `--execute --cached-only`는 모델 호출을 금지한 복원 검증이다.
 
 기존 `public-model-harness/<hash>.json`과 작업 폴더의 실험 증거는 복구 가능한 이전 산출물로 보존한다. 새 실행은 model-reading 저장소만 사용한다. 프로젝트 완료·재개 이력의 `summary-cache/projects/`, 명시적 후보·승인의 `summary-cache/dag-<hash>/`, 읽기 권한의 `summary-cache/read-permissions/`는 변경하거나 청소하지 않는다. 일반 규칙 기반 읽기 요약은 계속 별도 메모리 캐시이며 프로젝트 전체 자동 AI 호출을 추가하지 않는다.
+
+공개 캐시 검수 결과는 설정 화면과 검증된 `github:zeno0505/note-app` 선택 상세에서 읽을 수 있다. 목록의 “공개 note-app 저장 요약 보기”는 표시 범위와 선택만 바꾸며 소스 수집이나 모델 호출을 시작하지 않는다. 선택 상세는 이전 입력 SHA·생성 시각·저장 결과를 먼저 표시한다. 현재 관측의 규칙 기반 요약은 별도 접힌 영역이고 “지금 요약”의 전체 소스 규칙 기반 갱신 계약은 바꾸지 않는다. 같은 이름의 다른 프로젝트·미확인 repo join에는 공개 모델 요약을 연결하지 않는다.

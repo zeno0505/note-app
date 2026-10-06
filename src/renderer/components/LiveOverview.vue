@@ -5,6 +5,7 @@ import {computed,ref,watch,nextTick,onUnmounted} from 'vue';
 import {useRoute,useRouter} from 'vue-router';
 import {createProjectSelection} from '../project-selection';
 import ProjectListItem from './ProjectListItem.vue';
+import {isApprovedPublicPreview} from '../public-model-preview';
 import {environment,liveState,livePending,search,liveWorkstreams,liveScope,liveScopeCounts,repositoryFilter,repositoryOptions,visibleLiveWorkstreams,projectFilter,connectLive,refreshDemo,busy} from '../store';
 import LiveWorkstreamCard from './LiveWorkstreamCard.vue';
 import LiveStatus from './LiveStatus.vue';
@@ -28,6 +29,8 @@ const dagById=computed(()=>new Map(liveState.value?.dags.map(dag=>[dag.dagId,dag
 const unlinkedDags=computed(()=>liveState.value?.dags.filter(dag=>!liveState.value?.workstreams.some(workstream=>workstream.noteMapping.dagId===dag.dagId))??[]);
 const observed=computed(()=>liveState.value?.observedAt!==null&&liveState.value?.observedAt!==undefined);
 const initialCancelled=computed(()=>!observed.value&&isCancelledObservation(liveState.value?.lastError));
+const publicWorkstream=computed(()=>liveState.value?.workstreams.find(w=>w.project&&isApprovedPublicPreview(w))??liveState.value?.workstreams.find(isApprovedPublicPreview));
+async function openPublicPreview(){const workstream=publicWorkstream.value;if(!workstream)return;await router.replace({path:'/',query:{...route.query,project:undefined}});liveScope.value=workstream.project?'retained':'observed';projectFilter.value='all';repositoryFilter.value='all';search.value='';await nextTick();await router.push({path:'/',query:{...route.query,project:workstream.id}});}
 </script>
 <template>
   <LiveStatus v-if="connected||observed||liveState?.lastError"/>
@@ -43,6 +46,7 @@ const initialCancelled=computed(()=>!observed.value&&isCancelledObservation(live
     <div v-if="!connected" class="notice warning"><strong>연결 해제됨</strong><span>보관된 마지막 관측입니다. 연결하기 전까지 갱신되지 않습니다.</span><Button v-if="ready" label="설정된 소스 연결" data-testid="live-connect" size="small" :loading="livePending" @click="connectLive"/></div>
     <div v-if="liveWorkstreams.some(w=>w.project)" class="filter-group" aria-label="프로젝트 상태"><button v-for="state in (['active','completed','all'] as const)" :key="state" :aria-pressed="projectFilter===state" :class="{selected:projectFilter===state}" @click="projectFilter=state">{{state==='active'?'진행 중':state==='completed'?'완료':'전체 프로젝트'}}</button></div><div v-if="observed" class="overview-toolbar"><div class="filter-group" aria-label="실제 워크스트림 표시 범위"><button v-for="scope in (['activity','observed','retained'] as const)" :key="scope" :class="{selected:liveScope===scope}" :aria-pressed="liveScope===scope" @click="liveScope=scope">{{scope==='activity'?'활동 관측':scope==='observed'?'현재 관측':'보존 프로젝트'}} <span>{{liveScopeCounts[scope]}}</span></button></div><label class="repository-filter">저장소 <select v-model="repositoryFilter" aria-label="저장소 필터"><option value="all">전체 저장소</option><option v-for="repo in repositoryOptions" :key="repo.key" :value="repo.key">{{repo.label}}</option></select></label><InputText v-model="search" placeholder="작업·프로젝트·브랜치 찾기" aria-label="작업 검색"/></div>
     <div v-if="observed" class="observation"><span>{{visibleLiveWorkstreams.length}}개 중 {{shownWorkstreams.length}}개 표시</span><span>활동은 터미널·브라우저·에이전트 등의 관측이며 실행 가능 여부와 별개</span></div>
+    <div v-if="publicWorkstream" class="show-more"><Button label="공개 note-app 저장 요약 보기" outlined size="small" data-testid="public-model-shortcut" @click="openPublicPreview"/></div>
     <p v-if="selectionNotice" class="selection-notice" role="status">{{selectionNotice}}</p>
     <div v-if="visibleLiveWorkstreams.length" class="project-browser" :class="{'has-selection':!!selected}" data-testid="project-browser">
       <section class="project-list-pane" aria-labelledby="project-list-heading"><h2 id="project-list-heading">프로젝트 목록</h2><p v-if="!selected" class="muted">프로젝트를 선택하면 요약과 작업 버튼을 확인할 수 있습니다.</p><ul class="project-list" @keydown="listKeyboard"><ProjectListItem v-for="workstream in shownWorkstreams" :key="workstream.id" :workstream="workstream" :selected="selected?.id===workstream.id"/></ul><div v-if="visibleLiveWorkstreams.length>shownWorkstreams.length" class="show-more"><Button :label="'작업 더 보기 ('+(visibleLiveWorkstreams.length-shownWorkstreams.length)+'개 남음)'" outlined @click="visibleLimit+=40"/></div></section>
