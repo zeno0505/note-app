@@ -41,6 +41,10 @@ describe('four-section reading boundary',()=>{
     expect(result.partial).toBe(true);expect(text(result)).toContain('특정 작업의 완료 근거로 사용하지 않습니다');
     expect(text(result)).not.toContain('연결된 작업은');expect(text(result)).not.toContain('DAG의 미완료 선언이 다릅니다');
   });
+  it.each(['open','closed'] as const)('does not report a %s PR merge preview SHA as an actual merge commit',state=>{
+    const value=parsed();value.pulls[0].state=state;
+    expect(text(explainReading(input(),{state:'observed',value}))).not.toContain('병합 커밋 식별자는 관측되었습니다');
+  });
   it('rejects missing task mapping and current CI/review claims for older SHA',()=>{
     const value=parsed();value.pulls[0].taskIds=['foreign'];value.pulls[0].ci[0].sha='c'.repeat(40);
     const result=explainReading(input(),{state:'observed',value});

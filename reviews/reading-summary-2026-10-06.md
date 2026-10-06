@@ -49,3 +49,10 @@ PR 병합을 테스트·화면 검수·배포 증명으로 바꾸지 않는다. 
 전체 Phase 1 완료나 실제 GitHub 연동 성공으로 판정하지 않는다. 사용자 DAG를
 자동 수정하는 track-dag-stack 전체 호출도 하지 않는다. 정확한 제품·어댑터 경계는
 [reading-summary.md](../docs/reading-summary.md)에 기록했다.
+
+### 후속 대조 보완
+
+미병합(open/closed) PR에 mergeSha 값이 있어도 실제 병합 커밋으로 설명하지 않도록
+추가 제한했다. 과거 PR 병합 커밋 설명도 이전 관측임을 문장에 표시한다.
+후속 typecheck/build 통과, reading-summary 집중 테스트 **30/30 통과**.
+첫 체크포인트의 전체 CI도 성공했다. 최종 원격 SHA의 CI는 별도로 확인한다.

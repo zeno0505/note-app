@@ -75,7 +75,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       const reviewSources = pull.reviews.map(r => ({...ref, kind: 'review' as const, id: `${ref.id}:${r.reviewer}`, sha: r.sha}));
       const currentReviews = pull.reviews.filter(r => r.sha === pull.headSha);
       evidence.push(paragraph(`${historical ? '이전 관측에서 ' : ''}PR #${pull.number}의 관측된 head SHA 리뷰는 ${currentReviews.some(r => r.state === 'changes-requested') ? '수정 요청이 관측되었습니다' : currentReviews.some(r => r.state === 'approved') ? '승인 기록이 관측되었습니다' : '완료 여부가 미확인입니다'}.${pull.reviews.some(r => r.sha !== pull.headSha) ? ' 이전 SHA의 리뷰는 현재 SHA 승인으로 사용하지 않습니다.' : ''} 리뷰 기록만으로 화면 검수나 전체 품질 기준 충족을 판단하지 않습니다.`, historical ? 'unknown' : 'observation', [ref, ...reviewSources]));
-      if (pull.mergeSha) evidence.push(paragraph(`PR #${pull.number}의 병합 커밋 식별자는 관측되었습니다. 해당 커밋의 검증·배포 결과는 별도 확인이 필요합니다.`, 'observation', [{...ref, sha: pull.mergeSha}]));
+      if (pull.state === 'merged' && pull.mergeSha) evidence.push(paragraph(`${historical ? '이전 관측에서 ' : ''}PR #${pull.number}의 병합 커밋 식별자는 관측되었습니다. 해당 커밋의 검증·배포 결과는 별도 확인이 필요합니다.`, historical ? 'unknown' : 'observation', [{...ref, sha: pull.mergeSha}]));
     }
     if (observation.pulls.length > 8) {partial = true; evidence.push(paragraph('PR 설명은 8개까지 표시합니다. 추가 PR은 이 요약의 판단 범위에서 제외되었습니다.'));}
   }
