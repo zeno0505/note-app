@@ -1,6 +1,6 @@
 # Phase 1 outcome status after functional journey implementation
 
-**Phase 1 is not complete.** Latest automatic-resume and non-model terminal evidence: [2026-10-06 follow-up](mac-resume-terminal-2026-10-06.md). Earlier bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
+**Phase 1 is not complete.** Offline version-pinned non-model contracts and the proposed approval boundary: [2026-10-06 contract review](nonmodel-contract-2026-10-06.md). Latest automatic-resume and non-model terminal evidence: [2026-10-06 follow-up](mac-resume-terminal-2026-10-06.md). Earlier bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
 account of an active project's goal, progress, remaining work, current situation,
 next proposal and blockers. The production app cannot yet generate that account
 from a live project's sources. Infrastructure test coverage is not that outcome.
