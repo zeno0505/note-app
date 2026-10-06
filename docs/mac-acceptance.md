@@ -33,7 +33,16 @@ replace any real-source or native check below.
 
 ## Real agent activation is a separate gate
 
-The current production build has no activation switch. Do not change the gate
+Current scope update: the user-approved connected-project **manual Claude** path
+is implemented and exercised with the fixed subscription CLI. Its actual output,
+cancelled run, limitations and remaining v2 acceptance are recorded in the
+[2026-10-07 Mac review](../reviews/phase1-mac-review-2026-10-07.md).
+The gate below concerns the separate legacy task-candidate/Orca AI transport;
+it does not negate the current manual exception. Installed non-model Orca terminal
+contracts were subsequently verified in authorized isolated fixtures; see the
+[resume/terminal evidence](../reviews/mac-resume-terminal-2026-10-06.md).
+
+The legacy task-candidate production transport has no activation switch. Do not change the gate
 merely because the UI or read-only CLI passes.
 
 Before any authorized real model trial, verify the installed terminal request,
@@ -42,9 +51,9 @@ Schema/help evidence for create/send/read/wait is insufficient. Submission does
 not prove a turn started; TUI idle does not prove semantic completion. Never blindly
 resend an uncertain request.
 
-Independently verify that the exact Claude/Codex invocation cannot read outside
+For a new transport, independently verify that the exact Claude/Codex invocation cannot read outside
 the supplied bounded context, invoke tools, discover MCP/customizations or fetch
-vault/inbox content. Claude's help flags are untested enforcement claims; Codex
+vault/inbox content. Help flags alone are not enforcement evidence; Codex
 read-only plus cwd does not establish read confinement. Then confirm execution
 cost/availability constraints and explicit authorization for the trial.
 

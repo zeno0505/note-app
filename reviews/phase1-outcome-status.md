@@ -1,100 +1,38 @@
-# Phase 1 outcome status after functional journey implementation
+# Phase 1 결과 상태
 
-**Phase 1 is not complete.** Actual note-app public GitHub/DAG headless observation: [2026-10-06 evidence](public-github-2026-10-06.md). New read-only, four-section rule explanations and changed-content scheduling: [implementation boundary](../docs/reading-summary.md) and [headless verification](reading-summary-2026-10-06.md). This path requires no AI execution. Real-project readability and updated native acceptance remain unverified; model generation is an optional separate blocked path. Current read-only refresh policy and headless verification: [2026-10-06 cadence change](read-only-cadence-2026-10-06.md). Offline version-pinned non-model contracts and the proposed approval boundary: [2026-10-06 contract review](nonmodel-contract-2026-10-06.md). Latest automatic-resume and non-model terminal evidence: [2026-10-06 follow-up](mac-resume-terminal-2026-10-06.md). Earlier bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
-account of an active project's goal, progress, remaining work, current situation,
-next proposal and blockers. The production app now prepares bounded rule explanations from live-read projections, but
-their real-project usefulness has not been accepted. Infrastructure test coverage is not that outcome.
+**Phase 1 전체 완료는 아직 아니다.** 실제 Mac에서 읽기 연동과 수동 Claude 요약을 연결했고, 일반 프로젝트 실제 생성·저장·중복 방지·재시작을 확인했다. 실제 v1 출력의 의미 문제를 발견하여 v2 선별/승인 설명을 보완했으나, 새 v2 출력의 실제 내용 검수와 대표 프로젝트 사용자 수용 확인은 남아 있다. [최신 Mac 검토표](phase1-mac-review-2026-10-07.md)를 현재 판정 기준으로 사용한다.
 
-## Implemented foundation and working UI
+## 확인한 제품 동작
 
-- Secure Electron shell, Korean overview/detail/settings, explicit fictional demo mode
-- Explicit startup configuration and opt-in read-only source connection
-- Fixed-argument Orca/CodeBurn collection, canonical scoped note mapping, genuine pinned external DAG query
-- Independent terminal, agent observation, DAG declarations, quota-data availability and unknown coverage
-- Bounded local context projection from explicitly selected task IDs; no automatic document/inbox/vault context
-- Production display of existing cached candidates and historical approval records, including stale/unknown evidence
-- Task/context/provider review, request lifecycle, explicit candidate approval/rejection and atomic app-owned cache persistence
-- Scoped missing-note proposal, exact confirmation, local exclude verification, no-op and honest rollback/partial outcomes
-- Empty, unavailable, invalid configuration, failed refresh and retained historical states
-- Bounded lists, cancellation, retained last-good observations, visibility-aware refresh and conservative reader retirement
+- 실제 Orca 네 종류 조회, CodeBurn status/quota, canonical scoped DAG와 공개 GitHub의 읽기 연동
+- 한국어 overview/detail/settings, 독립된 terminal/agent/DAG/PR/CI 근거와 unknown/stale 표시
+- 이미 등록한 문서 발췌와 scoped task/goal 설명, 변경 시 재수집과 과거 승인 stale 차단
+- 사용자가 허용한 연결 프로젝트의 **수동 Claude 요약**: bounded input, 전송 안내/확인, 비밀키·개인정보 검사, 네 섹션/근거/생성 시각/입력 hash
+- 실제 일반 프로젝트 생성 1회, 동일 입력 추가 0회, 실제 재시작 추가 0회; 공개 파일럿 원문 보존
+- 현재 입력 v2: 최신 작업/CI 우선, 현재 수동 승인과 과거 문서 제한 구분, 등록 문서의 현재 미대조 표시
+- 모델 인증 확인의 비동기 취소, owned CLI 취소/늦은 결과 차단, 영속 no-replay ledger
+- Mac 임시 Git fixture에서 note preview/confirm/no-op/rollback/exclude/cancel, 캐시와 승인 복원
+- 실제 로컬 .app 패키징·ad hoc 서명·일반 실행·기존 상태/권한/이력/AI 캐시 보존 교체
 
-Linux tests use synthetic CLI output and temporary synthetic notes. The command
-compatibility handoff is real Mac evidence from the earlier source revision; it
-does not establish the updated production app's Mac behavior.
+각 항목의 실제/fixture/과거 소스 구분과 한계는 최신 검토표에 있다. 검사 개수나 DAG done 선언이 실제 요약의 품질을 대신하지 않는다.
 
-## User flows still unavailable or incomplete
+## 남은 판정과 사용자 결정
 
-1. **Fresh readable project summaries:** four-section rule explanations now work
-   through the read-only path; real-project accuracy/readability acceptance remains
-   unverified. Optional model-generated text still has no production transport
-2. **Real generated-candidate acceptance:** review/approval/cache UI is implemented
-   and exercised end-to-end with a synthetic response; real model quality, readable
-   real-project answers and actual user approval remain unverified
-3. **Source changes to refreshed summaries:** rule explanations now regenerate only
-   on scoped content changes; model candidates still have no production generation
-   queue that replaces affected summary claims
-4. **Native setup acceptance:** registered-scope selection, preview, confirmed link
-   and local exclude now work in temporary real Git fixtures; native Mac path,
-   permission/ACL and actual project acceptance remain unverified
-5. **Routine configuration:** configuration is an explicit startup file, not a
-   finished native setup/onboarding experience
-6. **Meaningful user acceptance:** real active projects have not been evaluated
-   for understandable summaries, correct omissions, proposed next steps or useful blockers
-7. **Goal/document context:** explicitly registered bounded goal/document/inbox
-   excerpts and selected task records are implemented and exercised in temporary
-   Mac fixtures. Automatic retrieval remains unavailable; absent goals stay unknown.
+1. **실제 v2 의미 검수:** v1은 과거 승인 기록과 최신 작업 선택의 설명이 불충분했다. v2 첫 실제 요청은 관측이 배경에서 오래되어 취소되었으며 성공 출력으로 취급하지 않는다.
+2. **현재 패키지의 지속 foreground:** 포커스가 실제로 유지되지 않아 두 번의 예정 polling을 입증하지 못했다. 과거 실제 두 번 통과 근거는 남기되 현재 시도를 통과로 바꾸지 않는다. 실제 창 활성 유지가 필요하다.
+3. **대표 프로젝트 수용:** 세 프로젝트의 한국어 설명을 사용자가 읽고 사실/추정, 누락, 다음 작업의 유용성을 확인해야 한다. 현재 사용자 승인을 대신하여 완료 처리하지 않는다.
+4. **지원/성능 기준:** 실제 Mac 자원 baseline과 제품 최소 OS/지원 행렬, 성능 목표 합의를 구분한다. macOS 강제 sleep/wake·배포 notarization·전체 native permission dialog는 미실행이다.
+5. **기존 작업별 후보 transport:** 수동 Claude 예외와 별도다. 자동 생성/개발 위임/일괄 전송/자동 후보 승인은 활성화하지 않았다. Phase 2 직접 실행은 새 합의에서 Orca 담당이다.
 
-No stored synthetic approval in a test counts as a real user approval. No DAG
-`done` declaration or commit reference counts as test/deployment evidence.
+실제 Orca 비모델 terminal create/send/read/wait/cancel은 승인된 격리 fixture에서 확인했다. 초기 미등록 체크아웃 selector 오류는 과거 기록이며 현재 전부 미검증으로 반복하지 않는다. 실제 AI Orca terminal transport/Codex 실행은 별도로 미실행이고, 현재 수동 Claude 범위의 완료 조건으로 확대하지 않는다.
 
-## Cloud user-flow increment now implemented, without model calls
+## 관련 기록
 
-The production UI and a separate explicit test-only transport now exercise:
+- [수동 AI 구현과 첫 Mac 검증](project-manual-ai-2026-10-06.md)
+- [실제 resume/비모델 terminal 계약](mac-resume-terminal-2026-10-06.md)
+- [Mac follow-up 및 올바른 대기](mac-followup-2026-10-06.md)
+- [읽기 설명 계약](../docs/reading-summary.md)
+- [현재 수동 AI 계획/입력 v2](../docs/plans/connected-project-manual-ai.md)
+- [Phase 2 방향 합의와 논의 필요](../docs/plans/phase2-discussion-needed-2026-10-07.md)
 
-1. Select one verified canonical DAG and explicit task slice
-2. Preview the bounded context and missing evidence, plus why execution is blocked
-3. Route through a main-owned transport interface; the real implementation stays
-   unavailable until its security and execution contracts are verified
-4. In the isolated test harness only, inject a synthetic transport response and
-   exercise existing binding/citation validation, candidate display and retry/cancel
-5. Add trusted user approval/rejection IPC bound to candidate identity/version,
-   then write the existing atomic app-owned cache and verify restart restoration
-6. Exercise a source change that invalidates affected claims without silently
-   approving a new candidate or promoting proposals to facts
-
-This is a functional user-flow increment. The production factory has no runtime
-switch to enable the test transport. It still cannot be advertised as fresh real-project summarization while
-the real transport is disabled. Do not add broad vault retrieval as a workaround.
-
-## Exact unresolved live-agent/security contracts
-
-- Executed installed Orca agent create/send/observe/cancel invocation and output
-  framing, bound to one request, runtime and canonical workstream. Create/send/read/
-  wait argv was observed as schema/help only; safe cancel was not verified
-- Verified permission to submit only the bounded context, not project/vault/inbox
-  paths or automatically loaded agent customizations
-- Claude: help advertises empty tools and restricted settings, but the exact CLI
-  combination, tool denial, MCP/customization exclusion and filesystem boundary
-  have not been tested
-- Codex: `--sandbox read-only` and `--cd` do not establish that reads are confined
-  to the selected directory; an independently enforced/read-tested boundary is required
-- Actual cancellation/owned process cleanup, late response rejection, output schema
-  and bounded capture under the installed agent versions
-- Real execution cost/availability policy: observed CodeBurn cost labels, quota
-  data, plan price and a user-approved spending cap are different concepts; current
-  reads do not establish a hard invocation spending limit
-
-Do not invoke a real model merely to make the empty summary screen look populated.
-
-## Mac-only or native acceptance remaining
-
-- Default unit suite on the final updated commit without TMPDIR workarounds
-- Updated four-command Orca adapter parse/join against the real 93-worktree installation
-- Production live overview/detail/settings, real explicit note mappings and cache state
-- Actual permission-denied paths and the precise previously observed OS permission item
-- Finder/packaged launch configuration and installed executable resolution
-- Native startup, idle, background/resume resources and large-project responsiveness
-- Native packaging, signing/notarization and release support if included in Phase 1
-
-The user must be able to reopen the Mac before those checks. Cloud fixtures cannot
-replace them. The canonical Mac task DAG and note links were not modified here.
+원래 수용기준과 의존성은 유지한다. 개별 테스트 종료를 Phase 1 전체 완료로 해석하지 않는다.

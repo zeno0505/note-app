@@ -23,4 +23,4 @@ Electron 44's upstream minimum is macOS 13 ([release notes](https://www.electron
 
 For isolated cloud command runners use `npm --cache /tmp/note-app-npm-cache ...` and `XDG_CACHE_HOME=/tmp/note-app-cache npm run setup:electron`. A desktop display is required for Electron tests; do not replace them with browser-only tests and do not add `--no-sandbox`.
 
-The evidence report distinguishes actually executed commands from candidates. Packaging is deliberately not advertised as supported until T-025 decisions and native verification. Playwright's Electron API is experimental; release fuses are not changed to enable tests.
+The evidence report distinguishes actually executed commands from candidates. Actual Mac local .app packaging, ad hoc signature, normal launch and preservation of existing profile state were verified; current scope and remaining acceptance are in the [2026-10-07 Mac review](../reviews/phase1-mac-review-2026-10-07.md). This is not notarized distribution or a supported OS matrix. Playwright's Electron API is experimental; release fuses are not changed to enable tests.
