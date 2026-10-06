@@ -199,6 +199,7 @@ describe('main-owned live read-only orchestration',()=>{
     expect(x.codeburn).toHaveBeenCalledWith({executablePath:'/synthetic/bin/codeburn'});
     expect(view.workstreams).toHaveLength(2);expect(view.dags).toHaveLength(1);
     expect(view.workstreams.every(w=>w.noteMapping.dagId===DAG)).toBe(true);
+    expect(view.workstreams[0].noteMapping.context).toEqual({state:'verified',noteRootPath:'/synthetic/vault/project',dagPath:'/synthetic/vault/project/dag.yaml'});
     expect(view.workstreams[0]).toMatchObject({branch:null,terminalConnected:false,terminalCount:0,agentState:'done'});
     expect(view.coverage).toEqual({projects:'unknown',worktrees:'complete',processes:'complete',totalWorktrees:2});
     expect(x.readDag).toHaveBeenCalledWith(DAG,{signal:expect.any(AbortSignal)});
@@ -290,7 +291,10 @@ describe('main-owned live read-only orchestration',()=>{
     expect(JSON.stringify(failed)).not.toContain('PRIVATE_CACHE_PATH');expect(failed.dags[0].summary.approvedClaims.every(c=>c.freshness==='unknown')).toBe(true);
   });
   it('sends detached allowlisted display data, never cache manifests, raw sources, runtime identity, or agent payloads',async()=>{
-    const x=setup();x.cacheRead.mockResolvedValue(persisted());const view=await x.runtime.connect(),wire=JSON.stringify(view);
+    const x=setup();x.cacheRead.mockResolvedValue(persisted());const view=await x.runtime.connect();
+    // User-requested local note context is the sole path display allowlist.
+    expect(view.workstreams[0].noteMapping.context).toEqual({state:'verified',noteRootPath:'/synthetic/vault/project',dagPath:'/synthetic/vault/project/dag.yaml'});
+    const wire=JSON.stringify({...view,workstreams:view.workstreams.map(w=>({...w,noteMapping:{...w.noteMapping,context:undefined}}))});
     for(const forbidden of ['PRIVATE_RUNTIME_INCARNATION','PRIVATE_SOURCE_KEY','PRIVATE_PANE','raw-runtime-key','canonicalDagPath','sourceMtimeMs','projectionContexts','"entries":','incarnation','/synthetic/vault','/synthetic/worktree'])expect(wire).not.toContain(forbidden);
     view.workstreams[0].title='mutated';view.dags[0].tasks[0].title='mutated';view.configuration.message='mutated';
     expect(JSON.stringify(x.runtime.getState())).not.toContain('mutated');

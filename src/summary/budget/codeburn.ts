@@ -12,12 +12,15 @@ export interface CodeBurnPeriod {
   label: 'today' | 'month';
   cost: number; savings: number; calls: number;
   approximate: true;
+  /** Original collector flag; absence does not prove zero actual usage. */
+  hasUsage?: boolean | null;
   /** Labels alone cannot establish timezone, start/end, or budget comparability. */
   window: null;
 }
 export interface CodeBurnStatus extends Observation {
   kind: 'status'; provider: AgentProvider; currency: string;
   periods: CodeBurnPeriod[];
+  hasUsage?: boolean | null;
   calendarBasis: 'unknown';
 }
 export interface CodeBurnQuotaProvider {
@@ -30,8 +33,8 @@ export interface CodeBurnQuotaProvider {
 }
 export interface CodeBurnQuota extends Observation { kind: 'quota'; providers: CodeBurnQuotaProvider[] }
 export type CodeBurnResult =
-  | { ok: true; value: CodeBurnStatus | CodeBurnQuota }
-  | { ok: false; observedAt: number; error: { kind: CodeBurnFailure; query: CodeBurnQuery | null } };
+  | { ok: true; value: CodeBurnStatus | CodeBurnQuota; diagnostics?:{stderrReported:true} }
+  | { ok: false; diagnostics?:{stderrReported:true}; observedAt: number; error: { kind: CodeBurnFailure; query: CodeBurnQuery | null } };
 export interface CodeBurnOptions {
   /** Explicit trusted main-process configuration, never renderer input or PATH lookup. */
   executablePath: string;
@@ -63,10 +66,10 @@ export function projectCodeBurn(query: CodeBurnQuery, input: unknown, observedAt
       const value = input[period];
       if (!record(value) || !nonnegative(value.cost) || !nonnegative(value.savings)
         || !nonnegative(value.calls) || !Number.isSafeInteger(value.calls)) return fail('invalid-schema', query, observedAt);
-      periods.push({ label: period, cost: value.cost, savings: value.savings, calls: value.calls, approximate: true, window: null });
+      periods.push({ label: period, cost: value.cost, savings: value.savings, calls: value.calls, approximate: true, hasUsage:typeof value.hasUsage==='boolean'?value.hasUsage:null, window: null });
     }
     return { ok: true, value: { ...observation, kind: 'status', provider: query === 'claude-status' ? 'claude' : 'codex',
-      currency: input.currency, periods, calendarBasis: 'unknown' } };
+      currency: input.currency, periods, hasUsage:typeof input.hasUsage==='boolean'?input.hasUsage:null, calendarBasis: 'unknown' } };
   }
   if (!Array.isArray(input.providers) || input.providers.length > 32) return fail('invalid-schema', query, observedAt);
   const projected = new Map<AgentProvider, CodeBurnQuotaProvider>();
@@ -123,6 +126,7 @@ export function createCodeBurnReader(options: CodeBurnOptions): {
         return await new Promise(resolve => {
           let chunks: Buffer[] = [];
           let bytes = 0;
+          let stderrReported = false;
           let stopped: CodeBurnFailure | null = null;
           let settled = false;
           let cleanup: Promise<boolean> | null = null;
@@ -140,7 +144,7 @@ export function createCodeBurnReader(options: CodeBurnOptions): {
             clearTimeout(timer);
             request.signal?.removeEventListener('abort', onAbort);
             wipe();
-            resolve(result);
+            resolve(stderrReported?{...result,diagnostics:{stderrReported:true}}:result);
           };
           const startCleanup = (): Promise<boolean> => {
             if (cleanup) return cleanup;
@@ -167,6 +171,7 @@ export function createCodeBurnReader(options: CodeBurnOptions): {
           if (request.signal?.aborted) onAbort();
           const receive = (chunk: Buffer, retain: boolean): void => {
             if (stopped || settled) return;
+            if(!retain&&chunk.byteLength)stderrReported=true;
             bytes += chunk.byteLength;
             if (bytes > maxOutputBytes) { stop('output-limit'); return; }
             if (retain) chunks.push(Buffer.from(chunk));

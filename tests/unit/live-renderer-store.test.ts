@@ -121,6 +121,17 @@ describe('live renderer disclosure and escaping',()=>{
     const [summary]=await (await import('../../src/summary/reading')).createReadingScheduler().update([{workstream}],new AbortController().signal);summary.sections[0].paragraphs[0].text='LONG_READING_CANARY';workstream.readingSummary=summary;
     const html=await render(Item,{workstream,selected:true});expect(html).toContain('aria-current="true"');expect(html).toContain('aria-controls="project-summary-pane"');expect(html).toContain('&lt;script&gt;');expect(html).not.toContain('LONG_READING_CANARY');expect(html).not.toContain('data-testid="reading-summary"');
   });
+  it('shows independent verified note roots and separates rules refresh from manual AI',async()=>{
+    const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');
+    const base:LiveWorkstreamView={id:'shared',title:'Shared project',projectName:null,branch:null,archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'matched',noteMapping:{state:'resolved',reason:null,dagId:'shared-dag',context:{state:'verified',noteRootPath:'/allowed/team-shared-note',dagPath:'/allowed/team-shared-note/dag.yaml'}}};
+    const html=await render(Card,{workstream:base});expect(html).toContain('확인한 노트 맥락');expect(html).toContain('/allowed/team-shared-note');expect(html).toContain('독립된 읽기 맥락');expect(html).toContain('규칙 요약 갱신 · 전체 소스');expect(html).toContain('지금 요약 · Claude AI');expect(bridge.summarizeProjectModel).not.toHaveBeenCalled();
+    base.noteMapping.context={state:'retained',noteRootPath:'/allowed/other-note',dagPath:'/allowed/other-note/dag.yaml'};const retained=await render(Card,{workstream:base});expect(retained).toContain('현재 접근 미확인');expect(retained).toContain('/allowed/other-note');expect(retained).not.toContain('/allowed/team-shared-note');
+  });
+  it('shows no aggregated records without implying zero actual Codex usage or a zero-cost graph',async()=>{
+    const {default:CodeBurn}=await import('../../src/renderer/components/LiveCodeBurn.vue');const {projectCodeBurn}=await import('../../src/summary/budget/codeburn');const empty={cost:0,savings:0,calls:0};
+    const html=await render(CodeBurn,{codeburn:{state:'observed',results:[projectCodeBurn('codex-status',{currency:'USD',hasUsage:false,today:empty,month:empty},1000)]}});expect(html).toContain('집계된 기록 없음');expect(html).toContain('실제 사용량이 0임을 뜻하지 않습니다');expect(html).not.toContain('비용 약 0');expect(html).not.toContain('기간 비용 비교: 0');
+    const unknown=await render(CodeBurn,{codeburn:{state:'observed',results:[projectCodeBurn('codex-status',{currency:'USD',today:empty,month:empty},1000)]}});expect(unknown).toContain('집계 보고값은 0');expect(unknown).toContain('실제 사용량 0 여부는 미확인');
+  });
   it('uses styled shared action buttons and discloses global source scope on a project summary',async()=>{
     const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');store.liveState.value=state({connection:'connected'});
     const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null},project:{status:'active',changedAt:'2026-10-06T00:00:00.000Z',sourceState:'not-checked',worktreeState:'present',history:[]}};
@@ -142,7 +153,7 @@ describe('live renderer disclosure and escaping',()=>{
   it('shows distinct source-refresh and now-summary buttons on the connected overview',async()=>{
     const {default:Overview}=await import('../../src/renderer/views/Overview.vue');
     store.liveState.value=state({connection:'connected'});const html=await render(Overview,{});
-    expect(html).toContain('data-testid="live-refresh"');expect(html).toContain('data-testid="reading-summary-now"');expect(html).toContain('지금 요약');
+    expect(html).toContain('data-testid="live-refresh"');expect(html).toContain('data-testid="reading-summary-now"');expect(html).toContain('규칙 요약 갱신 · 전체 소스');
     store.liveState.value=state();const stopped=await render(Overview,{});expect(stopped).not.toContain('data-testid="reading-summary-now"');
   });
   it('renders the main-owned return countdown, background schedule and last-good failure without a UI timer',async()=>{

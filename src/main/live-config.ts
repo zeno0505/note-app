@@ -108,7 +108,7 @@ async function readLiveConfiguration(filename: string | undefined): Promise<Load
       const after=await handle.stat();
       if(offset>MAX_CONFIG_BYTES||before.size!==offset||before.mtimeMs!==after.mtimeMs||before.size!==after.size)fail();
       const configuration=parseLiveConfiguration(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer.subarray(0,offset))));
-      return {configuration,view:{state:'ready',message:'연결하면 등록된 소스의 규칙 기반 설명을 갱신합니다. 모델 요약 생성과 노트 변경은 비활성 상태입니다.',
+      return {configuration,view:{state:'ready',message:'연결하면 등록된 소스의 규칙 기반 설명을 갱신합니다. Claude AI는 프로젝트별 수동 버튼에서만 전송합니다. 기존 후보 모델 워크플로와 노트 변경은 별도 설정입니다.',
         orcaExecutable:configuration.orcaExecutablePath,codeburnExecutable:configuration.codeburnExecutablePath??null,
         noteScopeCount:configuration.noteScopes.length,dagQueryConfigured:!!configuration.dagQuery,summaryTransport:'blocked'}};
     } finally {buffer.fill(0);}

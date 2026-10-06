@@ -27,6 +27,7 @@ else if (mode === 'stderr-overflow') process.stderr.write('SYNTHETIC_SECRET_ERRO
 else if (mode === 'nonzero') { process.stderr.write('SYNTHETIC_SECRET_ERROR'); process.exitCode = 1; }
 else if (mode === 'invalid-json') process.stdout.write('SYNTHETIC_SECRET_ERROR');
 else if (mode === 'invalid-utf8') process.stdout.write(Buffer.from([0xff]));
+else if (mode === 'warning') { process.stderr.write('SYNTHETIC_SECRET_WARNING'); process.stdout.write(JSON.stringify(${JSON.stringify(status)})); }
 else if (mode === 'invalid-schema') process.stdout.write('{}');
 else process.stdout.write(JSON.stringify(process.argv[2] === 'quota' ? ${JSON.stringify(quota)} : ${JSON.stringify(status)}));
 `, { mode: 0o700 });
@@ -44,6 +45,16 @@ async function waitForPid(directory: string) {
 afterEach(async () => { await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))); });
 
 describe('CodeBurn fact projection', () => {
+  it('preserves absent records separately from reported zero and unknown collection flags', () => {
+    const empty={cost:0,savings:0,calls:0};
+    const none=projectCodeBurn('codex-status',{currency:'USD',hasUsage:false,today:{...empty,hasUsage:false},month:empty},123);
+    expect(none).toMatchObject({ok:true,value:{hasUsage:false,periods:[{hasUsage:false,calls:0},{hasUsage:null,calls:0}]}});
+    const unknown=projectCodeBurn('codex-status',{currency:'USD',today:empty,month:empty},123);
+    expect(unknown).toMatchObject({ok:true,value:{hasUsage:null,periods:[{hasUsage:null},{hasUsage:null}]}});
+    const reported=projectCodeBurn('codex-status',{currency:'USD',hasUsage:true,today:empty,month:{...status.month,hasUsage:true}},123);
+    expect(reported).toMatchObject({ok:true,value:{hasUsage:true,periods:[{calls:0},{hasUsage:true,calls:40}]}});
+  });
+
   it('preserves observed cost facts and timestamp without inventing calendar windows or budgets', () => {
     const result = projectCodeBurn('claude-status', { ...status, credential: 'DO_NOT_PROJECT' }, 123);
     expect(result).toMatchObject({ ok: true, value: { observedAt: 123, provider: 'claude', currency: 'USD',
@@ -111,6 +122,11 @@ describe('CodeBurn fact projection', () => {
 });
 
 describe('bounded CodeBurn read process', () => {
+  it('reports stderr presence and timestamp without retaining sensitive diagnostics',async()=>{
+    const mock=await fixture('warning'),reader=createCodeBurnReader(mock),before=Date.now();const result=await reader.read('codex-status');
+    expect(result).toMatchObject({ok:true,diagnostics:{stderrReported:true},value:{kind:'status',provider:'codex'}});if(result.ok)expect(result.value.observedAt).toBeGreaterThanOrEqual(before);expect(JSON.stringify(result)).not.toContain('SYNTHETIC_SECRET_WARNING');
+  });
+
   it('runs only the three documented argv sequences and timestamps completed reads', async () => {
     const mock = await fixture(); const reader = createCodeBurnReader(mock); const before = Date.now();
     for (const query of ['claude-status', 'codex-status', 'quota'] as const) {

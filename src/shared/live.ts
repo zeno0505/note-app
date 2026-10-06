@@ -58,7 +58,7 @@ export interface LiveWorkstreamView {
   terminalCount: number | null;
   agentState: 'done' | 'unknown';
   projectMapping: string;
-  noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null; registration?: 'explicit-read-only' };
+  noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null; registration?: 'explicit-read-only'; context?: { state:'verified'|'retained'; noteRootPath:string; dagPath:string } };
   readingSummary?: ReadingSummary;
   project?:ProjectLifecycleView;
   documentLinks?:{id:string;role:'inbox'|'discussion'|'design';label:string}[];

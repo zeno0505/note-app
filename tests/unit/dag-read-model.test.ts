@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { createDagReader, type DagReadModel, type DagCoverage, type DagError } from '../../src/facts/dag-read-model';
 import { projectDagQuery } from '../../src/facts/dag-read-model/projection';
 import { QUERY_SHA256 } from '../../src/facts/dag-read-model/process';
+import {delayFixtureStartup,waitForReadyPid} from './helpers/process-startup';
 import { createSnapshotStore } from '../../src/collector/snapshot';
 
 const ioHooks = vi.hoisted(() => ({
@@ -107,10 +108,10 @@ describe('bounded registered DAG reader (synthetic subprocess)', () => {
     expect(await createDagReader({ ...t.options, timeoutMs: 200 }).read('dag-test')).toMatchObject({ ok: false, error: { kind: 'timeout' } });
   });
   it('cancels, rejects overlap and removes its private snapshot directory', async () => {
-    const t = await setup('setInterval(()=>{},1000)'); const reader = createDagReader(t.options), controller = new AbortController();
+    const t = await setup('setInterval(()=>{},1000)'); await delayFixtureStartup(t.executable,t.directory,1100); const reader = createDagReader(t.options), controller = new AbortController();
     const first = reader.read('dag-test', { signal: controller.signal });
     expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'busy' } });
-    for (let i = 0; i < 100; i++) { try { await readFile(join(t.directory, 'calls')); break; } catch { await new Promise(resolve => setTimeout(resolve, 10)); } }
+    await waitForReadyPid(t.directory);
     controller.abort(); expect(await first).toMatchObject({ ok: false, error: { kind: 'cancelled' } });
     const call = JSON.parse((await readFile(join(t.directory, 'calls'), 'utf8')).trim());
     expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'cleanup_unverified' } });

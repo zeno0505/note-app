@@ -357,7 +357,7 @@ export function createLiveRuntime(options: {
         terminalCount: process?.liveTerminalCount ?? null,
         agentState: process?.agents?.length && process.agents.every(a => a.state === 'done') ? 'done' : 'unknown',
         projectMapping, noteMapping: mapping?.state === 'resolved'
-          ? { state: 'resolved', reason: null, dagId: mapping.dagId,...(mapping.registration?{registration:mapping.registration}:{}) }
+          ? { state: 'resolved', reason: null, dagId: mapping.dagId,context:{state:'verified',noteRootPath:mapping.canonicalNotePath,dagPath:mapping.canonicalDagPath},...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
     connectionChoices.clear();documentLinks.clear();
@@ -466,7 +466,7 @@ export function createLiveRuntime(options: {
     if(registry){
       for(const p of registry.records().filter(p=>(p.status==='active'||manual)&&retainedAllowed(p)))if(!workstreams.some(w=>w.id===p.id)&&p.observation){
         const retained=structuredClone(p.observation.workstream),dag=dags.find(d=>d.dagId===p.dagId);retained.archived=false;retained.terminalConnected=null;retained.terminalCount=null;retained.agentState='unknown';retained.projectMapping='retained';
-        retained.noteMapping={state:dag?.state==='ready'?'resolved':'unresolved',reason:dag?.state==='ready'?null:'등록된 소스 접근 불가',dagId:p.dagId};delete retained.readingSummary;delete retained.documentLinks;
+        retained.noteMapping={state:dag?.state==='ready'?'resolved':'unresolved',reason:dag?.state==='ready'?null:'등록된 소스 접근 불가',dagId:p.dagId,context:{state:dag?.state==='ready'?'verified':'retained',noteRootPath:p.canonicalNotePath,dagPath:p.canonicalDagPath}};delete retained.readingSummary;delete retained.documentLinks;
         workstreams.push(retained);const tree=p.worktrees[0];if(tree)worktreeSources.push({id:p.id,worktreeId:tree.id,hostId:p.hostId,worktreePath:tree.path,present:false});
         const registered=config?.publicGitHub?.find(r=>r.scopeId===p.scopeId&&p.worktrees.some(w=>w.path===r.worktreePath));if(registered)publicSelections.set(p.id,{dagId:p.dagId,branch:registered.branch,worktreePath:registered.worktreePath});
       }
