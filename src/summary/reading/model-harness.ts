@@ -1,7 +1,8 @@
 import {createHash,randomUUID} from 'node:crypto';
 
 export const MODEL_HARNESS_VERSION='public-reading-v1';
-export const PROJECT_MODEL_VERSION='connected-project-reading-v1';
+export const PROJECT_MODEL_VERSION='connected-project-reading-v2';
+export const LEGACY_PROJECT_MODEL_VERSION='connected-project-reading-v1';
 export const SECTION_IDS=['implemented','next','evidence','decisions'] as const;
 export type SectionId=typeof SECTION_IDS[number];
 export type FactState='known'|'none'|'unrecorded'|'query-failed';
@@ -39,6 +40,8 @@ export function validateProjectPack(pack:ProjectReadingPack){
   for(const s of pack.sources)if(!/^(dag|reading|runtime|documents)\/[A-Za-z0-9_.\/-]+$/.test(s.path)||s.path.split('/').some(x=>x==='..'||x==='.'||!x))throw Error('Invalid project source path');
   validatePublicPack({...pack,project:'zeno0505/note-app',sources:pack.sources.map(s=>({...s,path:'docs/'+s.path}))});
   const runtime=pack.facts.find(f=>f.id==='F0'&&f.section==='implemented');
+  const decisionScope=pack.facts.find(f=>f.id==='F1'&&f.section==='decisions');
+  if(!decisionScope||!['수동 Claude','사용자 승인','기존 후보','자동 호출 없음'].every(x=>decisionScope.anchors.includes(x)))throw Error('Current approval scope required in decisions');
   if(!runtime||!runtime.anchors.includes('Claude')||!runtime.anchors.includes('수동')||!runtime.anchors.includes('자동 호출 없음'))throw Error('Current runtime scope required');
 }
 export function readingInputHash(pack:ReadingModelPack){if(!('scope' in pack))return publicInputHash(pack);validateProjectPack(pack);return hash({version:PROJECT_MODEL_VERSION,pack});}

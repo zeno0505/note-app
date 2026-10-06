@@ -21,28 +21,36 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   const sources:ProjectReadingPack['sources']=[],facts:ProjectReadingPack['facts']=[];
   const add=(path:string,excerpt:string)=>{const id='S'+(sources.length+1);sources.push({id,path,excerpt,lineStart:1,lineEnd:excerpt.split('\n').length,sha256:hash(excerpt)});return id;};
   const runtime='이 프로젝트의 지금 요약은 기존 로그인된 Claude를 사용하는 수동 AI 요약입니다. 자동 호출 없음. 아래 프로젝트 기록의 과거 모델 차단 설명은 당시 범위의 기록이며 현재 수동 AI 실행을 부정하지 않습니다.';
-  facts.push({id:'F0',section:'implemented',state:'known',text:runtime,sourceIds:[add('runtime/manual-ai.txt',runtime)],anchors:['Claude','수동','자동 호출 없음']});
+  const decisionScope='현재 이 프로젝트의 수동 Claude 요약은 사용자 승인 범위에서 전송 안내 확인 후 실행합니다. 과거 production model transport 차단은 기존 후보 승인 워크플로와 자동·일괄 실행의 제한입니다. 자동 호출 없음. 과거의 별도 승인 필요 기록을 현재 수동 요약의 미승인 판정으로 바꾸지 않습니다.';
+  const runtimeSource=add('runtime/manual-ai.txt',runtime+'\n'+decisionScope);
+  facts.push({id:'F0',section:'implemented',state:'known',text:runtime,sourceIds:[runtimeSource],anchors:['Claude','수동','자동 호출 없음']});
+  facts.push({id:'F1',section:'decisions',state:'known',text:decisionScope,sourceIds:[runtimeSource],anchors:['수동 Claude','사용자 승인','기존 후보','자동 호출 없음']});
   for(const id of SECTION_IDS){
     const section=source.readingSummary.sections.find(s=>s.id===id);
     const paragraphs=section?.paragraphs??[];
-    const selected=[...paragraphs].sort((a,b)=>Number(b.sources.some(s=>['document','ci','review','pull'].includes(s.kind)))-Number(a.sources.some(s=>['document','ci','review','pull'].includes(s.kind)))).slice(0,3);
+    const rank=(p:typeof paragraphs[number])=>p.sources.some(s=>['ci','review','pull'].includes(s.kind))?3:p.sources.some(s=>s.kind==='git')?2:p.sources.some(s=>s.kind==='document')?1:0;
+    const selected=[...paragraphs].sort((a,b)=>rank(b)-rank(a)).slice(0,3);
     const excerpt=JSON.stringify({paragraphs:selected.map(p=>({text:p.text,basis:p.basis,sources:p.sources.map(s=>({kind:s.kind,sha:s.sha,sourceHash:s.sourceHash,document:s.document}))})),omitted:Math.max(0,paragraphs.length-selected.length)});
     const sourceId=add('reading/'+id+'.json',excerpt);
     const omissions=Math.max(0,paragraphs.length-selected.length);if(omissions)facts.push({id:'F'+facts.length,section:id,state:'known',text:'입력 한도로 이 섹션의 설명 '+omissions+'개를 생략했습니다. 생략된 범위의 전체 완료나 근거 부재를 판단하지 않습니다.',sourceIds:[sourceId],anchors:['생략']});
-    for(const p of selected){if(p.text.length>1100)throw Error('Paragraph requires bounded selection');facts.push({id:'F'+facts.length,section:id,state:/조회를 완료하지 못했습니다|조회 실패/.test(p.text)?'query-failed':p.basis==='unknown'?'unrecorded':'known',text:p.text,sourceIds:[sourceId],anchors:[]});}
+    for(const p of selected){if(p.text.length>1050)throw Error('Paragraph requires bounded selection');const document=p.sources.some(s=>s.kind==='document'),text=(document?'등록 문서 기록(현재 미대조): ':'')+p.text;facts.push({id:'F'+facts.length,section:id,state:/조회를 완료하지 못했습니다|조회 실패/.test(p.text)?'query-failed':p.basis==='unknown'?'unrecorded':'known',text,sourceIds:[sourceId],anchors:document?['등록 문서','현재 미대조']:[]});}
     if(!selected.length)facts.push({id:'F'+facts.length,section:id,state:'unrecorded',text:'이 섹션의 근거가 기록되지 않았습니다.',sourceIds:[sourceId],anchors:['기록되지']});
   }
-  const ordered=[...source.dag.tasks].sort((a,b)=>(a.status===source.dag.doneStatus?1:0)-(b.status===source.dag.doneStatus?1:0)||a.id.localeCompare(b.id));
+  const taskRank=(t:typeof source.dag.tasks[number])=>['running','in_progress'].includes(t.status??'')?0:t.status==='blocked'?1:t.status==='in_review'?2:t.status===source.dag.doneStatus?5:t.dependencies.every(d=>d.scope==='internal'&&source.dag.tasks.some(other=>other.id===d.id&&other.status===source.dag.doneStatus))?3:4;
+  const number=(id:string)=>Number(id.match(/\d+$/)?.[0]??0);
+  const ordered=[...source.dag.tasks].sort((a,b)=>taskRank(a)-taskRank(b)||number(b.id)-number(a.id)||a.id.localeCompare(b.id));
   const tasks=ordered.slice(0,24);
   const dagText=JSON.stringify({tasks,coverage:source.dag.coverage,omitted:source.dag.tasks.length-tasks.length});
   if(Buffer.byteLength(dagText)>12000)throw Error('DAG selection exceeds limit');
   const dagSource=add('dag/task-state.json',dagText);
   facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+(source.dag.tasks.length-tasks.length)+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.',sourceIds:[dagSource],anchors:['DAG','선언','생략']});
-  for(const e of (source.registeredExcerpts?.excerpts??[]).slice(0,6)){
+  const focus=tasks.filter(t=>['running','in_progress','blocked','in_review'].includes(t.status??'')).slice(0,3);
+  if(focus.length)facts.push({id:'F'+facts.length,section:'implemented',state:'known',text:'현재 DAG의 우선 확인 작업은 '+focus.map(t=>t.id+' '+(t.title??'제목 미기재')+' ('+t.status+')').join(', ')+'입니다. 검토·진행 상태는 구현 완료 인증이 아닙니다.',sourceIds:[dagSource],anchors:[...focus.map(t=>t.id),'완료 인증이 아닙니다']});
+  for(const e of (source.registeredExcerpts?.excerpts??[]).slice(0,4)){
     const sourceId=add('documents/'+hash(e.id).slice(0,16)+'.txt',e.text);let section:typeof SECTION_IDS[number]='decisions',text=e.text;
     try{const record=JSON.parse(e.text);if(SECTION_IDS.includes(record.section)&&typeof record.text==='string'){section=record.section;text=record.text;}}catch{}
     if(text.length>1100)throw Error('Document requires bounded selection');
-    facts.push({id:'F'+facts.length,section,state:'known',text:'등록된 문서 기록: '+text,sourceIds:[sourceId],anchors:['문서 기록']});
+    facts.push({id:'F'+facts.length,section,state:'known',text:'등록된 문서 기록(현재 미대조): '+text,sourceIds:[sourceId],anchors:['문서 기록','현재 미대조']});
   }
   // 빈 anchors 대신 원문의 첫 구절을 사용하되 긴 문장 전체 복사를 강요하지 않습니다.
   for(const f of facts)if(!f.anchors.length)f.anchors=[f.text.slice(0,Math.min(12,f.text.length))];

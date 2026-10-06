@@ -71,7 +71,7 @@
 .public-model-review > summary { font-weight: 650; cursor: pointer; }
 .public-model-review section { padding: 12px 0; }
 .public-model-review section h3 { font-size: 14px; margin-bottom: 8px; }
-.public-model-review section p { font-size: 13px; line-height: 1.8; color: var(--ink); }
+.public-model-review section p { font-size: 13px; line-height: 1.8; color: var(--ink); white-space: pre-line; }
 .public-model-review dt { font-size: 12px; margin-top: 12px; }
 .public-model-review dd { margin: 4px 0; font-size: 12px; }
 .public-model-review ul { font-size: 12px; padding-left: 18px; }
