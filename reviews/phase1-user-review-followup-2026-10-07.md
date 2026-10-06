@@ -26,7 +26,7 @@
 | 타입·회귀·빌드 | 통과 | 966 pass,16 skip; 실 cancel fixture가 startup ready를 기다리도록 보완. 기존 privacy 검사에 승인된 canonical 경로의 명시적 필드만 허용하고 나머지 raw 비공개 검사는 유지 |
 | 정확한 코드 SHA CI | 성공 | [37518245129](https://github.com/zeno0505/note-app/actions/runs/37518245129), head be805878e52edd8798fbabfcc003fa9700c0eae0 |
 | 실제 연결 수집 | 통과 | 71 workstream, 실제 조회 관측 2026-10-06T19:21:57.065Z. 당시 activity background; 지속 foreground 통과를 주장하지 않음 |
-| 대표 긴 프로젝트 | 표시/캐시 보존 통과 | 독립된 공유 노트 root,459작업 ready. 기존 v2 본문 hash/생성 시각 보존·네 섹션 표시·추가 모델0. 최신 근거 일치 상태는 stale이므로 현재 본문으로 단정하지 않음 |
+| 대표 긴 프로젝트 | 표시/캐시 보존 통과 | 독립된 공유 노트 root,459작업 ready. 기존 v2 본문 hash/생성 시각 보존·네 섹션 표시·추가 모델0. 재시작 후 현재 입력 미대조로 stale 표시. 자료 변경을 확정하지 않으며 현재 본문으로 단정하지 않음 |
 | 투자자문 프로젝트 | 연결/수동 UI 통과, 생성 미실행 | 별도 노트 root,77작업 ready, 수동 Claude 버튼 활성. 저장 본문 empty. 규칙 버튼 관측과 실제 모델 호출/성공을 분리 |
 | 화면/빌드 | 통과 | 두 프로젝트760/1600에서 horizontal overflow0, 별도 근거 root와 규칙/AI 동작 구분, build SHA 표시. 일반 실행 화면의 사용자 수용은 별도 |
 | 교체/일반 실행 보존 | 통과 | actual entry source be80587·유일 PID43188; 백업/원본·설정·권한·AI cache·상태/이력 보존 |
