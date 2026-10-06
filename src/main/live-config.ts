@@ -34,7 +34,7 @@ function list(value: unknown, maximum: number): unknown[] {
 }
 /** Explicit, bounded startup configuration. Never accepts renderer data. */
 export function parseLiveConfiguration(value: unknown): LiveConfiguration {
-  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink','publicGitHub','readingDocuments'],['schemaVersion','orcaExecutablePath']);
+  const v = fields(value,['schemaVersion','orcaExecutablePath','codeburnExecutablePath','publicModelClaudePath','localHostId','noteScopes','dagQuery','summarySelections','noteLink','publicGitHub','readingDocuments'],['schemaVersion','orcaExecutablePath']);
   if(v.schemaVersion!==1) fail();
   const noteScopes: AllowedNoteScope[] = list(v.noteScopes ?? [],8).map(raw=>{
     const s=fields(raw,['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths'],['scopeId','hostId','vaultRootPath','scopePath','dagRelativePaths']);
@@ -89,6 +89,7 @@ export function parseLiveConfiguration(value: unknown): LiveConfiguration {
   }
   return {schemaVersion:1,orcaExecutablePath:absolute(v.orcaExecutablePath),
     ...(v.codeburnExecutablePath===undefined?{}:{codeburnExecutablePath:absolute(v.codeburnExecutablePath)}),
+    ...(v.publicModelClaudePath===undefined?{}:{publicModelClaudePath:absolute(v.publicModelClaudePath)}),
     ...(localHostId?{localHostId}:{}),noteScopes,...(dagQuery?{dagQuery}:{}),...(noteLink?{noteLink}:{}),summarySelections,...(publicGitHub?{publicGitHub}:{}),...(readingDocuments?{readingDocuments}:{})};
 }
 async function readLiveConfiguration(filename: string | undefined): Promise<LoadedLiveConfiguration> {

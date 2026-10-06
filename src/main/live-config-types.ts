@@ -6,6 +6,8 @@ export interface LiveConfiguration {
   schemaVersion: 1;
   orcaExecutablePath: string;
   codeburnExecutablePath?: string;
+  /** Explicit approval enables only the compiled public note-app pack and manual action. */
+  publicModelClaudePath?: string;
   localHostId?: string;
   noteScopes: AllowedNoteScope[];
   dagQuery?: {pythonPath: string; queryScriptPath: string};

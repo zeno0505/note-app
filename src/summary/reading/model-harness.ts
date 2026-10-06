@@ -23,7 +23,7 @@ const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x)).digest('h
 export function validatePublicPack(pack:PublicReadingPack){
   if(pack.project!=='zeno0505/note-app'||!/^[a-f0-9]{40}$/.test(pack.sourceSha)||Buffer.byteLength(JSON.stringify(pack))>48000||pack.sources.length>12||pack.facts.length>24||!pack.facts.length)throw Error('Invalid bounded public pack');
   const sources=new Set<string>(),facts=new Set<string>();
-  for(const s of pack.sources){if(sources.has(s.id)||!/^S\d+$/.test(s.id)||!(/^(src\/|docs\/|tests\/unit\/|\.github\/workflows\/)/.test(s.path))||s.path.includes('..')||s.path.startsWith('docs/note/')||s.path==='docs/note'||s.lineStart<1||s.lineEnd<s.lineStart||createHash('sha256').update(s.excerpt).digest('hex')!==s.sha256)throw Error('Invalid public source');sources.add(s.id);}
+  for(const s of pack.sources){if(sources.has(s.id)||!/^S\d+$/.test(s.id)||!(/^(src\/|docs\/|tests\/unit\/|\.github\/workflows\/)/.test(s.path)||s.path==='reviews/usage-statistics-mac.md')||s.path.includes('..')||s.path.startsWith('docs/note/')||s.path==='docs/note'||s.lineStart<1||s.lineEnd<s.lineStart||createHash('sha256').update(s.excerpt).digest('hex')!==s.sha256)throw Error('Invalid public source');sources.add(s.id);}
   for(const f of pack.facts){if(facts.has(f.id)||!/^F\d+$/.test(f.id)||!SECTION_IDS.includes(f.section)||!['known','none','unrecorded','query-failed'].includes(f.state)||!f.sourceIds.length||f.sourceIds.some(id=>!sources.has(id))||!f.anchors.length||f.text.length>1200)throw Error('Invalid fact contract');facts.add(f.id);}
   if(SECTION_IDS.some(id=>!pack.facts.some(f=>f.section===id)))throw Error('Every section needs explicit facts or absence state');
 }

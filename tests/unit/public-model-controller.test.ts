@@ -1,0 +1,24 @@
+import {it,expect,vi} from 'vitest';
+import {mkdtemp,realpath,rm} from 'node:fs/promises';
+import os from 'node:os';import path from 'node:path';import {createHash} from 'node:crypto';
+import {createPublicModelController} from '../../src/main/public-model';
+import {createModelReadingStorage} from '../../src/summary/reading/model-reading-storage';
+import {SECTION_IDS,validatePublicPack,publicInputHash,type PublicReadingPack,type ModelBinding,type ModelAdapter} from '../../src/summary/reading/model-harness';
+import compiled from '../../src/shared/public-reading-pack.json';
+import {parseLiveConfiguration} from '../../src/main/live-config';
+const pack=(text='공개 입력'):PublicReadingPack=>({project:'zeno0505/note-app',sourceSha:'a'.repeat(40),sources:[{id:'S1',path:'docs/public.md',lineStart:1,lineEnd:1,sha256:createHash('sha256').update(text).digest('hex'),excerpt:text}],facts:SECTION_IDS.map((section,i)=>({id:'F'+i,section,state:'known',text:'확인된 '+text,sourceIds:['S1'],anchors:[text]}))});
+const answer=(binding:ModelBinding,p:PublicReadingPack)=>({...binding,sections:SECTION_IDS.map(id=>({id,text:p.facts.find(f=>f.section===id)!.text,facts:p.facts.filter(f=>f.section===id).map(f=>({id:f.id,state:f.state})),sourceIds:['S1']}))});
+const receipt=(binding:ModelBinding,p:PublicReadingPack)=>({answer:answer(binding,p),provider:'test-only',runtimeMs:1,usage:{}});
+async function fixture(){const root=await realpath(await mkdtemp(path.join(os.tmpdir(),'public-controller-')));return {root,storage:createModelReadingStorage(path.join(root,'model-reading')),clean:()=>rm(root,{recursive:true,force:true})};}
+it('compiled input is bounded and excludes private sources; config enables only an absolute Claude executable',()=>{
+  expect(()=>validatePublicPack(compiled as PublicReadingPack)).not.toThrow();expect(compiled.sources.length).toBe(12);expect(compiled.facts.length).toBe(9);
+  expect(compiled.sources.some(s=>s.path.includes('docs/note')||s.excerpt.includes('/Users/')||s.excerpt.includes('vaultRootPath'))).toBe(false);
+  const p=pack();p.sources[0].path='reviews/private.md';expect(()=>publicInputHash(p)).toThrow();
+  expect(parseLiveConfiguration({schemaVersion:1,orcaExecutablePath:'/bin/orca',publicModelClaudePath:'/bin/claude'}).publicModelClaudePath).toBe('/bin/claude');
+  expect(()=>parseLiveConfiguration({schemaVersion:1,orcaExecutablePath:'/bin/orca',publicModelClaudePath:'claude'})).toThrow();
+});
+it('read-only view and disabled run never invoke a model or create a latest body',async()=>{const f=await fixture();try{const c=createPublicModelController(pack(),f.storage);expect((await c.view()).state).toBe('disabled');expect((await c.run()).latest.state).toBe('empty');}finally{await f.clean();}});
+it('manual run stores one success and duplicate/restart adds zero model calls',async()=>{const f=await fixture();try{const p=pack(),generate=vi.fn(async({binding})=>receipt(binding,p)),adapter={generate} as ModelAdapter,c=createPublicModelController(p,f.storage,adapter);await c.view();expect(generate).not.toHaveBeenCalled();expect((await c.run()).latest.state).toBe('ready');await c.run();await createPublicModelController(p,f.storage,adapter).run();expect(generate).toHaveBeenCalledTimes(1);}finally{await f.clean();}});
+it('simultaneous manual clicks share one call and a cancellation cannot publish late success',async()=>{const f=await fixture();try{const p=pack();let resolve!:()=>void,started!:()=>void;const ready=new Promise<void>(r=>started=r),gate=new Promise<void>(r=>resolve=r);const generate=vi.fn(async({binding})=>{started();await gate;return receipt(binding,p);}),c=createPublicModelController(p,f.storage,{generate});const a=c.run(),b=c.run();expect(a).toBe(b);await ready;await c.cancel();resolve();const result=await a;expect(generate).toHaveBeenCalledTimes(1);expect(result.state).toBe('cancelled');expect(result.latest.state).toBe('empty');await c.run();expect(generate).toHaveBeenCalledTimes(1);}finally{await f.clean();}});
+it('changed input failure preserves older success as stale without replay',async()=>{const f=await fixture();try{const p=pack(),old=createPublicModelController(p,f.storage,{generate:async({binding})=>receipt(binding,p)});await old.run();const generate=vi.fn(async()=>{throw Error('safe failure')});const c=createPublicModelController(pack('새 입력'),f.storage,{generate});expect((await c.view()).latest.state).toBe('stale');const failed=await c.run();expect(failed.state).toBe('failed');expect(failed.latest.state).toBe('stale');if('latest' in failed.latest)expect(failed.latest.latest.inputHash).toBe(publicInputHash(p));await c.run();expect(generate).toHaveBeenCalledTimes(1);}finally{await f.clean();}});
+it('dispose before action performs no model call',async()=>{const f=await fixture();try{const generate=vi.fn(),c=createPublicModelController(pack(),f.storage,{generate});c.dispose();await c.run();expect(generate).not.toHaveBeenCalled();}finally{await f.clean();}});

@@ -13,6 +13,9 @@ export interface AppEnvironment {
 }
 export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge {
   getPublicModelReview():Promise<import('../summary/reading/model-reading-storage').LatestModelReadingView>;
+  getPublicModelState():Promise<import('../main/public-model').PublicModelView>;
+  summarizePublicModel():Promise<import('../main/public-model').PublicModelView>;
+  cancelPublicModel():Promise<import('../main/public-model').PublicModelView>;
   getEnvironment(): Promise<AppEnvironment>;
   loadDemo(request: {scenario:'normal'|'empty'|'failure'}): Promise<WorkspaceSnapshot>;
   getLiveState(): Promise<LiveWorkspaceView>;

@@ -1,0 +1,267 @@
+{
+  "project": "zeno0505/note-app",
+  "sourceSha": "9243fee53ea151816289f651b09b7665b428316f",
+  "sources": [
+    {
+      "id": "S1",
+      "path": "src/renderer/components/LiveOverview.vue",
+      "lineStart": 48,
+      "lineEnd": 52,
+      "sha256": "821fa51a841cfb44ee019fc52be04b0b56785821e3cb2b857225dddd182fbe7f",
+      "excerpt": "    <div v-if=\"publicWorkstream\" class=\"show-more\"><Button label=\"공개 note-app 저장 요약 보기\" outlined size=\"small\" data-testid=\"public-model-shortcut\" @click=\"openPublicPreview\"/></div>\n    <p v-if=\"selectionNotice\" class=\"selection-notice\" role=\"status\">{{selectionNotice}}</p>\n    <div v-if=\"visibleLiveWorkstreams.length\" class=\"project-browser\" :class=\"{'has-selection':!!selected}\" data-testid=\"project-browser\">\n      <section class=\"project-list-pane\" aria-labelledby=\"project-list-heading\"><h2 id=\"project-list-heading\">프로젝트 목록</h2><p v-if=\"!selected\" class=\"muted\">프로젝트를 선택하면 요약과 작업 버튼을 확인할 수 있습니다.</p><ul class=\"project-list\" @keydown=\"listKeyboard\"><ProjectListItem v-for=\"workstream in shownWorkstreams\" :key=\"workstream.id\" :workstream=\"workstream\" :selected=\"selected?.id===workstream.id\"/></ul><div v-if=\"visibleLiveWorkstreams.length>shownWorkstreams.length\" class=\"show-more\"><Button :label=\"'작업 더 보기 ('+(visibleLiveWorkstreams.length-shownWorkstreams.length)+'개 남음)'\" outlined @click=\"visibleLimit+=40\"/></div></section>\n      <section v-if=\"selected\" id=\"project-summary-pane\" class=\"project-summary-pane\" aria-labelledby=\"project-summary-heading\" data-testid=\"project-summary-pane\"><div class=\"project-summary-heading\"><h2 ref=\"summaryHeading\" id=\"project-summary-heading\" tabindex=\"-1\">선택한 프로젝트 요약</h2><Button label=\"목록으로\" outlined size=\"small\" @click=\"closeSelection\"/></div><LiveWorkstreamCard :key=\"selected.id\" :workstream=\"selected\" :dag=\"selected.noteMapping.dagId?dagById.get(selected.noteMapping.dagId):undefined\"/></section>"
+    },
+    {
+      "id": "S2",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 209,
+      "lineEnd": 215,
+      "sha256": "d664105a10979506be3cf099ee1346d1ca323447a6beabd58988a3b88c5ae176",
+      "excerpt": "          const checkedAt = new Date(now()).toISOString();\n          const changed = previous?.fingerprint !== fingerprint;\n          const summary: ReadingSummary = changed ? {kind: 'rules-only', workstreamId: input.workstream.id, fingerprint,\n            revision: (previous?.revision ?? 0) + 1, generatedAt: checkedAt, checkedAt, changed: true,\n            ...explainReading(input, pulls), limitation: LIMITATION} : {...structuredClone(previous), checkedAt, changed: false};\n          summaries.push(summary); next.set(input.workstream.id, structuredClone(summary));\n        }"
+    },
+    {
+      "id": "S3",
+      "path": "src/summary/workflow/transport.ts",
+      "lineStart": 12,
+      "lineEnd": 17,
+      "sha256": "ac29aa2e1294ad00d28a3eed7fb26044d2b04fbf05331732e130867df31b9d7f",
+      "excerpt": " */\nexport const SUMMARY_TRANSPORT_GATE = Object.freeze({\n  state: 'blocked' as const,\n  reason: 'Restricted agent tools, response confinement and safe cancellation are not verified. Production summary execution is blocked.',\n  automaticRetry: false as const,\n  idleMeansCompletion: false as const,"
+    },
+    {
+      "id": "S4",
+      "path": "docs/phase2-resource-planning.md",
+      "lineStart": 1,
+      "lineEnd": 8,
+      "sha256": "c267e3fa7b82df97639afb8bcd60aa22eff945f9a4a92a70ec74d21019f6a7da",
+      "excerpt": "# Phase 2 실행 자원 계획\n\n병렬 에이전트 파견은 계정별 사용 한도 관측과 Mac 메모리 여유·압력을 함께 고려하여 동시 실행 수와 대기를 결정한다. 이번 Phase 1 UI 변경에는 실행 스케줄러나 모델 호출을 추가하지 않는다.\n\n- 제공자 사용률은 관측 정보다. 실행 허가와 강제 한도는 별도로 다룬다.\n- 메모리 부족 시 새 작업을 대기시키거나 순차 실행한다. 사용자 작업을 강제로 종료하지 않는다.\n- 실제 압력 수준, 작업별 메모리 추정치, 동시 실행 임계치와 회복 조건은 Phase 2에서 측정하고 설계한다. 지금 임의의 수치를 확정하지 않는다.\n- 관측 실패·오래된 한도·정확한 프로젝트 귀속 실패를 사용량 0 또는 실행 가능으로 해석하지 않는다."
+    },
+    {
+      "id": "S5",
+      "path": ".github/workflows/check.yml",
+      "lineStart": 11,
+      "lineEnd": 26,
+      "sha256": "12d3880c5bc9e590b67f9a3d9bb15dedae7f9993325db36d5c3123f9e819bf3d",
+      "excerpt": "jobs:\n  check:\n    runs-on: ubuntu-24.04\n    timeout-minutes: 10\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: false\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7\n        with:\n          node-version: '24.19.0'\n          package-manager-cache: false\n      - run: npm ci\n      - run: npm run check\n      # Native Electron tests require a separately verified sandbox/display.\n      # Passing this job is not GUI, macOS or packaged-application verification."
+    },
+    {
+      "id": "S6",
+      "path": "src/summary/reading/index.ts",
+      "lineStart": 48,
+      "lineEnd": 52,
+      "sha256": "deeee079fc57d86dbf43160860c6dc802af25193964b3c172987ad0e6a4c6f33",
+      "excerpt": "    }\n  }\n  decisions.push(paragraph('설계 상태가 미기재되어 있습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));\n  evidence.push(paragraph('DAG 작업별 실제 화면 검증, 테스트 항목별 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));\n  if (pulls.state !== 'observed') {"
+    },
+    {
+      "id": "S7",
+      "path": "src/main/live-runtime.ts",
+      "lineStart": 600,
+      "lineEnd": 606,
+      "sha256": "38a169e6f6a6d976582c2ae45ca1c6ee9920830ff3a7d6dbe7c56184d8fe5246",
+      "excerpt": "    },\n    /** Explicit read-only summary request; joins collection already in flight. */\n    async summarizeNow(): Promise<LiveWorkspaceView> {\n      if (!disposed && connected) await store.refresh();\n      return getState();\n    },\n    async disconnect(): Promise<LiveWorkspaceView> {"
+    },
+    {
+      "id": "S8",
+      "path": "src/renderer/routes.ts",
+      "lineStart": 7,
+      "lineEnd": 13,
+      "sha256": "85b7712efd64564e2c62480968b639572cc01d254a250cfb7b0d3c6fefc27fe9",
+      "excerpt": "export const routes:RouteRecordRaw[]=[\n  {path:'/',component:Overview},\n  {path:'/usage',component:UsageStatistics},\n  {path:'/settings',component:Settings},\n  {path:'/workstream/:id',component:Detail},\n  {path:'/:pathMatch(.*)*',redirect:'/'},\n];"
+    },
+    {
+      "id": "S9",
+      "path": "docs/plans/project-model-reading-integration.md",
+      "lineStart": 2,
+      "lineEnd": 7,
+      "sha256": "8093606e1a146ff8e75a6f8cdb0c9b7ca54b047b5309712543c24809008bf99b",
+      "excerpt": "\n상태: 공개 note-app 수동 선행 실험 승인·연결 구현 진행. 일반 프로젝트와 자동 실행은 후속 평가·결정 대기다.\n2026-10-06 사용자는 공개 note-app의 선별 근거만 기존 로그인 Claude 구독 인증으로 전송하는 수동 실행을 승인했다. 동시 실행 1, 입력당 생성 1회·완료 응답 검증 실패 수정 최대 1회, 동일 입력 재호출 0, 최신 성공 본문 1개와 실패 시 이전 결과/낡음 표시를 유지한다. 별도 API 과금이나 자격증명 생성은 없다. 결과의 한국어 네 섹션을 사용자가 평가한 뒤 다른 note 프로젝트로 점진 적용하며 이번 승인으로 일괄 호출하지 않는다.\n\n## 재사용할 기반과 아직 연결하지 않은 부분\n"
+    },
+    {
+      "id": "S10",
+      "path": "docs/plans/phase2-task-scope.md",
+      "lineStart": 5,
+      "lineEnd": 11,
+      "sha256": "c670a8159fbdcfba192ebc64dbeec4fd737bb6ccf4e4d2c3ad5973b50fb9984d",
+      "excerpt": "| 태스크 | 계획 결과물 | 후속 결정 |\n| --- | --- | --- |\n| T-029 쿼터·메모리 실행 정책 | 실제 관측 freshness, unknown, 메모리 여유/압력, 실행 대기·회복과 동시 실행 수의 설계 및 측정 계획 | 측정 후 임계치, 제공자/전송 정책, 호출 상한 |\n| T-030 근거 있는 개발 위임 | 목표·범위·수용기준 → 실행 계획 → 작업 결과 → 검증 근거 → 사용자 검토의 계약 | 허용 저장소/작업, 파견·취소·재시도 승인 경계 |\n| T-031 DAG 갱신 제안 | source hash에 묶인 변경 preview, no-op/stale 차단, 승인과 감사 기록의 설계 | 누가 어떤 변경을 승인하는지; 자동 done/merge는 별도 결정 |\n| T-032 트레이 popover·최근 3개 | 최근 프로젝트의 정의·정보 우선순위·클릭 흐름 시안 | 최근의 의미, 완료 프로젝트 포함, 빠른 작업의 허용 범위 |\n"
+    },
+    {
+      "id": "S11",
+      "path": "reviews/usage-statistics-mac.md",
+      "lineStart": 3,
+      "lineEnd": 21,
+      "sha256": "317c3309281544fa9b7dc2e5a193df1bfe2bc544d415c74c86b256c82d101935",
+      "excerpt": "제품 source SHA `7b0f42d90c1d51257db2afa503c148e7765bfb2d`, tree `cac8bb9797a865164fe738eedc119c0996f90267`. 공개 저장소에는 개인 프로젝트 내용, 계정 금액, 원본 화면과 캐시를 포함하지 않는다.\n\n## 구현과 검증\n\n`프로젝트 현황 → 사용량 통계 → 연결 및 설정` 순서로 독립 `/usage` 경로를 추가했다. 기존 CodeBurn 구성요소와 상태를 재사용하고 프로젝트 현황의 중복 패널은 제거했다. 페이지 이동에는 수집/모델 실행 효과가 없다. 미설정·demo·이전 관측·연결 해제 상태를 0 사용량으로 바꾸지 않는다.\n\n- `npm run typecheck`: 통과.\n- `npx vitest run --root . tests/unit/live-renderer-store.test.ts`: 30개 통과. 부분 timeout/retained/unknown, demo/미설정과 실제 route/nav를 검증한다.\n- `npm test`: 941개 통과, 16개 skip.\n- `npm run build`: 통과.\n- 정확 source SHA [CI 37483122259](https://github.com/zeno0505/note-app/actions/runs/37483122259): success.\n\n실제 arm64 Electron 44.5.1 패키지를 앱 소유의 별도 프로필로 실행했다. 첫 실제 Orca 관측은 74개 작업이며 CodeBurn 두 status와 quota 조회가 성공했다. 공개 저장 요약 상세·사용량 이동·뒤로 돌아오기·선택 복원, 세 메뉴의 실제 전환을 검증했다. 수집을 연결 해제한 뒤 페이지 전환으로 observedAt/CodeBurn/읽기 허용 목록이 바뀌지 않음을 확인했다. 새 모델 호출은 0회다.\n\n실제 창 너비 760/1024/1600에서 가로 넘침이 없었다. 360/640 요청은 앱 minWidth 때문에 760으로 제한되므로 작은 너비의 성공으로 보고하지 않는다. 760/1600 화면의 메뉴·간격·경고를 직접 시각 검토했다. 관측 비용과 계정 quota 의미는 구분하며 실행 가능 여부는 미확인으로 표시한다. 검증용 앱/자식 프로세스는 정상 종료됐다.\n\n## 실제 앱 업데이트\n\n실행 경로를 새로 확인해 기존 `artifacts/87a28ca/note-app.app`를 검증된 7b 번들로 교체했다. 경로의 과거 이름과 내부 SHA는 다르다. 이전 앱은 검증된 복사본 및 원래 디렉터리로 보존했다. 표준 macOS Quit AppleEvent로 기존 프로세스 트리를 종료했으며 강제 종료는 사용하지 않았다."
+    },
+    {
+      "id": "S12",
+      "path": ".github/workflows/check.yml#public-actions-observation",
+      "lineStart": 1,
+      "lineEnd": 1,
+      "sha256": "e325e7fc7aede41967ac310a31c818216852f039f05601fa5380f4cedcb78d33",
+      "excerpt": "{\"headSha\":\"9243fee53ea151816289f651b09b7665b428316f\",\"runs\":[{\"id\":37488090637,\"head_sha\":\"9243fee53ea151816289f651b09b7665b428316f\",\"event\":\"push\",\"status\":\"completed\",\"conclusion\":\"success\",\"html_url\":\"https://github.com/zeno0505/note-app/actions/runs/37488090637\"}]}"
+    }
+  ],
+  "facts": [
+    {
+      "id": "F1",
+      "section": "implemented",
+      "state": "known",
+      "text": "프로젝트 목록의 요약을 분리하고 선택한 프로젝트 요약을 별도 영역에 표시하는 UI가 소스에 구현되어 있습니다.",
+      "sourceIds": [
+        "S1"
+      ],
+      "anchors": [
+        "목록",
+        "선택",
+        "요약"
+      ]
+    },
+    {
+      "id": "F2",
+      "section": "implemented",
+      "state": "none",
+      "text": "일반 앱의 지금 요약은 전체 설정 소스를 새로 읽는 규칙 기반 갱신입니다. 기존 production 모델 실행은 차단되어 있고 자동 모델 호출은 없습니다.",
+      "sourceIds": [
+        "S2",
+        "S3",
+        "S7"
+      ],
+      "anchors": [
+        "규칙 기반",
+        "전체",
+        "자동 모델 호출",
+        "없"
+      ]
+    },
+    {
+      "id": "F3",
+      "section": "next",
+      "state": "known",
+      "text": "Phase 2의 계정 한도와 메모리 기반 동시 실행 제어, T-029 자원 정책·T-030 개발 위임·T-031 DAG 갱신 제안·T-032 트레이 최근 프로젝트는 계획 태스크입니다. 이번 공개 입력은 실제 구현을 입증하지 않습니다. 다른 note 프로젝트 모델 연결은 선행 실험 평가 뒤 점진 적용할 후속 작업입니다.",
+      "sourceIds": [
+        "S4",
+        "S10",
+        "S9"
+      ],
+      "anchors": [
+        "계정",
+        "메모리",
+        "계획",
+        "입증하지",
+        "T-029",
+        "T-030",
+        "T-031",
+        "T-032",
+        "평가"
+      ]
+    },
+    {
+      "id": "F4",
+      "section": "evidence",
+      "state": "known",
+      "text": "공개 소스 SHA 9243fee53ea151816289f651b09b7665b428316f의 CI 조회 결과는 성공입니다. workflow 환경은 Ubuntu 24.04, Node 24.19.0이며 타입 검사·단위 테스트·빌드를 실행합니다.",
+      "sourceIds": [
+        "S5",
+        "S12"
+      ],
+      "anchors": [
+        "9243fee53ea151816289f651b09b7665b428316f",
+        "성공",
+        "24.04",
+        "24.19.0",
+        "타입",
+        "테스트",
+        "빌드"
+      ]
+    },
+    {
+      "id": "F5",
+      "section": "evidence",
+      "state": "none",
+      "text": "CI 성공은 Mac GUI 검수와 별개입니다. Mac 근거는 별도 검증 기록에 있고 배포 완료를 입증하지 않습니다. PR 병합도 테스트나 배포와 별개이며 Phase 1 전체 완료로 확대하지 않습니다.",
+      "sourceIds": [
+        "S5",
+        "S11"
+      ],
+      "anchors": [
+        "Mac",
+        "배포",
+        "PR",
+        "별개",
+        "Phase 1",
+        "전체"
+      ]
+    },
+    {
+      "id": "F6",
+      "section": "decisions",
+      "state": "unrecorded",
+      "text": "일반 읽기 요약에서 프로젝트별 설계 상태는 미기재입니다. 미기재를 결정 사항 없음이나 설계 완료로 바꾸지 않습니다. 다른 프로젝트 모델 전송 대상·권한·자동 실행 경계는 이번 공개 실험 뒤 별도 확인해야 합니다.",
+      "sourceIds": [
+        "S6",
+        "S9"
+      ],
+      "anchors": [
+        "설계",
+        "미기재",
+        "없음",
+        "전송",
+        "확인"
+      ]
+    },
+    {
+      "id": "F7",
+      "section": "implemented",
+      "state": "known",
+      "text": "CodeBurn 사용량 통계를 독립 /usage 경로로 분리하고 프로젝트 현황의 중복 패널을 제거했습니다. 실제 페이지 이동과 좁은 화면 검증 기록이 있지만 T-028 원래 의존성/수용기준을 무시해 전체 완료로 바꾸지 않습니다.",
+      "sourceIds": [
+        "S8",
+        "S11"
+      ],
+      "anchors": [
+        "CodeBurn",
+        "/usage",
+        "분리",
+        "중복",
+        "T-028",
+        "전체 완료"
+      ]
+    },
+    {
+      "id": "F8",
+      "section": "evidence",
+      "state": "known",
+      "text": "공개 Mac 검증 기록에는 제품 source SHA 7b0f42d90c1d51257db2afa503c148e7765bfb2d, 941개 단위 통과·16개 skip, 타입/빌드 통과와 실제 Orca 74개 작업·CodeBurn status/quota 성공이 있습니다. 입력 SHA와 실제 실행 앱 SHA는 같은 개념이 아니며 현재 앱 전체를 추정하지 않습니다.",
+      "sourceIds": [
+        "S11"
+      ],
+      "anchors": [
+        "7b0f42d90c1d51257db2afa503c148e7765bfb2d",
+        "941",
+        "16",
+        "74",
+        "입력",
+        "앱 SHA"
+      ]
+    },
+    {
+      "id": "F9",
+      "section": "decisions",
+      "state": "known",
+      "text": "2026-10-06 공개 note-app 선별 근거만 기존 Claude 구독으로 수동 선행 실험하는 정책이 승인됐습니다. 동시 1개, 생성 1회·검증 실패 수정 최대 1회, 동일 입력 재호출 0, 최신 성공 본문 1개를 유지합니다. 구현 진행과 승인 사실은 실험 내용 정확성이나 일반 자동 실행의 완료가 아닙니다.",
+      "sourceIds": [
+        "S9"
+      ],
+      "anchors": [
+        "2026-10-06",
+        "Claude",
+        "수동",
+        "승인",
+        "동시 1",
+        "생성 1",
+        "최대 1",
+        "재호출 0",
+        "정확성",
+        "자동"
+      ]
+    }
+  ]
+}

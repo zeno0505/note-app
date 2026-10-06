@@ -11,6 +11,10 @@ import type { AppEnvironment } from '../shared/bridge';
 import { loadLiveConfiguration } from './live-config';
 import {createProjectRegistry,projectRegistryCodec} from './projects/registry';
 import {createModelReadingStorage} from '../summary/reading/model-reading-storage';
+import {createPublicModelController} from './public-model';
+import {createClaudePublicAdapter} from '../summary/reading/claude-public-adapter';
+import publicReadingPack from '../shared/public-reading-pack.json';
+import type {PublicReadingPack} from '../summary/reading/model-harness';
 import {createLocalSummaryCache} from '../summary/storage';
 import { createLiveRuntime } from './live-runtime';
 import { boundedStartup } from './startup-boundary';
@@ -28,6 +32,7 @@ const entryUrl = pathToFileURL(rendererEntry).href;
 let mainWindow: BrowserWindow | null = null;
 let tray:Tray|null=null;
 let quitting=false;
+let publicModel:ReturnType<typeof createPublicModelController>|undefined;
 let quitSettled=false;
 const demoStore = new DemoStore();
 let liveRuntime: ReturnType<typeof createLiveRuntime>;
@@ -90,6 +95,11 @@ app.whenReady().then(async()=>{
   ]);
   const cacheRoot=cacheLocation.path;
   const modelReading=createModelReadingStorage(join(userData,'model-reading'));
+  const publicClaude=configuration.configuration?.publicModelClaudePath;
+  const publicCwd=join(userData,'public-model-empty-workspace');
+  if(publicClaude)await mkdir(publicCwd,{recursive:true,mode:0o700});
+  publicModel=createPublicModelController(publicReadingPack as PublicReadingPack,modelReading,
+    publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined);
   const projectPersistence=cacheLocation.available?await boundedStartup((async()=>{const directory=join(cacheRoot,'projects');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw new Error('Unsafe project registry');return createLocalSummaryCache({directory,codec:projectRegistryCodec});})(),undefined):undefined;
   const projectRegistry=createProjectRegistry({persistence:projectPersistence??{read:async()=>null,write:async()=>{throw new Error('앱 프로젝트 상태 저장 위치를 사용할 수 없습니다.');}}});
   const readPersistence=cacheLocation.available?await boundedStartup((async()=>{
@@ -118,7 +128,7 @@ app.whenReady().then(async()=>{
   });
   ipcMain.handle('note-app:read-root-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');readRoots.cancel(args[0]);});
   async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
-    try{for(const controller of linkControllers)controller.abort();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
+    try{for(const controller of linkControllers)controller.abort();await publicModel?.cancel();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
     finally{summaryWorkflow=makeSummaryWorkflow();changingReadRoots=false;}
   }
   ipcMain.handle('note-app:read-root-confirm',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one confirmation');return tracked(changeReadRoots(()=>readRoots.confirm(args[0])));});
@@ -128,7 +138,10 @@ app.whenReady().then(async()=>{
     ['note-app:live-connect',()=>liveRuntime.connect()],
     ['note-app:live-refresh',()=>liveRuntime.refresh()],
     ['note-app:reading-summary-now',()=>liveRuntime.summarizeNow()],
-    ['note-app:public-model-review',()=>modelReading.readLatest('zeno0505/note-app')],
+    ['note-app:public-model-review',async()=>(await publicModel!.view()).latest],
+    ['note-app:public-model-state',()=>publicModel!.view()],
+    ['note-app:public-model-run',()=>publicModel!.run()],
+    ['note-app:public-model-cancel',()=>publicModel!.cancel()],
     ['note-app:live-disconnect',()=>liveRuntime.disconnect()],
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
@@ -197,9 +210,9 @@ app.whenReady().then(async()=>{
 // A retained tray owns the app lifetime; only explicit quit terminates collection.
 app.on('window-all-closed',()=>{});
 app.on('before-quit',event=>{
-  quitting=true;for(const controller of linkControllers)controller.abort();summaryWorkflow?.dispose();liveRuntime?.dispose();
+  quitting=true;for(const controller of linkControllers)controller.abort();publicModel?.dispose();summaryWorkflow?.dispose();liveRuntime?.dispose();
   if(!quitSettled){event.preventDefault();if(waitingForMutation)return;waitingForMutation=true;
-    void finishQuit([...mutations,liveRuntime?.settleRegistry()??Promise.resolve()],()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
+    void finishQuit([...mutations,publicModel?.settle()??Promise.resolve(),liveRuntime?.settleRegistry()??Promise.resolve()],()=>{quitSettled=true;tray?.destroy();tray=null;app.quit();});
   }
 });
 let waitingForMutation=false;
