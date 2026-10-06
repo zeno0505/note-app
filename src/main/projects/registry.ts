@@ -11,7 +11,8 @@ export interface RegisteredProject {
  observation:null|{workstream:LiveWorkstreamView;dag:LiveDagView|null};
  history:{at:string;status:'active'|'completed';summary:NonNullable<LiveWorkstreamView['readingSummary']>|null}[];
 }
-export interface ProjectRegistryPayload {schemaVersion:1;projects:RegisteredProject[]}
+export interface ProjectConnection {hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string}
+export interface ProjectRegistryPayload {schemaVersion:1;projects:RegisteredProject[];connections?:ProjectConnection[]}
 export interface ProjectPersistence {read():Promise<SummaryCacheRecord<ProjectRegistryPayload>|null>;write(payload:ProjectRegistryPayload,revision:number|null,signal?:AbortSignal):Promise<SummaryCacheRecord<ProjectRegistryPayload>>}
 export const projectId=(hostId:string,dagId:string)=>`project-${createHash('sha256').update(JSON.stringify([hostId,dagId])).digest('hex')}`;
 const absolute=(v:unknown):v is string=>typeof v==='string'&&v.length<=4096&&path.isAbsolute(v)&&path.normalize(v)===v&&!/[\u0000-\u001f\u007f]/u.test(v);
@@ -20,13 +21,15 @@ const time=(v:unknown):v is string=>typeof v==='string'&&Number.isFinite(Date.pa
 const fail=():never=>{throw new Error('프로젝트 등록 상태를 확인하지 못했습니다. 기존 파일은 보존했습니다.');};
 export const projectRegistryCodec={parse(input:unknown):ProjectRegistryPayload {
  const v=copyBoundedCacheData(input,4*1024*1024) as ProjectRegistryPayload;
- if(!v||Object.keys(v).sort().join(',')!=='projects,schemaVersion'||v.schemaVersion!==1||!Array.isArray(v.projects)||v.projects.length>64)fail();
+ if(!v||!['projects,schemaVersion','connections,projects,schemaVersion'].includes(Object.keys(v).sort().join(','))||v.schemaVersion!==1||!Array.isArray(v.projects)||v.projects.length>64)fail();
  for(const p of v.projects){
   if(!p||Object.keys(p).sort().join(',')!=='canonicalDagPath,canonicalNotePath,changedAt,dagId,history,hostId,id,observation,scopeId,status,worktrees'||!text(p.hostId)||!text(p.scopeId)||!text(p.dagId)||p.id!==projectId(p.hostId,p.dagId)||!absolute(p.canonicalNotePath)||!absolute(p.canonicalDagPath)||!p.canonicalDagPath.startsWith(p.canonicalNotePath+path.sep)||!['active','completed'].includes(p.status)||!time(p.changedAt)||!Array.isArray(p.worktrees)||p.worktrees.length>32||!Array.isArray(p.history)||p.history.length>12)fail();
   if(p.worktrees.some(w=>!w||Object.keys(w).sort().join(',')!=='id,path'||!text(w.id,4096)||!absolute(w.path))||new Set(p.worktrees.map(w=>w.path)).size!==p.worktrees.length)fail();
   if(p.observation!==null&&(!p.observation||Object.keys(p.observation).sort().join(',')!=='dag,workstream'||p.observation.workstream?.id!==p.id||p.observation.workstream.noteMapping?.dagId!==p.dagId||typeof p.observation.workstream.title!=='string'||(p.observation.dag!==null&&p.observation.dag?.dagId!==p.dagId)))fail();
   if(p.history.some(h=>!h||Object.keys(h).sort().join(',')!=='at,status,summary'||!time(h.at)||!['active','completed'].includes(h.status)||(h.summary!==null&&(h.summary?.workstreamId!==p.id||h.summary.kind!=='rules-only'||!Array.isArray(h.summary.sections)))))fail();
  }
+ if(v.connections!==undefined&&(!Array.isArray(v.connections)||v.connections.length>64||v.connections.some(c=>!c||Object.keys(c).sort().join(',')!=='dagRelativePath,hostId,scopeId,worktreePath'||!text(c.hostId)||!text(c.scopeId)||!absolute(c.worktreePath)||!text(c.dagRelativePath)||path.isAbsolute(c.dagRelativePath)||c.dagRelativePath.includes('\\')||c.dagRelativePath.split('/').some(p=>!p||p==='.'||p==='..'))))fail();
+ if(v.connections&&new Set(v.connections.map(c=>JSON.stringify([c.hostId,c.worktreePath]))).size!==v.connections.length)fail();
  if(new Set(v.projects.map(p=>p.id)).size!==v.projects.length)fail();return structuredClone(v);
 }};
 /** Only app-owned persistence. Discovery never changes a user's completion decision. */
@@ -39,6 +42,8 @@ export function createProjectRegistry(options:{persistence?:ProjectPersistence;n
  }
  return {
   async load(){if(loaded)return;if(!loading)loading=(async()=>{const old=await options.persistence?.read();if(old){payload=projectRegistryCodec.parse(old.payload);revision=old.revision;}loaded=true;})();await loading;},
+  connections:()=>structuredClone(payload.connections??[]),
+  async chooseConnection(choice:ProjectConnection,signal?:AbortSignal){return transaction(draft=>{draft.connections=(draft.connections??[]).filter(c=>c.hostId!==choice.hostId||c.worktreePath!==choice.worktreePath);draft.connections.push(structuredClone(choice));},signal);},
   records:()=>structuredClone(payload.projects),
   async discover(mappings:ResolvedNoteMapping[],signal?:AbortSignal){return transaction(draft=>{
    for(const m of mappings){const id=projectId(m.hostId,m.dagId);let p=draft.projects.find(p=>p.id===id);

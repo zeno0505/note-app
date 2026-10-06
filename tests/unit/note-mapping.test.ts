@@ -51,6 +51,19 @@ async function reason(expected: string): Promise<void> {
 }
 
 describe('bounded read-only mapping and canonical identity', () => {
+  it('requires the designated symlink for automatic discovery and validates explicit scope selection',async()=>{
+    request.requireNoteSymlink=true;
+    expect((await mapWorktreesToNotes(request)).mappings[0].state).toBe('resolved');
+    await fs.unlink(path.join(worktree,'docs','note'));await fs.mkdir(path.join(worktree,'docs','note'));await reason('note-not-symlink');
+    await fs.rmdir(path.join(worktree,'docs','note'));await fs.symlink(project,path.join(worktree,'docs','note'),'dir');
+    request.scopes=[...request.scopes,{...scope(),scopeId:'second'}];await reason('ambiguous-scope');
+    row().selectedScopeId='second';row().selectedDagRelativePath='dag.json';
+    expect((await mapWorktreesToNotes(request)).mappings[0]).toMatchObject({state:'resolved',scopeId:'second'});
+    row().selectedScopeId='unknown';await reason('note-outside-scope');
+    row().selectedScopeId='second';delete row().selectedDagRelativePath;expect((await mapWorktreesToNotes(request)).status).toBe('invalid-request');
+    request.requireNoteSymlink='yes' as unknown as boolean;expect((await mapWorktreesToNotes(request)).status).toBe('invalid-request');
+  });
+
   it('resolves explicit read registration without creating a missing docs/note link',async()=>{
     await fs.unlink(path.join(worktree,'docs','note'));row().registeredScopeId='project-scope';row().selectedDagRelativePath='dag.json';
     const before=await fs.stat(path.join(project,'dag.json')),result=await mapWorktreesToNotes(request);

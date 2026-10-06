@@ -62,6 +62,7 @@ function inputError(request: NoteMappingRequest): NoteMappingResult['inputError'
     || !Array.isArray(request.worktrees) || !Array.isArray(request.scopes)
     || (request.timeoutMs !== undefined && (!Number.isInteger(request.timeoutMs) || request.timeoutMs < 1
       || request.timeoutMs > NOTE_MAPPING_LIMITS.maximumTimeoutMs))
+    || (request.requireNoteSymlink !== undefined && typeof request.requireNoteSymlink !== 'boolean')
     || (request.signal !== undefined && !(request.signal instanceof AbortSignal))) return 'invalid-input';
   if (request.worktrees.length > NOTE_MAPPING_LIMITS.worktrees || request.scopes.length > NOTE_MAPPING_LIMITS.scopes) return 'input-limit';
   const worktreeIds = new Set<string>();
@@ -71,6 +72,7 @@ function inputError(request: NoteMappingRequest): NoteMappingResult['inputError'
       || !validString(row.hostId, NOTE_MAPPING_LIMITS.idCharacters)
       || !(row.hostId === request.localHostId ? validAbsolute(row.worktreePath) : validString(row.worktreePath, NOTE_MAPPING_LIMITS.pathCharacters))
       || (row.selectedDagRelativePath !== undefined && !validRelative(row.selectedDagRelativePath))) return 'invalid-input';
+    if(row.selectedScopeId!==undefined && (!validString(row.selectedScopeId,NOTE_MAPPING_LIMITS.idCharacters)||!row.selectedDagRelativePath))return 'invalid-input';
     if(row.registeredScopeId!==undefined && (!validString(row.registeredScopeId,NOTE_MAPPING_LIMITS.idCharacters)||!row.selectedDagRelativePath))return 'invalid-input';
     const key = JSON.stringify([row.hostId, row.worktreeId]);
     if (worktreeIds.has(key)) return 'duplicate-identity';
@@ -176,7 +178,7 @@ async function resolveScope(reads: BoundedReads, scope: AllowedNoteScope): Promi
   return { source: scope, vaultRoot, scopeRoot };
 }
 
-async function resolveNote(reads: BoundedReads, worktreePath: string, scopes: ResolvedScope[]): Promise<{ notePath: string; docsPath: string; scope: ResolvedScope }> {
+async function resolveNote(reads: BoundedReads, worktreePath: string, scopes: ResolvedScope[],requireSymlink=false): Promise<{ notePath: string; docsPath: string; scope: ResolvedScope }> {
   const docsPath = await canonicalDirectory(reads, path.join(worktreePath, 'docs'), 'docs', 'docs-unavailable', 'docs-not-directory', (canonical) => {
     if (!within(worktreePath, canonical, true)) fail('docs-outside-worktree', 'docs');
   });
@@ -187,6 +189,7 @@ async function resolveNote(reads: BoundedReads, worktreePath: string, scopes: Re
     const code = safeCode(error);
     fail(code === 'ENOENT' ? 'note-missing' : 'note-unavailable', 'note', code);
   }
+  if(requireSymlink&&!linkStat.isSymbolicLink())fail('note-not-symlink','note');
   let notePath: string;
   try { notePath = await reads.run('note', () => fs.realpath(requestedNote)); } catch (error) {
     if (error instanceof MappingFailure) throw error;
@@ -246,7 +249,7 @@ function problemFrom(error: unknown, stage: MappingStage): MappingProblem {
   return error instanceof MappingFailure ? error.problem : { reason: 'note-unavailable', stage, errorCode: safeCode(error) };
 }
 
-async function mapWorktree(reads: BoundedReads, worktree: NoteWorktree, localHostId: string, scopes: ResolvedScope[]): Promise<NoteMapping> {
+async function mapWorktree(reads: BoundedReads, worktree: NoteWorktree, localHostId: string, scopes: ResolvedScope[],requireSymlink=false): Promise<NoteMapping> {
   const identity = { worktreeId: worktree.worktreeId, hostId: worktree.hostId };
   try {
     if (worktree.hostId !== localHostId) fail('remote-host', 'host');
@@ -258,7 +261,7 @@ async function mapWorktree(reads: BoundedReads, worktree: NoteWorktree, localHos
       const registered=scopes.filter(s=>s.source.scopeId===worktree.registeredScopeId);
       if(registered.length!==1)fail('no-allowed-scope','scope');
       scope=registered[0];notePath=scope.scopeRoot;docsPath=null;
-    } else {({notePath,docsPath,scope}=await resolveNote(reads,canonicalWorktreePath,scopes));}
+    } else {({notePath,docsPath,scope}=await resolveNote(reads,canonicalWorktreePath,worktree.selectedScopeId?scopes.filter(s=>s.source.scopeId===worktree.selectedScopeId):scopes,requireSymlink));}
     const canonicalDagPath = await resolveDag(reads, scope, notePath, worktree.selectedDagRelativePath);
     // This is still an observation, not an atomic filesystem capability. Detect
     // replacements of the authority/link chain while resolving registered DAGs.
@@ -301,7 +304,7 @@ export async function mapWorktreesToNotes(request: NoteMappingRequest): Promise<
   const mappings: NoteMapping[] = [];
   const dagMap = new Map<string, CanonicalDagMapping>();
   for (const worktree of worktrees) {
-    const mapping = await mapWorktree(reads, worktree, localHostId, resolvedScopes);
+    const mapping = await mapWorktree(reads, worktree, localHostId, resolvedScopes,request.requireNoteSymlink===true);
     mappings.push(mapping);
     if (mapping.state === 'resolved') {
       let dag = dagMap.get(mapping.dagId);

@@ -81,6 +81,21 @@ beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(EPOCH);});
 afterEach(()=>{for(const runtime of runtimes.splice(0))runtime.dispose();vi.useRealTimers();});
 
 describe('connected-project rule reading integration',()=>{
+  it('reads only explicitly confirmed ambiguous candidates and rejects disconnected, foreign and retargeted choices',async()=>{
+    const registry=createProjectRegistry();let retargeted=false;
+    const mapNotes=vi.fn(async(request:NoteMappingRequest):Promise<NoteMappingResult>=>{
+      expect(request.requireNoteSymlink).toBe(true);
+      const result=mapping({...request,worktrees:request.worktrees.filter(w=>w.selectedScopeId)});
+      if(retargeted)for(const m of result.mappings)if(m.state==='resolved')m.canonicalDagPath='/synthetic/vault/project/changed.yaml';
+      return {...result,status:'partial',mappings:request.worktrees.map(w=>result.mappings.find(m=>m.worktreeId===w.worktreeId)??{state:'unresolved',worktreeId:w.worktreeId,hostId:w.hostId,reason:'ambiguous-dag',stage:'dag'})};
+    });
+    const f=setup(configuration(),true,{mapNotes},registry);const first=await f.runtime.connect();expect(f.readDag).not.toHaveBeenCalled();
+    const view=first.workstreams[0],candidateId=view.connectionOptions![0].id;
+    await expect(f.runtime.confirmProjectConnection({workstreamId:'foreign',candidateId})).rejects.toThrow();
+    retargeted=true;await expect(f.runtime.confirmProjectConnection({workstreamId:view.id,candidateId})).rejects.toThrow();expect(registry.connections()).toEqual([]);expect(f.readDag).not.toHaveBeenCalled();
+    retargeted=false;const confirmed=await f.runtime.confirmProjectConnection({workstreamId:view.id,candidateId});expect(confirmed.workstreams.some(w=>w.project?.status==='active')).toBe(true);expect(f.readDag).toHaveBeenCalledTimes(1);expect(registry.connections()).toHaveLength(1);
+    await f.runtime.disconnect();const reads=mapNotes.mock.calls.length;await expect(f.runtime.confirmProjectConnection({workstreamId:view.id,candidateId})).rejects.toThrow();expect(mapNotes.mock.calls).toHaveLength(reads);
+  });
   it('production-wires the explicitly registered canonical DAG and branch only, with manual intent',async()=>{
     const config=configuration();config.configuration!.publicGitHub=[{scopeId:'scope-one',dagRelativePath:'dag.yaml',worktreePath:'/synthetic/worktree/0',branch:'feat/phase1-foundation'}];
     const read=vi.fn<LiveRuntimeDependencies['pullObservations']['read']>(async(selection)=>({...selection,repository:'zeno0505/note-app',observedAt:new Date().toISOString(),coverage:'complete',pulls:[],

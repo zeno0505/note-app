@@ -81,6 +81,8 @@ export function createLiveRuntime(options: {
   const config = loaded.configuration;
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
+  const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
+  const connectionConfirmations=new Set<AbortController>();
   const publicSelections=new Map<string,{dagId:string;branch:string;worktreePath:string}>();
   const publicObservers=new Map<string,PullObservationAdapter>();
   const publicAdapter:PullObservationAdapter|undefined=config?.publicGitHub?.length?{
@@ -168,9 +170,9 @@ export function createLiveRuntime(options: {
   async function readMapping(request: Parameters<typeof mapWorktreesToNotes>[0]): Promise<Awaited<ReturnType<typeof mapWorktreesToNotes>>> {
     if (mappingRetired) throw new Error('Mapping retired');
     try {
-      const scopedRequest={...request,worktrees:request.worktrees.map(worktree=>{
+      const scopedRequest={...request,...(registry?{requireNoteSymlink:true}:{}),worktrees:request.worktrees.map(worktree=>{
         const registration=config?.publicGitHub?.find(r=>r.worktreePath===worktree.worktreePath&&request.scopes.some(s=>s.scopeId===r.scopeId));
-        if(!registration||worktree.hostId!==request.localHostId||(worktree.selectedDagRelativePath&&worktree.selectedDagRelativePath!==registration.dagRelativePath))return worktree;
+        if(!registration||worktree.hostId!==request.localHostId||(worktree.selectedDagRelativePath&&worktree.selectedDagRelativePath!==registration.dagRelativePath)){const choice=registry?.connections().find(c=>c.hostId===worktree.hostId&&c.worktreePath===worktree.worktreePath&&request.scopes.some(s=>s.scopeId===c.scopeId));return choice&&!worktree.selectedDagRelativePath?{...worktree,selectedScopeId:choice.scopeId,selectedDagRelativePath:choice.dagRelativePath}:worktree;}
         return {...worktree,registeredScopeId:registration.scopeId,selectedDagRelativePath:registration.dagRelativePath};
       })};
       const result = await mapNotes(scopedRequest);
@@ -331,6 +333,17 @@ export function createLiveRuntime(options: {
           ? { state: 'resolved', reason: null, dagId: mapping.dagId,...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
+    connectionChoices.clear();
+    if(registry){let checks=0;for(let index=0;index<observedRows.length;index++) {
+      const view=workstreams[index],row=observedRows[index].worktree;
+      if(view.noteMapping.state!=='unresolved'||!['ambiguous-scope','ambiguous-dag'].includes(view.noteMapping.reason??'')||!row.path||row.identity.hostId!==config?.localHostId)continue;
+      view.connectionOptions=[];
+      for(const scope of config.noteScopes)for(const dagRelativePath of scope.dagRelativePaths){if(checks++>=8||signal.aborted)break;
+        const candidate=await readMapping({localHostId:config.localHostId!,scopes:[scope],signal,worktrees:[{worktreeId:row.id,hostId:row.identity.hostId!,worktreePath:row.path,selectedScopeId:scope.scopeId,selectedDagRelativePath:dagRelativePath}]});
+        const resolved=candidate.mappings[0];if(resolved?.state!=='resolved')continue;
+        const id=digest(JSON.stringify([view.id,scope.scopeId,dagRelativePath,resolved.canonicalDagPath]));connectionChoices.set(id,{workstreamId:view.id,hostId:row.identity.hostId!,worktreePath:row.path,scopeId:scope.scopeId,dagRelativePath,canonicalDagPath:resolved.canonicalDagPath});view.connectionOptions.push({id,label:`${scope.scopeId} · ${dagRelativePath}`});
+      }
+    }}
     publicSelections.clear();
     observedRows.forEach(({worktree:w},index)=>{
       const mapping=byWorktree.get(identity(w.identity.hostId,w.id));
@@ -558,10 +571,28 @@ export function createLiveRuntime(options: {
     },
     async disconnect(): Promise<LiveWorkspaceView> {
       connected = false;
+      connectionChoices.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel();
       store.stop();
       publish();
       return getState();
+    },
+    async confirmProjectConnection(request:unknown):Promise<LiveWorkspaceView>{
+      if(!registry||disposed||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='candidateId,workstreamId')throw new Error('연결 확인 요청이 올바르지 않습니다.');
+      const r=request as {workstreamId:string;candidateId:string},choice=connectionChoices.get(r.candidateId);
+      if(!choice||choice.workstreamId!==r.workstreamId)throw new Error('연결 후보가 변경되었습니다. 다시 조회해 주세요.');
+      const snapshot=store.getState();
+      if(!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)throw new Error('현재 연결 상태에서 다시 확인해 주세요.');
+      const controller=new AbortController();connectionConfirmations.add(controller);
+      try {
+        const scope=config.noteScopes.find(s=>s.hostId===choice.hostId&&s.scopeId===choice.scopeId&&s.dagRelativePaths.includes(choice.dagRelativePath));
+        if(!scope)throw new Error('연결 범위가 변경되었습니다.');
+        const result=await readMapping({localHostId:config.localHostId,scopes:[scope],signal:controller.signal,worktrees:[{worktreeId:r.workstreamId,hostId:choice.hostId,worktreePath:choice.worktreePath,selectedScopeId:choice.scopeId,selectedDagRelativePath:choice.dagRelativePath}]});
+        const mapping=result.mappings[0],after=store.getState();
+        if(controller.signal.aborted||disposed||!connected||connectionChoices.get(r.candidateId)!==choice||after.refreshing||after.revision!==snapshot.revision||mapping?.state!=='resolved'||mapping.canonicalDagPath!==choice.canonicalDagPath)throw new Error('연결 후보가 변경되었습니다. 다시 조회해 주세요.');
+        const {workstreamId,canonicalDagPath,...binding}=choice;await registry.chooseConnection(binding,controller.signal);
+        if(!controller.signal.aborted&&connected&&!disposed)await store.refresh();return getState();
+      }finally{connectionConfirmations.delete(controller);}
     },
     async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
     settleRegistry:()=>registry?.settle()??Promise.resolve(),
@@ -577,6 +608,7 @@ export function createLiveRuntime(options: {
     dispose(): void {
       if (disposed) return;
       connected = false; disposed = true;
+      connectionChoices.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();
     },

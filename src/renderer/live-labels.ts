@@ -17,7 +17,7 @@ export function mappingLabel(reason:string|null):string {
   const labels:Record<string,string>={
     'missing-note':'docs/note 없음','note-missing':'docs/note 없음','ambiguous-dag':'DAG 선택 필요',
     'outside-scope':'허용된 노트 범위 밖','whole-vault':'전체 vault 연결은 허용되지 않음',
-    'note-broken-link':'docs/note 링크가 끊어짐','note-unavailable':'docs/note 접근 불가','note-not-directory':'노트가 디렉터리가 아님',
+    'note-broken-link':'docs/note 링크가 끊어짐','note-unavailable':'docs/note 접근 불가','note-not-directory':'노트가 디렉터리가 아님','note-not-symlink':'docs/note 심볼릭 링크 필요',
     'vault-root-note':'vault 전체를 가리키는 노트 연결','note-outside-scope':'허용된 노트 범위 밖','dag-not-registered':'등록된 DAG 없음',
     'dag-unavailable':'DAG 접근 불가','dag-not-file':'DAG가 파일이 아님','dag-outside-scope':'DAG가 허용 범위 밖에 있음',
     'dag-outside-note':'DAG가 연결된 노트 밖에 있음','invalid-dag-selection':'DAG 선택 설정 오류','no-allowed-scope':'허용된 노트 범위 없음',

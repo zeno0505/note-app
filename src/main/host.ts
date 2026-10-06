@@ -100,6 +100,9 @@ app.whenReady().then(async()=>{
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
     return action();
   });
+  ipcMain.handle('note-app:project-connection-confirm',(event,...args)=>{
+    if(!mainWindow)throw new Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);if(args.length!==1)throw new Error('Expected one connection selection');return tracked(liveRuntime.confirmProjectConnection(args[0]));
+  });
   ipcMain.handle('note-app:project-status',(event,...args)=>{
     if(!mainWindow)throw new Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);
     if(args.length!==1)throw new Error('Expected one project status request');return tracked(liveRuntime.setProjectStatus(args[0]));

@@ -6,6 +6,15 @@ const mapping:ResolvedNoteMapping={state:'resolved',hostId:'host',worktreeId:'tr
 const id=projectId(mapping.hostId,mapping.dagId);
 function view():LiveWorkstreamView{return {id,title:'Synthetic project',projectName:null,branch:null,archived:false,terminalConnected:false,terminalCount:0,agentState:'done',projectMapping:'matched',noteMapping:{state:'resolved',dagId:mapping.dagId,reason:null}};}
 describe('app-owned project registry',()=>{
+ it('persists a single app-owned choice per worktree without adding project authority',async()=>{
+  let saved:{revision:number;payload:ProjectRegistryPayload}|null=null;
+  const persistence={async read(){return structuredClone(saved);},async write(payload:ProjectRegistryPayload,revision:number|null){return saved={revision:(revision??0)+1,payload:structuredClone(payload)};}};
+  const r=createProjectRegistry({persistence});await r.load();const choice={hostId:'host',worktreePath:'/synthetic/tree',scopeId:'scope',dagRelativePath:'dag.yaml'};
+  await r.chooseConnection(choice);await r.chooseConnection({...choice,dagRelativePath:'other.yaml'});expect(r.records()).toEqual([]);
+  const restart=createProjectRegistry({persistence});await restart.load();expect(restart.connections()).toEqual([{...choice,dagRelativePath:'other.yaml'}]);
+  for(const connections of [[choice,choice],[{...choice,dagRelativePath:'../outside'}]])expect(()=>projectRegistryCodec.parse({schemaVersion:1,projects:[],connections})).toThrow();
+  const controller=new AbortController();controller.abort();await expect(restart.chooseConnection(choice,controller.signal)).rejects.toThrow();expect(restart.connections()[0].dagRelativePath).toBe('other.yaml');
+ });
  it('deduplicates by canonical DAG and preserves user completion during rediscovery, worktree removal and restart',async()=>{
   let saved:{revision:number;payload:ProjectRegistryPayload}|null=null;
   const persistence={async read(){return structuredClone(saved);},async write(payload:ProjectRegistryPayload,revision:number|null){expect(revision).toBe(saved?.revision??null);return saved={revision:(revision??0)+1,payload:structuredClone(payload)};}};

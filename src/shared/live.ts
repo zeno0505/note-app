@@ -59,6 +59,7 @@ export interface LiveWorkstreamView {
   noteMapping: { state: 'resolved' | 'unresolved'; reason: string | null; dagId: string | null; registration?: 'explicit-read-only' };
   readingSummary?: ReadingSummary;
   project?:ProjectLifecycleView;
+  connectionOptions?:{id:string;label:string}[];
 }
 export interface LiveWorkspaceView {
   mode: 'live-read-only';

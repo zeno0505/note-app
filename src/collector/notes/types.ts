@@ -8,6 +8,8 @@ export interface NoteWorktree {
   selectedDagRelativePath?: string;
   /** Trusted main-only explicit read registration; creates no docs/note link. */
   registeredScopeId?: string;
+  /** User-confirmed scope; still requires the actual designated symlink. */
+  selectedScopeId?:string;
 }
 
 export interface AllowedNoteScope {
@@ -28,6 +30,7 @@ export interface NoteMappingRequest {
   signal?: AbortSignal;
   /** Whole-request deadline. Default 5 seconds, maximum 30 seconds. */
   timeoutMs?: number;
+  requireNoteSymlink?:boolean;
 }
 
 export type SafeFsErrorCode =
@@ -40,7 +43,7 @@ export type MappingReason =
   | 'scope-unavailable' | 'scope-not-directory' | 'scope-is-vault-root' | 'scope-outside-vault'
   | 'worktree-unavailable' | 'worktree-not-directory'
   | 'docs-unavailable' | 'docs-not-directory' | 'docs-outside-worktree'
-  | 'note-missing' | 'note-broken-link' | 'note-unavailable' | 'note-not-directory'
+  | 'note-not-symlink' | 'note-missing' | 'note-broken-link' | 'note-unavailable' | 'note-not-directory'
   | 'vault-root-note' | 'note-outside-scope'
   | 'dag-not-registered' | 'ambiguous-dag' | 'dag-unavailable' | 'dag-not-file'
   | 'dag-outside-scope' | 'dag-outside-note' | 'invalid-dag-selection'

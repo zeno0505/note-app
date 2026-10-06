@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import {computed} from 'vue';
+import {computed,ref} from 'vue';
 import type {LiveWorkstreamView,LiveDagView} from '../../shared/live';
 import {diagnosticText,branchLabel,mappingLabel,projectLabel,summaryLabels} from '../live-labels';
 import LiveDag from './LiveDag.vue';
 import SummaryJourney from './SummaryJourney.vue';
 import NoteLinkJourney from './NoteLinkJourney.vue';
 import ReadingSummary from './ReadingSummary.vue';
-import {liveState,refreshLive,setProjectStatus,liveBusy,summarizeNow} from '../store';
+import {liveState,refreshLive,setProjectStatus,liveBusy,summarizeNow,confirmProjectConnection} from '../store';
 const props=defineProps<{workstream:LiveWorkstreamView;dag?:LiveDagView;detail?:boolean}>();
+const selectedConnection=ref('');
 const current=computed(()=>liveState.value?.connection==='connected'&&liveState.value?.freshness==='current'&&(!props.workstream.project||props.workstream.project.status==='active'&&props.workstream.project.sourceState==='available'));
 const terminalLabel=computed(()=>props.workstream.terminalConnected===null?'터미널 연결 미확인':props.workstream.terminalConnected?'터미널 연결':'터미널 미연결');
 </script>
@@ -18,6 +19,7 @@ const terminalLabel=computed(()=>props.workstream.terminalConnected===null?'터�
     <p class="project-identity">{{projectLabel(workstream)}}<span class="branch-label">{{branchLabel(workstream.branch)}}</span></p>
     <dl class="workstream-facts"><div><dt>에이전트 관측</dt><dd>{{workstream.agentState==='done'?'완료 상태로 관측':'에이전트 상태 미확인'}}</dd></div><div><dt>터미널 수</dt><dd>{{workstream.terminalCount===null?'미확인':workstream.terminalCount+'개'}}</dd></div><div><dt>보관 상태</dt><dd>{{workstream.archived===null?'미확인':workstream.archived?'보관됨':'비보관'}}</dd></div><div><dt>프로젝트 연결</dt><dd>{{mappingLabel(workstream.projectMapping)}}</dd></div></dl>
     <div class="note-mapping" :class="{unresolved:workstream.noteMapping.state==='unresolved'}"><strong>{{workstream.noteMapping.state==='resolved'?'노트 · DAG 연결 확인':'노트 연결 미확인'}}</strong><p v-if="workstream.noteMapping.state==='unresolved'">{{mappingLabel(workstream.noteMapping.reason)}}</p><p v-else class="muted">{{workstream.noteMapping.registration==='explicit-read-only'?'명시된 읽기 등록으로 확인했습니다. docs/note 링크는 만들거나 바꾸지 않았습니다.':'명시된 로컬 노트 범위에서 연결되었습니다'}}</p></div>
+    <section v-if="workstream.connectionOptions?.length" class="notice warning"><strong>노트 연결 확인 필요</strong><label>연결할 DAG <select v-model="selectedConnection"><option value="">선택해 주세요</option><option v-for="candidate in workstream.connectionOptions" :key="candidate.id" :value="candidate.id">{{candidate.label}}</option></select></label><button :disabled="liveBusy||!selectedConnection" @click="confirmProjectConnection(workstream.id,selectedConnection)">이 연결 확인</button><p>선택은 앱에 저장하며 심볼릭 링크와 노트 원본은 바꾸지 않습니다.</p></section>
     <section v-if="workstream.project" class="project-lifecycle" data-testid="project-lifecycle"><strong>{{workstream.project.status==='completed'?'완료 · 정기 조회 중단':'진행 중'}}</strong><p>{{workstream.project.worktreeState==='missing'?'워크트리 없음 · 프로젝트 추적 유지':'열린 워크트리 연결'}} · {{workstream.project.sourceState==='unavailable'?'등록된 소스 접근 불가':workstream.project.sourceState==='not-checked'?'현재 접근 재확인 안 됨':'등록된 소스 조회 확인'}}</p><button :disabled="liveBusy" @click="setProjectStatus(workstream.id,workstream.project.status==='active'?'completed':'active',workstream.project.status)">{{workstream.project.status==='active'?'프로젝트 완료':'프로젝트 재개'}}</button><button :disabled="liveBusy||liveState?.connection!=='connected'" @click="summarizeNow">지금 요약</button><details><summary>맥락·이력 {{workstream.project.history.length}}건</summary><section v-for="(event,index) in workstream.project.history" :key="index"><p>{{event.at}} · {{event.status==='completed'?'사용자 완료':'진행 중'}} · {{event.summary?'요약 기록':'프로젝트 상태 기록'}}</p><ReadingSummary v-if="event.summary" :summary="event.summary" historical/></section></details><p class="muted">프로젝트 완료·재개는 앱에만 저장합니다. DAG와 에이전트 상태는 바꾸지 않습니다.</p></section>
     <ReadingSummary v-if="workstream.readingSummary" :summary="workstream.readingSummary" :historical="!current"/>
     <template v-if="detail"><SummaryJourney v-if="dag" :key="dag.dagId" :workstream-id="workstream.id" :dag="dag" :current="current"/><NoteLinkJourney :worktree-id="workstream.id" :current="current" @changed="refreshLive"/></template>
