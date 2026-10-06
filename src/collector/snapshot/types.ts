@@ -82,6 +82,8 @@ export interface SnapshotStore<T, C, E extends SnapshotError> {
   getState(): SnapshotState<T, C, E>;
   /** Emits on state transitions, not render ticks. Returns an unsubscribe function. */
   subscribe(listener: (state: SnapshotState<T, C, E>) => void): () => void;
+  /** OS sleep pauses timers; wake schedules one coalesced refresh after the return delay. */
+  setSuspended(suspended:boolean):void;
   setActivity(activity: { active?: boolean; visible?: boolean }): void;
   /** Cancels the current attempt; a future active poll may retry. */
   cancel(): void;

@@ -105,3 +105,5 @@ export function formatTime(value:string|number):string {
   if(!Number.isFinite(date.getTime())) return '관측 시각 미확인';
   return new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'}).format(date)+' UTC';
 }
+
+export async function openProjectDocument(workstreamId:string,linkId:string){try{await window.noteApp.openProjectDocument({workstreamId,linkId});}catch(error){bridgeError.value=error instanceof Error?error.message:String(error);}}

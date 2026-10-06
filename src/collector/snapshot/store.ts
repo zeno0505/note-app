@@ -63,6 +63,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   type Flight = Pending & { controller: AbortController; valid: boolean; attempt: SnapshotAttempt<E> };
   let started = false;
   let disposed = false;
+  let suspended=false;
+  let wakePending=false;
   let active = options.active ?? true;
   let visible = options.visible ?? true;
   let timer: { handle: unknown; at: number; reason: 'poll' | 'resume' } | null = null;
@@ -82,7 +84,7 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   const listeners = new Set<(state: State) => void>();
   const nowIso = () => new Date(clock.now()).toISOString();
   const foreground = () => active && visible;
-  const enabled = () => started && !disposed && (backgroundIntervalMs !== undefined || foreground());
+  const enabled = () => started && !disposed && !suspended && (backgroundIntervalMs !== undefined || foreground());
   const getState = (): State => {
     const stale = retained !== null && (failedSinceSuccess || retained.sourceStale || disposed
       || clock.now() - Date.parse(retained.observedAt) >= staleAfterMs);
@@ -152,7 +154,7 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
     const at = clock.now() + resumeDelayMs;
     timer = { at, reason: 'resume', handle: clock.setTimeout(() => {
       clearTimer();
-      if (enabled() && foreground()) void request('resume');
+      if (enabled() && (foreground()||wakePending)){wakePending=false;void request('resume');}
     }, resumeDelayMs) };
     const tick = () => {
       countdownTimer = null;
@@ -231,7 +233,8 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
   function request(reason: RefreshReason): Promise<State> {
     if (disposed) return Promise.resolve(getState());
     const replacedCountdown = reason === 'manual' && timer?.reason === 'resume';
-    if (reason === 'manual') clearTimer();
+    if (suspended)return Promise.resolve(getState());
+    if (reason === 'manual'){wakePending=false;clearTimer();}
     if (flight !== null) {
       if (flight.valid) { if (replacedCountdown) publish(); return flight.promise; }
       if (queued === null) queued = { ...deferred<State>(), reason };
@@ -280,6 +283,12 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
+    setSuspended(next) {
+      if(disposed||suspended===next)return;suspended=next;
+      if(next){wakePending=false;clearTimer();}
+      else if(started){wakePending=true;scheduleResume();}
+      publish();
+    },
     setActivity(activity) {
       if (disposed) return;
       const nextActive = activity.active ?? active;
@@ -292,7 +301,7 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
       if (backgroundIntervalMs !== undefined) {
         if (started && wasForeground !== foreground()) {
           // Blur/hide changes cadence; it never aborts read-only work.
-          if (foreground()) scheduleResume(); else arm();
+          if(!wakePending){if (foreground()) scheduleResume(); else arm();}
         }
         publish();
         return;
@@ -318,7 +327,7 @@ export function createSnapshotStore<T, C, E extends SnapshotError>(
     },
     stop() {
       if (disposed) return;
-      started = false; clearTimer(); cancelFlight(); clearQueued(); publish();
+      started = false;wakePending=false; clearTimer(); cancelFlight(); clearQueued(); publish();
     },
     dispose() {
       if (disposed) return;

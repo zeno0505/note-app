@@ -8,6 +8,7 @@ const bridge: NoteAppBridge = Object.freeze({
   refreshLive: () => ipcRenderer.invoke('note-app:live-refresh'),
   summarizeNow: () => ipcRenderer.invoke('note-app:reading-summary-now'),
   disconnectLive: () => ipcRenderer.invoke('note-app:live-disconnect'),
+  openProjectDocument:(request:Parameters<NoteAppBridge['openProjectDocument']>[0])=>ipcRenderer.invoke('note-app:project-document-open',request),
   confirmProjectConnection:(request:Parameters<NoteAppBridge['confirmProjectConnection']>[0])=>ipcRenderer.invoke('note-app:project-connection-confirm',request),
   setProjectStatus:(request:Parameters<NoteAppBridge['setProjectStatus']>[0])=>ipcRenderer.invoke('note-app:project-status',request),
   prepareSummary: (request:Parameters<NoteAppBridge['prepareSummary']>[0])=>ipcRenderer.invoke('note-app:summary-prepare',request),

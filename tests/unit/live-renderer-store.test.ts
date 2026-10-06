@@ -13,7 +13,7 @@ let listener:((value:LiveWorkspaceView)=>void)|undefined;
 const stop=vi.fn();
 beforeEach(async()=>{
   vi.resetModules();stop.mockClear();listener=undefined;
-  bridge={getEnvironment:vi.fn().mockResolvedValue({version:'test',platform:'linux',dataMode:'configured',summaryBackend:'unconfigured',capabilities:{realOrca:true,noteWrites:false,remoteSummary:false}}),getLiveState:vi.fn().mockResolvedValue(state()),connectLive:vi.fn().mockResolvedValue(state({connection:'connected'})),refreshLive:vi.fn().mockResolvedValue(state({connection:'connected'})),summarizeNow:vi.fn().mockResolvedValue(state({connection:'connected'})),confirmProjectConnection:vi.fn(),setProjectStatus:vi.fn(),disconnectLive:vi.fn().mockResolvedValue(state()),onLiveState:vi.fn(callback=>{listener=callback;return stop;}),loadDemo:vi.fn().mockResolvedValue(new DemoStore().read('normal')),prepareSummary:vi.fn(),runSummary:vi.fn(),readSummary:vi.fn(),approveSummary:vi.fn(),rejectSummary:vi.fn(),cancelSummary:vi.fn(),onSummary:vi.fn(()=>()=>{}),getPhase1Options:vi.fn().mockResolvedValue({noteLinkConfigured:false,noteLinkMessage:'Not configured',noteScopes:[],summaryTransport:'blocked'}),previewNoteLink:vi.fn(),confirmNoteLink:vi.fn(),cancelNoteLink:vi.fn()};
+  bridge={getEnvironment:vi.fn().mockResolvedValue({version:'test',platform:'linux',dataMode:'configured',summaryBackend:'unconfigured',capabilities:{realOrca:true,noteWrites:false,remoteSummary:false}}),getLiveState:vi.fn().mockResolvedValue(state()),connectLive:vi.fn().mockResolvedValue(state({connection:'connected'})),refreshLive:vi.fn().mockResolvedValue(state({connection:'connected'})),summarizeNow:vi.fn().mockResolvedValue(state({connection:'connected'})),openProjectDocument:vi.fn(),confirmProjectConnection:vi.fn(),setProjectStatus:vi.fn(),disconnectLive:vi.fn().mockResolvedValue(state()),onLiveState:vi.fn(callback=>{listener=callback;return stop;}),loadDemo:vi.fn().mockResolvedValue(new DemoStore().read('normal')),prepareSummary:vi.fn(),runSummary:vi.fn(),readSummary:vi.fn(),approveSummary:vi.fn(),rejectSummary:vi.fn(),cancelSummary:vi.fn(),onSummary:vi.fn(()=>()=>{}),getPhase1Options:vi.fn().mockResolvedValue({noteLinkConfigured:false,noteLinkMessage:'Not configured',noteScopes:[],summaryTransport:'blocked'}),previewNoteLink:vi.fn(),confirmNoteLink:vi.fn(),cancelNoteLink:vi.fn()};
   vi.stubGlobal('window',{noteApp:bridge});store=await import('../../src/renderer/store');
 });
 afterEach(()=>{store.dispose();vi.unstubAllGlobals();});
@@ -100,7 +100,7 @@ describe('live renderer disclosure and escaping',()=>{
     summary.sections[0].paragraphs.push({text:'<img src=x onerror="steal()">',basis:'unknown',sources:[{kind:'dag',id:'<script>bad</script>',sha:null,sourceHash:null,observedAt:null}]});
     const html=await render(Reading,{summary,historical:true});
     for(const title of ['현재 어디까지 구현되었나요?','다음에는 무엇을 구현하나요?','완료 판단에 어떤 근거가 있나요?','논의하거나 결정할 일이 있나요?']) expect(html).toContain(title);
-    expect(html).toContain('모델 호출 없음');expect(html).toContain('이전 관측');expect(html).toContain('설계 합의 여부가 없습니다');expect(html).toContain('고정 규칙');
+    expect(html).toContain('모델 호출 없음');expect(html).toContain('이전 관측');expect(html).toContain('설계 상태가 미기재');expect(html).toContain('고정 규칙');
     expect(html).toContain('&lt;img');expect(html).not.toContain('<img');expect(html).not.toContain('<script>bad');expect(html).not.toContain('"sections":');
     expect(html).toContain('SHA 미확인');expect(html).toContain('사용자 승인 요약과 별도');
   });

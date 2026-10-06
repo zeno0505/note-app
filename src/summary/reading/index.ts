@@ -15,7 +15,7 @@ function source(dag: LiveDagView): ReadingSource {
 function names(tasks: LiveDagView['tasks']): string {
   return tasks.slice(0, 5).map(t => `${t.id} ${t.title ?? '(제목 미선언)'}`).join(', ') + (tasks.length > 5 ? ' 등 (문장 표시 상한 적용)' : '');
 }
-export function explainReading(input: ReadingInput, pulls: PullState): {sections: ReadingSection[]; partial: boolean} {
+export function explainReading(input: ReadingInput, pulls: PullState): {sections: ReadingSection[]; partial: boolean;dagMismatches?:NonNullable<ReadingSummary['dagMismatches']>} {
   const dag = input.workstream.noteMapping.state === 'resolved' && input.dag?.dagId === input.workstream.noteMapping.dagId ? input.dag : undefined;
   const available = dag?.state === 'ready';
   const sources = dag ? [source(dag)] : [];
@@ -23,6 +23,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
   const next: ReadingParagraph[] = [];
   const evidence: ReadingParagraph[] = [];
   const decisions: ReadingParagraph[] = [];
+  const dagMismatches:NonNullable<ReadingSummary['dagMismatches']>=[];
   let partial = !available || dag?.taskCount !== dag?.displayedTaskCount || (pulls.state === 'observed' && pulls.value.coverage === 'partial');
   if (!available || !dag) {
     implemented.push(paragraph('노트·DAG 연결 또는 현재 조회를 확인하지 못해 구현 범위를 판단할 수 없습니다. 기존 기록이 있어도 현재 구현 완료로 취급하지 않습니다.', 'unknown', sources));
@@ -46,7 +47,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       evidence.push(paragraph('작업 또는 참조 표시 상한이 적용되었습니다. 생략된 범위의 완료·의존성·검수는 판단하지 않습니다.', 'unknown', sources));
     }
   }
-  decisions.push(paragraph('현재 구조화된 관측에는 설계 합의 여부가 없습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
+  decisions.push(paragraph('설계 상태가 미기재되어 있습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
   evidence.push(paragraph('DAG 작업별 실제 화면 검증, 테스트 항목별 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));
   if (pulls.state !== 'observed') {
     evidence.push(paragraph(pulls.state === 'error' ? 'PR·CI·리뷰 조회를 완료하지 못했습니다. 이 실패를 승인 또는 검증 완료로 바꾸지 않습니다.' : '실제 PR·CI·리뷰 조회 대상과 연결이 설정되지 않았습니다. DAG가 최신이라고 가정하지 않습니다.'));
@@ -86,6 +87,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
         const tasks = dag!.tasks.filter(t => pull.taskIds.includes(t.id));
         const merged = pull.state === 'merged';
         implemented.push(paragraph(`PR #${pull.number}은 ${merged ? '병합된 상태' : pull.state === 'open' ? '열린 상태' : '닫힌 상태'}로 관측되었습니다. 연결된 작업은 ${names(tasks)}입니다. 병합과 검수·배포 완료는 별개의 사실입니다.`, 'observation', [ref]));
+        if(merged)for(const task of tasks.filter(t=>t.status!==(dag!.doneStatus??'done')))dagMismatches.push({taskId:task.id,reason:`PR #${pull.number} 병합 관측 · DAG ${task.status??'상태 미기재'}. 추가 작업 또는 갱신 누락 확인 필요.`,sources:[...sources,ref]});
         if (merged && tasks.some(t => t.status !== (dag!.doneStatus ?? 'done'))) implemented.push(paragraph(`PR #${pull.number} 병합 관측과 DAG의 미완료 선언이 다릅니다. DAG 갱신 누락인지 추가 작업이 남았는지 확인이 필요합니다. DAG는 자동 수정하지 않습니다.`, 'observation', [...sources, ref]));
       }
       const currentCI = pull.ci.filter(c => c.sha === pull.headSha);
@@ -106,18 +108,25 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       const prefixes={implemented:'등록된 프로젝트 구현 기록',next:'등록된 남은 작업',evidence:'등록된 검증 기록',decisions:'등록된 결정 필요 항목'};
       const v=record.verification;
       const status=v?` 문서 보고: ${v.result==='passed'?'통과':v.result==='failed'?'실패':'미실행'} · 검증 SHA ${v.sha} · 환경 ${v.environment}. 현재 head의 동작을 재검증한 결과가 아닙니다.`:'';
-      additions[record.section].push(paragraph(`${prefixes[record.section]}: ${record.text}${status}`,'declaration',[record.source]));
+      additions[record.section].push(paragraph(`${record.statement==='not-applicable'?'해당 없음으로 명시':record.statement==='unrecorded'?'미기재로 명시':prefixes[record.section]}: ${record.text}${status}`,'declaration',[record.source]));
     }
     for(const id of ['implemented','next','evidence','decisions'] as const)destinations[id].unshift(...additions[id]);
     evidence.push(paragraph('등록 문서의 기능·검증 기록은 프로젝트 수준의 근거입니다. 참조 경로는 문서가 선언한 연결이며, 자동 코드 분석이나 DAG 작업별 완료 인증은 수행하지 않습니다.','unknown',documents.records.map(r=>r.source)));
   } else if(documents&&documents.state!=='unconfigured') {
     partial=true;evidence.push(paragraph('등록된 프로젝트 근거 문서를 현재 범위에서 확인하지 못했습니다. 이전 문장이나 다른 프로젝트 문서를 현재 구현 근거로 사용하지 않습니다.'));
   }
-  return {partial, sections: [
-    {id: 'implemented', title: '현재 어디까지 구현되었나요?', paragraphs: implemented},
-    {id: 'next', title: '다음에는 무엇을 구현하나요?', paragraphs: next},
-    {id: 'evidence', title: '완료 판단에 어떤 근거가 있나요?', paragraphs: evidence},
-    {id: 'decisions', title: '논의하거나 결정할 일이 있나요?', paragraphs: decisions},
+  const sectionState=(id:ReadingSection['id']):ReadingSection['recordState']=>{
+    const records=documents?.state==='ready'&&available&&documents.dagId===dag?.dagId?documents.records.filter(r=>r.section===id):[];
+    const states=new Set(records.map(r=>r.statement??'recorded'));return states.size>1?'conflicting':states.size?[...states][0]:'unrecorded';
+  };
+  const designs=new Set(documents?.state==='ready'&&available&&documents.dagId===dag?.dagId?documents.records.flatMap(r=>r.designState?[r.designState]:[]):[]);
+  const designState:ReadingSection['designState']=designs.size>1?'conflicting':designs.size?[...designs][0]:'unrecorded';
+  if(designState!=='unrecorded'){const labels={discussion:'논의 필요',designed:'설계 합의 기록 있음', 'not-applicable':'설계 항목 해당 없음',conflicting:'서로 다른 설계 상태 기록'};decisions.splice(decisions.findIndex(p=>p.text.startsWith('설계 상태가 미기재')),1,paragraph(`명시된 설계 상태: ${labels[designState]}. 문서 존재나 날짜만으로 설계 완료를 판단하지 않습니다.`,'declaration',documents?.state==='ready'?documents.records.filter(r=>r.designState).map(r=>r.source):[]));}
+  return {partial,dagMismatches, sections: [
+    {id: 'implemented', title: '현재 어디까지 구현되었나요?', paragraphs: implemented,recordState:sectionState('implemented')},
+    {id: 'next', title: '다음에는 무엇을 구현하나요?', paragraphs: next,recordState:sectionState('next')},
+    {id: 'evidence', title: '완료 판단에 어떤 근거가 있나요?', paragraphs: evidence,recordState:sectionState('evidence')},
+    {id: 'decisions', title: '논의하거나 결정할 일이 있나요?', paragraphs: decisions,recordState:sectionState('decisions'),designState},
   ]};
 }
 

@@ -7,6 +7,9 @@ export interface ProjectDocumentRecord {
   schemaVersion:1; id:string; section:ReadingSection['id']; text:string;
   verification:null|{sha:string;environment:string;result:'passed'|'failed'|'not-run'};
   references:string[];
+  statement?:'recorded'|'not-applicable'|'unrecorded';
+  designState?:'discussion'|'designed'|'not-applicable'|'unrecorded';
+  links?:{role:'inbox'|'discussion'|'design';wikilink:string}[];
 }
 export interface ObservedProjectRecord extends ProjectDocumentRecord {source:ReadingSource}
 export type ProjectDocumentObservation = {state:'unconfigured'|'unavailable'} | {state:'ready';dagId:string;records:ObservedProjectRecord[]};
@@ -17,7 +20,12 @@ function object(v:unknown,keys:string[]):Record<string,unknown>{
 }
 function text(v:unknown,max:number):string {if(typeof v!=='string'||!v.trim()||Buffer.byteLength(v)>max||/[\u0000-\u001f\u007f]/u.test(v))fail();return v;}
 export function parseProjectDocumentRecord(v:unknown):ProjectDocumentRecord {
-  const r=object(v,['schemaVersion','id','section','text','verification','references']);
+  const optional=['statement','designState','links'].filter(k=>v&&typeof v==='object'&&Object.hasOwn(v,k));
+  const r=object(v,['schemaVersion','id','section','text','verification','references',...optional]);
+  if(r.statement!==undefined&&!['recorded','not-applicable','unrecorded'].includes(r.statement as string))fail();
+  if(r.designState!==undefined&&(r.section!=='decisions'||!['discussion','designed','not-applicable','unrecorded'].includes(r.designState as string)))fail();
+  let links:ProjectDocumentRecord['links'];
+  if(r.links!==undefined){if(!Array.isArray(r.links)||r.links.length>3)fail();links=r.links.map(x=>{const l=object(x,['role','wikilink']);if(!['inbox','discussion','design'].includes(l.role as string))fail();const wikilink=text(l.wikilink,512);if(!/^\[\[[^\[\]]+\]\]$/.test(wikilink))fail();return {role:l.role as 'inbox'|'discussion'|'design',wikilink};});}
   if(r.schemaVersion!==1||!['implemented','next','evidence','decisions'].includes(r.section as string))fail();
   const id=text(r.id,128);if(!/^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$/.test(id))fail();
   let verification:ProjectDocumentRecord['verification']=null;
@@ -25,7 +33,7 @@ export function parseProjectDocumentRecord(v:unknown):ProjectDocumentRecord {
   if(!Array.isArray(r.references)||r.references.length>6)fail();
   const references=r.references.map(v=>{const p=text(v,256);if(path.isAbsolute(p)||p.includes('\\')||p.split('/').some(s=>!s||s==='.'||s==='..'))fail();return p;});
   if(new Set(references).size!==references.length)fail();
-  return {schemaVersion:1,id,section:r.section as ReadingSection['id'],text:text(r.text,1200),verification,references};
+  return {schemaVersion:1,id,section:r.section as ReadingSection['id'],text:text(r.text,1200),verification,references,...(r.statement!==undefined?{statement:r.statement as ProjectDocumentRecord['statement']}:{}),...(r.designState!==undefined?{designState:r.designState as ProjectDocumentRecord['designState']}:{}),...(links?{links}:{})};
 }
 /** Each registered excerpt is one JSON record, bound to its exact read hash and lines. */
 export function observeProjectDocuments(context:RegisteredExcerptContext,dagId:string):ProjectDocumentObservation {

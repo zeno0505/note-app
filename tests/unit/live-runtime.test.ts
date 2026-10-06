@@ -1,3 +1,5 @@
+import {mkdtemp,realpath,mkdir,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import path from 'node:path';
 import {createProjectRegistry} from '../../src/main/projects/registry';
@@ -426,9 +428,9 @@ it('surfaces an unsupported scope alias instead of dropping its explicitly confi
   await expect(f.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow('Synthetic unsupported alias');
 });
 
-function projectDocumentFixture() {
+function projectDocumentFixture(links?:{role:'inbox'|'discussion'|'design';wikilink:string}[]) {
  const registration={id:'project-record',kind:'document' as const,relativePath:'reviews/project.jsonl',startLine:1,endLine:1};
- const content=JSON.stringify({schemaVersion:1,id:'project-feature',section:'implemented',text:'합성 프로젝트의 등록된 읽기 기능',verification:null,references:['src/synthetic.ts']});
+ const content=JSON.stringify({schemaVersion:1,id:'project-feature',section:'implemented',text:'합성 프로젝트의 등록된 읽기 기능',verification:null,references:['src/synthetic.ts'],...(links?{links}:{})});
  const sourceHash=`sha256:${createHash('sha256').update(content).digest('hex')}`,id=registeredExcerptId(DAG,registration),observedAt=new Date().toISOString();
  const context:RegisteredExcerptContext={schemaVersion:1,scopeDagId:DAG,excerpts:[{scopeDagId:DAG,id,kind:'document',text:content,sourceHash,observedAt}],provenance:[{excerptId:id,kind:'document',sourceHash,observedAt,registration,canonicalPath:'/synthetic/worktree/0/reviews/project.jsonl',fileHash:sourceHash,fileBytes:Buffer.byteLength(content),byteStart:0,byteEnd:Buffer.byteLength(content),lineStart:1,lineEnd:1}]};
  const config=configuration();config.configuration!.summarySelections=[];config.configuration!.readingDocuments=[{scopeId:'scope-one',dagRelativePath:'dag.yaml',worktreePath:'/synthetic/worktree/0',excerpts:[registration]}];return {config,registration,context};
@@ -463,4 +465,17 @@ it('tracks one canonical project after worktrees disappear, and only the user ca
  await f.runtime.setProjectStatus({projectId:project.id,status:'active',expectedStatus:'completed'});
  f.collect.mockImplementation(async()=>({ok:true,value:observation(0)}));const missing=await f.runtime.refresh();expect(missing.workstreams).toHaveLength(1);expect(missing.workstreams[0].id).toBe(project.id);expect(missing.workstreams[0].project?.status).toBe('active');expect(missing.workstreams[0].project?.worktreeState).toBe('missing');
  f.readDag.mockImplementation(async()=>({ok:false,error:{kind:'source_unavailable',message:'Synthetic source inaccessible'}}));const unavailable=await f.runtime.refresh();expect(unavailable.workstreams[0].project?.sourceState).toBe('unavailable');expect(unavailable.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('판단할 수 없습니다'))).toBe(true);
+});
+
+it('keeps document-open authority in main, bound to the current project and exact explicit link',async()=>{
+ const root=await realpath(await mkdtemp(path.join(tmpdir(),'note-runtime-wiki-'))),vault=path.join(root,'vault'),note=path.join(vault,'project');
+ try {
+  await mkdir(note,{recursive:true});await writeFile(path.join(note,'2020-01-01.md'),'synthetic historical note');
+  const {config,context}=projectDocumentFixture([{role:'discussion',wikilink:'[[2020-01-01|이전 논의]]'}]);config.configuration!.noteScopes[0].vaultRootPath=vault;config.configuration!.noteScopes[0].scopePath=note;
+  const f=setup(config,true,{excerptReader:()=>({read:async()=>structuredClone(context)})});f.mapNotes.mockImplementation(async request=>{const result=mapping(request);for(const m of result.mappings)if(m.state==='resolved'){m.canonicalNotePath=note;m.canonicalDagPath=path.join(note,'dag.yaml');}return result;});
+  const first=await f.runtime.connect(),view=first.workstreams[0],link=view.documentLinks![0];expect(link).toMatchObject({role:'discussion',label:'이전 논의'});expect(JSON.stringify(link)).not.toContain(root);
+  expect(await f.runtime.resolveDocumentLink({workstreamId:view.id,linkId:link.id})).toBe('obsidian://open?vault=vault&file=project%2F2020-01-01');
+  await expect(f.runtime.resolveDocumentLink({workstreamId:first.workstreams[1].id,linkId:link.id})).rejects.toThrow();await expect(f.runtime.resolveDocumentLink({workstreamId:view.id,linkId:link.id,path:note})).rejects.toThrow();
+  await f.runtime.disconnect();await expect(f.runtime.resolveDocumentLink({workstreamId:view.id,linkId:link.id})).rejects.toThrow();f.runtime.dispose();
+ }finally{await rm(root,{recursive:true,force:true});}
 });

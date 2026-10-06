@@ -1,3 +1,4 @@
+import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
@@ -82,6 +83,7 @@ export function createLiveRuntime(options: {
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
   const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
+  const documentLinks=new Map<string,{workstreamId:string;wikilink:string;canonicalNotePath:string;vaultRootPath:string}>();
   const connectionConfirmations=new Set<AbortController>();
   const publicSelections=new Map<string,{dagId:string;branch:string;worktreePath:string}>();
   const publicObservers=new Map<string,PullObservationAdapter>();
@@ -221,7 +223,12 @@ export function createLiveRuntime(options: {
       if(!entry){if(documentReaders.size>=8)throw new Error('Document lifetime limit');entry={identity,retired:false,reader:(deps.excerptReader??createRegisteredExcerptReader)({dagId:dag.dagId,canonicalScopePath:registration.worktreePath,canonicalNotePath:registration.worktreePath,registrations:registration.excerpts,now})};documentReaders.set(key,entry);}
       const context=await readBoundedExcerpts(entry,dag.dagId,signal);
       if(signal.aborted||disposed)throw new Error('Document read cancelled');
-      return observeProjectDocuments(context,dag.dagId);
+      const documents=observeProjectDocuments(context,dag.dagId);
+      if(documents.state==='ready'){
+        workstream.documentLinks=[];
+        for(const record of documents.records)for(const link of record.links??[]){if(workstream.documentLinks.length>=12)break;const target=parseWikiTarget(link.wikilink),id=digest(JSON.stringify([workstream.id,record.source.sourceHash,link]));documentLinks.set(id,{workstreamId:workstream.id,wikilink:link.wikilink,canonicalNotePath:mapping.canonicalNotePath,vaultRootPath:scope.vaultRootPath});workstream.documentLinks.push({id,role:link.role,label:target.label});}
+      }
+      return documents;
     }catch{return {state:'unavailable'};}
   }
 
@@ -333,7 +340,7 @@ export function createLiveRuntime(options: {
           ? { state: 'resolved', reason: null, dagId: mapping.dagId,...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
-    connectionChoices.clear();
+    connectionChoices.clear();documentLinks.clear();
     if(registry){let checks=0;for(let index=0;index<observedRows.length;index++) {
       const view=workstreams[index],row=observedRows[index].worktree;
       if(view.noteMapping.state!=='unresolved'||!['ambiguous-scope','ambiguous-dag'].includes(view.noteMapping.reason??'')||!row.path||row.identity.hostId!==config?.localHostId)continue;
@@ -439,7 +446,7 @@ export function createLiveRuntime(options: {
     if(registry){
       for(const p of registry.records().filter(p=>(p.status==='active'||manual)&&retainedAllowed(p)))if(!workstreams.some(w=>w.id===p.id)&&p.observation){
         const retained=structuredClone(p.observation.workstream),dag=dags.find(d=>d.dagId===p.dagId);retained.archived=false;retained.terminalConnected=null;retained.terminalCount=null;retained.agentState='unknown';retained.projectMapping='retained';
-        retained.noteMapping={state:dag?.state==='ready'?'resolved':'unresolved',reason:dag?.state==='ready'?null:'등록된 소스 접근 불가',dagId:p.dagId};delete retained.readingSummary;
+        retained.noteMapping={state:dag?.state==='ready'?'resolved':'unresolved',reason:dag?.state==='ready'?null:'등록된 소스 접근 불가',dagId:p.dagId};delete retained.readingSummary;delete retained.documentLinks;
         workstreams.push(retained);const tree=p.worktrees[0];if(tree)worktreeSources.push({id:p.id,worktreeId:tree.id,hostId:p.hostId,worktreePath:tree.path,present:false});
         const registered=config?.publicGitHub?.find(r=>r.scopeId===p.scopeId&&p.worktrees.some(w=>w.path===r.worktreePath));if(registered)publicSelections.set(p.id,{dagId:p.dagId,branch:registered.branch,worktreePath:registered.worktreePath});
       }
@@ -571,11 +578,18 @@ export function createLiveRuntime(options: {
     },
     async disconnect(): Promise<LiveWorkspaceView> {
       connected = false;
-      connectionChoices.clear();for(const controller of connectionConfirmations)controller.abort();
+      connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel();
       store.stop();
       publish();
       return getState();
+    },
+    async resolveDocumentLink(request:unknown):Promise<string>{
+      if(disposed||!connected||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='linkId,workstreamId')throw new Error('문서 열기 요청 오류');
+      const r=request as {linkId:string;workstreamId:string},link=documentLinks.get(r.linkId),snapshot=store.getState();
+      if(!link||link.workstreamId!==r.workstreamId||snapshot.refreshing||snapshot.freshness!=='current')throw new Error('문서 연결을 다시 조회해 주세요.');
+      const resolved=await resolveWikiUri(link);
+      if(disposed||!connected||documentLinks.get(r.linkId)!==link||store.getState().refreshing||store.getState().revision!==snapshot.revision)throw new Error('문서 연결이 변경되었습니다.');return resolved.uri;
     },
     async confirmProjectConnection(request:unknown):Promise<LiveWorkspaceView>{
       if(!registry||disposed||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='candidateId,workstreamId')throw new Error('연결 확인 요청이 올바르지 않습니다.');
@@ -596,6 +610,7 @@ export function createLiveRuntime(options: {
     },
     async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
     settleRegistry:()=>registry?.settle()??Promise.resolve(),
+    setSuspended(suspended:boolean):void{if(!disposed)store.setSuspended(suspended);},
     setActivity(next: {visible: boolean; active: boolean}): void {
       activity = {...next};
       if (!disposed) store.setActivity(activity);
@@ -608,7 +623,7 @@ export function createLiveRuntime(options: {
     dispose(): void {
       if (disposed) return;
       connected = false; disposed = true;
-      connectionChoices.clear();for(const controller of connectionConfirmations)controller.abort();
+      connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();
     },

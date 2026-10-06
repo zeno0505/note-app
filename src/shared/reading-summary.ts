@@ -16,6 +16,8 @@ export interface ReadingSection {
   id: 'implemented' | 'next' | 'evidence' | 'decisions';
   title: string;
   paragraphs: ReadingParagraph[];
+  recordState?: 'recorded'|'not-applicable'|'unrecorded'|'conflicting';
+  designState?: 'discussion'|'designed'|'not-applicable'|'unrecorded'|'conflicting';
 }
 export interface ReadingSummary {
   kind: 'rules-only';
@@ -27,5 +29,6 @@ export interface ReadingSummary {
   changed: boolean;
   partial: boolean;
   sections: ReadingSection[];
+  dagMismatches?: {taskId:string;reason:string;sources:ReadingSource[]}[];
   limitation: string;
 }

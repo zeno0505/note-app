@@ -519,3 +519,19 @@ describe('Orca adapter snapshot boundary', () => {
     expect(store.getState().coverage).toMatchObject({ state: 'partial', projects: { state: 'unknown' }, worktrees: { truncated: true, omittedHostIds: ['omitted-host'] } }); store.dispose();
   });
 });
+
+
+describe('OS sleep and return coalescing',()=>{
+ it('pauses scheduled reads and preserves one wake deadline through focus, duplicate resume and explicit disconnect',async()=>{
+  const f=setup({backgroundIntervalMs:300000,resumeDelayMs:5000});await f.store.start();f.store.setActivity({active:false,visible:false});f.store.setSuspended(true);await f.clock.advance(600000);expect(f.calls).toHaveLength(1);
+  f.store.setSuspended(false);await f.clock.advance(1000);f.store.setActivity({active:true,visible:true});f.store.setSuspended(false);expect(f.store.getState().resumeCountdownSeconds).toBe(4);await f.clock.advance(3999);expect(f.calls).toHaveLength(1);await f.clock.advance(1);expect(f.calls.map(c=>c.reason)).toEqual(['initial','resume']);
+  f.store.setSuspended(true);f.store.setSuspended(false);f.store.stop();await f.clock.advance(600000);expect(f.calls).toHaveLength(2);f.store.dispose();
+ });
+ it('manual refresh replaces the wake countdown and does not run while suspended',async()=>{
+  const f=setup({backgroundIntervalMs:300000,resumeDelayMs:5000});await f.store.start();f.store.setSuspended(true);await f.store.refresh();expect(f.calls).toHaveLength(1);f.store.setSuspended(false);await f.store.refresh();await f.clock.advance(5000);expect(f.calls.map(c=>c.reason)).toEqual(['initial','manual']);f.store.dispose();
+ });
+ it('joins an outstanding read at wake instead of queuing an extra attempt',async()=>{
+  const clock=new TestClock(),pending=deferred<Result>();let count=0;const store=createSnapshotStore<Value,Coverage,SnapshotError>({clock,backgroundIntervalMs:300000,resumeDelayMs:5000,load:async()=>{count++;return pending.promise;}});
+  const first=store.start();store.setSuspended(true);await clock.advance(600000);store.setSuspended(false);await clock.advance(5000);expect(count).toBe(1);pending.resolve(success(clock));await first;await flush();expect(store.getState().nextRefreshReason).toBe('poll');expect(count).toBe(1);store.dispose();
+ });
+});

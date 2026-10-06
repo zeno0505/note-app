@@ -13,6 +13,10 @@ async function reader(content=JSON.stringify(record)) {
  return {root,reader:createRegisteredExcerptReader({dagId:'synthetic-dag',canonicalScopePath:root,canonicalNotePath:root,registrations:[registration]})};
 }
 describe('explicit registered project documents',()=>{
+ it('accepts only bounded explicit section/design declarations and wikilinks',()=>{
+  expect(parseProjectDocumentRecord({...record,section:'decisions',statement:'not-applicable',designState:'designed',links:[{role:'design',wikilink:'[[design/2020-01-01#합의|이전 설계]]'}]})).toMatchObject({statement:'not-applicable',designState:'designed'});
+  for(const data of [{...record,statement:'complete'},{...record,designState:'designed'},{...record,links:[{role:'other',wikilink:'[[file]]'}]},{...record,links:[{role:'design',wikilink:'https://example.test'}]}])expect(()=>parseProjectDocumentRecord(data)).toThrow();
+ });
  it('reads one registered record with exact source hash, lines, declaration and reported verification identity',async()=>{
   const data={...record,section:'evidence',verification:{sha:'a'.repeat(40),environment:'synthetic fixture / Linux',result:'passed'}};
   const f=await reader(JSON.stringify(data));const context=await f.reader.read('synthetic-dag');const observed=observeProjectDocuments(context,'synthetic-dag');

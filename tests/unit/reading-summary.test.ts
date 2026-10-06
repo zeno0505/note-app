@@ -25,6 +25,13 @@ beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(at);});
 afterEach(()=>vi.useRealTimers());
 
 describe('four-section reading boundary',()=>{
+  it('distinguishes explicit not-applicable from unrecorded design and exposes only verified current mismatches',()=>{
+    const data=input();let result=explainReading(data,{state:'observed',value:parsed()});expect(result.sections[3]).toMatchObject({recordState:'unrecorded',designState:'unrecorded'});expect(result.dagMismatches?.map(m=>m.taskId)).toEqual(['T-1']);
+    data.documents={state:'ready',dagId:fixture.dagId,records:[{schemaVersion:1,id:'design',section:'decisions',text:'추가 설계 항목 없음',statement:'not-applicable',designState:'not-applicable',verification:null,references:['old/2020-01-01.md'],source:{kind:'document',id:'design',sha:null,sourceHash:'a'.repeat(64),observedAt:at}}]};
+    result=explainReading(data,{state:'observed',value:parsed()});expect(result.sections[3]).toMatchObject({recordState:'not-applicable',designState:'not-applicable'});expect(text(result)).not.toContain('설계 상태가 미기재');
+    data.documents.records[0].designState='designed';expect(explainReading(data,{state:'unconfigured'}).sections[3].designState).toBe('designed');
+    const unknown=parsed();unknown.pulls[0].mapping='unresolved';expect(explainReading(data,{state:'observed',value:unknown}).dagMismatches).toEqual([]);expect(explainReading(data,{state:'error',retained:parsed()}).dagMismatches).toEqual([]);
+  });
   it('explains merged PR versus unchanged DAG without upgrading verification or deployment',()=>{
     const result=explainReading(input(),{state:'observed',value:parsed()});
     expect(result.sections.map(s=>s.id)).toEqual(['implemented','next','evidence','decisions']);
@@ -66,7 +73,7 @@ describe('four-section reading boundary',()=>{
   it('does not treat unknown external dependencies as ready or infer design from agent done',()=>{
     const data=input();data.dag!.tasks[1].dependencies=[{id:'outside',scope:'external'}];
     const result=explainReading(data,{state:'unconfigured'});
-    expect(text(result)).not.toContain('다음 구현 후보입니다');expect(text(result)).toContain('설계 합의 여부가 없습니다');
+    expect(text(result)).not.toContain('다음 구현 후보입니다');expect(text(result)).toContain('설계 상태가 미기재');
     expect(text(result)).toContain('화면 검증');expect(text(result)).toContain('설정되지 않았습니다');
   });
   it('uses the explicitly configured completion vocabulary without upgrading it to verification',()=>{
