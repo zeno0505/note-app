@@ -1,3 +1,5 @@
+import {isolatedEntry} from './isolated-entry.mjs';
+import {waitUntil} from './wait-until.mjs';
 import {_electron as electron} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile,readFile,realpath} from 'node:fs/promises';
@@ -21,7 +23,6 @@ await fixture.setTransport({mode:'complete',submittedDelayMs:50,waitingDelayMs:5
 const sourceSnapshot=async()=>Object.fromEntries(await Promise.all(registrations.map(async r=>[r.relativePath,await readFile(sourcePath(r.relativePath),'utf8')])));
 let app,page,userData,cleanup,approvalHash,approvalText,approvalAt;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function waitUntil(read,predicate,label,timeout=20000){let value;const end=Date.now()+timeout;while(Date.now()<end){value=await read();if(predicate(value))return value;await pause(30);}throw new Error(`Timed out: ${label}; ${JSON.stringify(value)}`);}
 const state=()=>page.evaluate(()=>window.noteApp.getLiveState());
 const view=ticket=>page.evaluate(id=>window.__excerptViews?.findLast(v=>v.ticketId===id)??null,ticket);
 const waitView=(ticket,predicate,label)=>waitUntil(()=>view(ticket),v=>v?.ticketId===ticket&&predicate(v),label);
@@ -36,11 +37,19 @@ async function capture(name){
   const filename=`T-excerpts-${name}.png`;await page.screenshot({path:path.join(evidence,filename),fullPage:false});screenshots.push(filename);}
 async function close(){if(!app)return;const views=page&&!page.isClosed()?await page.evaluate(()=>window.__excerptViews??[]):[];const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);noPrivate(views);}
 async function launch(synthetic){
-  app=await electron.launch({chromiumSandbox:true,args:[path.resolve(synthetic?'dist/main/phase1-test.cjs':'.')],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
+  const entry=await isolatedEntry(fixture.root,path.join(fixture.profile,'note-app'),synthetic?'dist/main/phase1-test.cjs':'dist/main/index.cjs');
+  app=await electron.launch({chromiumSandbox:true,args:[entry],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
   page=await app.firstWindow();page.on('pageerror',error=>rendererErrors.push(String(error)));await page.getByTestId('live-connect').waitFor();
   await page.evaluate(()=>{window.__excerptViews=[];window.noteApp.onSummary(v=>window.__excerptViews.push(v));});
   const actual=await realpath(await app.evaluate(({app})=>app.getPath('userData')));const relative=path.relative(fixture.root,actual);assert(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative));if(userData)assert.equal(actual,userData);else userData=actual;
-  await page.getByTestId('live-connect').click();await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing&&!!s.observedAt,'live source ready');
+  // Stabilize the owned Mac test window before explicit inactive manual collection.
+  // This exercises the supported manual path; it does not certify foreground connect.
+  if(process.platform==='darwin'){
+    await pause(1200);await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].blur());
+  }
+  await page.getByTestId('live-connect').click();
+  if(process.platform==='darwin'){await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing,'inactive connection');await page.evaluate(()=>window.noteApp.refreshLive());}
+  await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing&&!!s.observedAt,'live source ready');
   await page.getByTestId('live-workstream').filter({hasText:'Fictional Atlas checkout'}).locator('h2 a').click();await page.getByTestId('summary-journey').waitFor();
 }
 async function prepare(){
@@ -82,7 +91,7 @@ try{
   checks.push('Live DOM inspection confines the deliberately disclosed project path to the exact registered note-link target option; summary HTML/DTOs contain no local paths, and the complete page contains no unselected source-body marker.');
   assert.deepEqual(rendererErrors,[]);for(const row of (await fixture.logs()).filter(r=>r.kind==='orca'))assert(ORCA_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)));
   const runs=(await fixture.transportCalls()).filter(row=>row.event==='run');assert.equal(runs.length,3);assert.equal(new Set(runs.map(row=>row.ticketId)).size,runs.length);await close();cleanup=await fixture.cleanup();
-  const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity,checks,screenshots,rendererErrors,cleanup,syntheticRequests:runs.length,realProviderCalls:0,actualUserApprovals:0,successfulAutomatedUiApprovals:1,staleAutomatedUiApprovalsRejected:1,visualReview:'Pending separate screenshot inspection',scope:'Actual Linux Electron production host/preload/renderer with exact synthetic registered note sources. Candidate execution uses the isolated Phase1 synthetic transport only. No real notes, model call, terminal transport schema, macOS or packaging validation.'};
+  const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity,checks,screenshots,rendererErrors,cleanup,syntheticRequests:runs.length,realProviderCalls:0,actualUserApprovals:0,successfulAutomatedUiApprovals:1,staleAutomatedUiApprovalsRejected:1,visualReview:'Pending separate screenshot inspection',platform:process.platform,collectionCondition:process.platform==='darwin'?'Explicit manual collection after owned window stabilization/blur':'Native initial collection',scope:'Actual desktop Electron production host/preload/renderer with exact synthetic registered note sources. Candidate execution uses the isolated Phase1 synthetic transport only. No real notes, model call, terminal transport execution or packaging validation.'};
   await writeFile(path.join(evidence,'T-excerpts-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){if(page&&!page.isClosed())await capture('failure').catch(()=>{});await writeFile(path.join(evidence,'T-excerpts-failure.json'),JSON.stringify({status:'failed',at:new Date().toISOString(),error:String(error),checks,screenshots,rendererErrors,lastSummary:await page?.evaluate(()=>window.__excerptViews?.at(-1)??null).catch(()=>null)},null,2));throw error;}
 finally{await close();if(!cleanup)await fixture.cleanup();}

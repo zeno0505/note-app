@@ -1,6 +1,6 @@
 # Phase 1 outcome status after functional journey implementation
 
-**Phase 1 is not complete.** The core outcome is a readable, evidence-grounded
+**Phase 1 is not complete.** Latest bounded Mac follow-up: [2026-10-06 verification](mac-followup-2026-10-06.md). The core outcome is a readable, evidence-grounded
 account of an active project's goal, progress, remaining work, current situation,
 next proposal and blockers. The production app cannot yet generate that account
 from a live project's sources. Infrastructure test coverage is not that outcome.
@@ -38,9 +38,9 @@ does not establish the updated production app's Mac behavior.
    finished native setup/onboarding experience
 6. **Meaningful user acceptance:** real active projects have not been evaluated
    for understandable summaries, correct omissions, proposed next steps or useful blockers
-7. **Goal/document context:** current production preparation selects task records
-   and direct dependency declarations. Goal/document/inbox excerpts are not
-   automatically fetched; unsupported goals deliberately remain unknown
+7. **Goal/document context:** explicitly registered bounded goal/document/inbox
+   excerpts and selected task records are implemented and exercised in temporary
+   Mac fixtures. Automatic retrieval remains unavailable; absent goals stay unknown.
 
 No stored synthetic approval in a test counts as a real user approval. No DAG
 `done` declaration or commit reference counts as test/deployment evidence.

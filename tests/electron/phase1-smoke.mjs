@@ -1,3 +1,5 @@
+import {isolatedEntry} from './isolated-entry.mjs';
+import {waitUntil} from './wait-until.mjs';
 import {_electron as electron} from '@playwright/test';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile,readFile,realpath,readlink,rm} from 'node:fs/promises';
@@ -14,7 +16,6 @@ const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const state=()=>page.evaluate(()=>window.noteApp.getLiveState());
 const summary=ticketId=>page.evaluate(ticketId=>window.__phase1Views?.findLast(view=>view.ticketId===ticketId)??null,ticketId);
 const noPrivate=value=>assert(!JSON.stringify(value).includes(PRIVATE_MARKER),'Unselected private source body escaped');
-async function waitUntil(read,predicate,label,timeout=20000){let value;const until=Date.now()+timeout;while(Date.now()<until){value=await read();if(predicate(value))return value;await pause(30);}throw new Error(`Timed out: ${label}; ${JSON.stringify(value)}`);}
 const settled=()=>waitUntil(state,s=>s.connection==='connected'&&!s.refreshing&&!!s.observedAt,'connected live observation');
 const waitSummary=(ticketId,predicate,label)=>waitUntil(()=>summary(ticketId),s=>s?.ticketId===ticketId&&predicate(s),`${label} (${ticketId})`);
 const waitTransport=(run,event,predicate=()=>true)=>waitUntil(async()=>(await fixture.transportCalls()).find(row=>row.ticketId===run.ticketId&&row.runId===run.runId&&row.event===event&&predicate(row))??null,Boolean,`${event} (${run.ticketId}/${run.runId})`);
@@ -28,7 +29,8 @@ async function startRun(prepared,repeated=false){
 }
 async function capture(name,testId){if(testId)await page.getByTestId(testId).scrollIntoViewIfNeeded();const file=`T-phase1-${name}.png`;await page.screenshot({path:path.join(evidence,file),fullPage:false});screenshots.push(file);}
 async function launch(synthetic){
-  app=await electron.launch({chromiumSandbox:true,args:[path.resolve(synthetic?'dist/main/phase1-test.cjs':'.')],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
+  const entry=await isolatedEntry(fixture.root,path.join(fixture.profile,'note-app'),synthetic?'dist/main/phase1-test.cjs':'dist/main/index.cjs');
+  app=await electron.launch({chromiumSandbox:true,args:[entry],env:{...process.env,XDG_CONFIG_HOME:fixture.profile,NOTE_APP_CONFIG:fixture.configPath,NOTE_APP_PHASE1_TEST_CONTROL:fixture.controlPath,NOTE_APP_PHASE1_TEST_TRANSPORT_LOG:fixture.transportLog},timeout:30000});
   page=await app.firstWindow();page.on('pageerror',error=>rendererErrors.push(String(error)));
   await page.getByTestId('live-connect').waitFor({timeout:15000});await page.waitForFunction(()=>!!window.noteApp);
   await page.evaluate(()=>{window.__phase1Views=[];window.noteApp.onSummary(view=>window.__phase1Views.push(view));});
@@ -36,7 +38,14 @@ async function launch(synthetic){
   assert(relative&&!relative.startsWith('..')&&!path.isAbsolute(relative),'App-owned cache escaped temporary profile');
   if(userData)assert.equal(actual,userData,'Production and test entries must restore the same app-owned profile');else userData=actual;
   assert.equal((await state()).connection,'disconnected');
-  await page.getByTestId('live-connect').click();return settled();
+  // Stabilize the owned Mac test window before explicit inactive manual collection.
+  // This exercises the supported manual path; it does not certify foreground connect.
+  if(process.platform==='darwin'){
+    await pause(1200);await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].blur());
+  }
+  await page.getByTestId('live-connect').click();
+  if(process.platform==='darwin'){await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing,'inactive connection');await page.evaluate(()=>window.noteApp.refreshLive());}
+  return settled();
 }
 async function close(){if(!app)return;const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);}
 async function overview(){await page.evaluate(()=>{location.hash='/';});await page.getByTestId('live-workstream').first().waitFor();}
@@ -131,7 +140,7 @@ try{
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(800,760));await capture('narrow','summary-journey');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);assert.deepEqual(await fixture.noteSnapshot(),changedSource);assert.deepEqual(rendererErrors,[]);noPrivate(await page.content());
   for(const row of (await fixture.logs()).filter(r=>r.kind==='orca'))assert(ORCA_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)),'Unexpected Orca command');for(const row of (await fixture.logs()).filter(r=>r.kind==='codeburn'))assert(CODEBURN_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)),'Unexpected CodeBurn command');
   await close();await fixture.quiescence();cleanup=await fixture.cleanup();
-  const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity,checks,security,screenshots,rendererErrors,cleanup,syntheticRequests:count,realProviderCalls:0,actualUserApprovals:0,successfulAutomatedUiApprovals:1,staleAutomatedUiApprovalsRejected:1,visualReview:'Pending separate screenshot inspection',scope:'Actual Linux Electron production renderer/preload/IPC/main. Summary execution uses a separate test-only main entry and synthetic transport; production execution remains blocked. Real Git/fs link changes and app-owned cache writes are confined to temporary fictional fixtures. Externally supplied pinned query remains outside the repository. No real private notes, provider/Orca-agent calls, upload, GitHub, macOS packaging or local-user-computer validation.',remainingLimits:['Injected note-link rollback/partial and unsettled-OS fault cases are covered by backend tests, not this native UI journey.','Synthetic responses verify orchestration and schema/provenance checks, not model truthfulness or real restricted agent transport.','Native macOS behavior and packaged .app remain to be verified on the user’s Mac.']};
+  const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity,checks,security,screenshots,rendererErrors,cleanup,syntheticRequests:count,realProviderCalls:0,actualUserApprovals:0,successfulAutomatedUiApprovals:1,staleAutomatedUiApprovalsRejected:1,visualReview:'Pending separate screenshot inspection',platform:process.platform,collectionCondition:process.platform==='darwin'?'Explicit manual collection after owned window stabilization/blur':'Native initial collection',scope:'Actual desktop Electron production renderer/preload/IPC/main. Summary execution uses a separate test-only main entry and synthetic transport; production execution remains blocked. Real Git/fs link changes and app-owned cache writes are confined to temporary fictional fixtures. Externally supplied pinned query remains outside the repository. No real private notes, provider/Orca-agent calls, upload, GitHub or macOS packaging validation.',remainingLimits:['Injected note-link rollback/partial and unsettled-OS fault cases are covered by backend tests, not this native UI journey.','Synthetic responses verify orchestration and schema/provenance checks, not model truthfulness or real restricted agent transport.','Real-project foreground connection and packaged .app remain unverified.']};
   await writeFile(path.join(evidence,'T-phase1-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){if(page&&!page.isClosed())await capture('failure').catch(()=>{});await writeFile(path.join(evidence,'T-phase1-failure.json'),JSON.stringify({status:'failed',at:new Date().toISOString(),error:String(error),checks,screenshots,rendererErrors,lastSummary:await page.evaluate(()=>window.__phase1Views?.at(-1)??null).catch(()=>null)},null,2));throw error;}
 finally{await close();if(!cleanup)await fixture.cleanup();}

@@ -18,6 +18,8 @@ npm start
 ```sh
 npm run test:electron:harness
 npm run test:electron
+node scripts/build-collector-test.mjs
+node tests/electron/wait-contract.mjs
 ```
 
 These launch actual Electron windows. Chromium sandboxing remains enabled. See [verification scope](reviews/electron-test-infrastructure.md) and [application boundaries](app/README.md).
