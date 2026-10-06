@@ -42,6 +42,15 @@ describe('live renderer connection ownership',()=>{
     const work=action==='connect'?store.connectLive():action==='refresh'?store.refreshLive():store.summarizeNow();await store.disconnectLive();expect(bridge.disconnectLive).toHaveBeenCalledTimes(1);expect(store.liveState.value?.connection).toBe('disconnected');
     pending.resolve(state({connection:'connected',workstreams:[]}));await work;expect(store.liveState.value?.connection).toBe('disconnected');expect(store.liveBusy.value).toBe(false);
   });
+  it('deduplicates project changes and ignores their response after a newer observation or disconnect',async()=>{
+    await store.initialize();const pending=deferred<LiveWorkspaceView>();vi.mocked(bridge.setProjectStatus).mockReturnValue(pending.promise);
+    const first=store.setProjectStatus('one','completed','active');await store.setProjectStatus('one','completed','active');expect(bridge.setProjectStatus).toHaveBeenCalledTimes(1);
+    listener!(state({observedAt:'2026-10-06T03:00:00.000Z'}));pending.resolve(state({observedAt:'2026-10-06T02:00:00.000Z'}));await first;expect(store.liveState.value?.observedAt).toBe('2026-10-06T03:00:00.000Z');
+    const older=deferred<LiveWorkspaceView>();vi.mocked(bridge.setProjectStatus).mockReturnValue(older.promise);const change=store.setProjectStatus('one','active','completed');await store.disconnectLive();older.resolve(state({connection:'connected'}));await change;expect(store.liveState.value?.connection).toBe('disconnected');expect(store.liveBusy.value).toBe(false);
+  });
+  it('deduplicates the global now-summary request without invoking a model',async()=>{
+    const pending=deferred<LiveWorkspaceView>();vi.mocked(bridge.summarizeNow).mockReturnValue(pending.promise);const first=store.summarizeNow();await store.summarizeNow();expect(bridge.summarizeNow).toHaveBeenCalledTimes(1);expect(bridge.runSummary).not.toHaveBeenCalled();pending.resolve(state());await first;
+  });
   it('does not let an older RPC replace a newer subscription observation',async()=>{
     await store.initialize();const pending=deferred<LiveWorkspaceView>();vi.mocked(bridge.refreshLive).mockReturnValue(pending.promise);
     const refresh=store.refreshLive();listener!(state({connection:'connected',observedAt:'2026-10-03T03:00:00.000Z',freshness:'current'}));pending.resolve(state({connection:'connected',observedAt:'2026-10-03T02:00:00.000Z'}));await refresh;
@@ -92,6 +101,18 @@ describe('live renderer disclosure and escaping',()=>{
     app.component('RouterLink',defineComponent({setup(_props,{slots}){return ()=>h('a',slots.default?.());}}));
     return renderToString(app);
   }
+  it('keeps long reading summaries out of project list items and makes selection keyboard reachable',async()=>{
+    const {default:Item}=await import('../../src/renderer/components/ProjectListItem.vue');
+    const workstream:LiveWorkstreamView={id:'one',title:'<script>long Korean project</script>',projectName:null,branch:'refs/heads/long-topic',archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null}};
+    const [summary]=await (await import('../../src/summary/reading')).createReadingScheduler().update([{workstream}],new AbortController().signal);summary.sections[0].paragraphs[0].text='LONG_READING_CANARY';workstream.readingSummary=summary;
+    const html=await render(Item,{workstream,selected:true});expect(html).toContain('aria-current="true"');expect(html).toContain('aria-controls="project-summary-pane"');expect(html).toContain('&lt;script&gt;');expect(html).not.toContain('LONG_READING_CANARY');expect(html).not.toContain('data-testid="reading-summary"');
+  });
+  it('uses styled shared action buttons and discloses global source scope on a project summary',async()=>{
+    const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');store.liveState.value=state({connection:'connected'});
+    const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null},project:{status:'active',changedAt:'2026-10-06T00:00:00.000Z',sourceState:'not-checked',worktreeState:'present',history:[]}};
+    const html=await render(Card,{workstream});expect(html).toContain('p-button');expect(html).toContain('data-testid="project-status-button"');expect(html).toContain('data-testid="project-summary-button"');expect(html).toContain('설정된 전체 소스 조회');expect(html).toContain('프로젝트 완료');
+    store.liveState.value=state({connection:'connected',refreshing:true});const loading=await render(Card,{workstream});expect(loading).toContain('전체 소스 요청 처리 중');expect(loading).toContain('disabled');
+  });
   it('renders four sentence sections, old-evidence warning and escaped citations independently of approval',async()=>{
     const {default:Reading}=await import('../../src/renderer/components/ReadingSummary.vue');
     const {createReadingScheduler}=await import('../../src/summary/reading');

@@ -75,8 +75,8 @@ export const summarizeNow=()=>liveAction('summarize');
 export const disconnectLive=()=>liveAction('disconnect');
 export async function confirmProjectConnection(workstreamId:string,candidateId:string){if(liveBusy.value)return;liveBusy.value=true;bridgeError.value=null;try{liveState.value=await window.noteApp.confirmProjectConnection({workstreamId,candidateId});}catch{bridgeError.value='연결 후보가 변경되었거나 저장하지 못했습니다. 다시 확인해 주세요.';}finally{liveBusy.value=false;}}
 export async function setProjectStatus(projectId:string,status:'active'|'completed',expectedStatus:'active'|'completed') {
-  if(liveBusy.value||mode.value==='demo')return;liveBusy.value=true;bridgeError.value=null;
-  try{liveState.value=await window.noteApp.setProjectStatus({projectId,status,expectedStatus});}catch{bridgeError.value='프로젝트 전환을 저장하지 못했습니다. 기존 상태와 이력을 확인해 주세요.';}finally{liveBusy.value=false;}
+  if(liveBusy.value||mode.value==='demo')return;const generation=++liveGeneration,observed=observedGeneration;liveBusy.value=true;bridgeError.value=null;
+  try{const state=await window.noteApp.setProjectStatus({projectId,status,expectedStatus});if(generation===liveGeneration&&observed===observedGeneration)liveState.value=state;}catch{if(generation===liveGeneration)bridgeError.value='프로젝트 전환을 저장하지 못했습니다. 기존 상태와 이력을 확인해 주세요.';}finally{if(generation===liveGeneration)liveBusy.value=false;}
 }
 
 export async function refreshDemo() {

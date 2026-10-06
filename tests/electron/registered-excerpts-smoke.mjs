@@ -50,7 +50,7 @@ async function launch(synthetic){
   await page.getByTestId('live-connect').click();
   if(process.platform==='darwin'){await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing,'inactive connection');await page.evaluate(()=>window.noteApp.refreshLive());}
   await waitUntil(state,s=>s.connection==='connected'&&!s.refreshing&&!!s.observedAt,'live source ready');
-  await page.getByTestId('live-workstream').filter({hasText:'Fictional Atlas checkout'}).locator('h2 a').click();await page.getByTestId('summary-journey').waitFor();
+  await page.getByRole('button',{name:/현재 관측/}).first().click();await page.getByTestId('project-list-item').filter({hasText:'Fictional Atlas checkout'}).locator('a').click();await page.getByTestId('live-workstream').locator('h2 a').click();await page.getByTestId('summary-journey').waitFor();
 }
 async function prepare(){
   const details=page.getByTestId('summary-task-selection');if(!await details.evaluate(el=>el.open))await details.locator('summary').click();

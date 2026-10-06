@@ -48,10 +48,10 @@ async function launch(synthetic){
   return settled();
 }
 async function close(){if(!app)return;const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid));pids.push(app.process().pid);await app.close();app=undefined;await assertTrackedProcessesExit([...new Set(pids)]);}
-async function overview(){await page.evaluate(()=>{location.hash='/';});await page.getByTestId('live-workstream').first().waitFor();}
+async function overview(){await page.evaluate(()=>{location.hash='/';});await page.getByRole('button',{name:/현재 관측/}).first().click();await page.getByTestId('project-list-item').first().waitFor();}
 async function detail(title='Fictional Atlas checkout'){
-  await overview();const all=page.getByRole('button',{name:/전체 비보관·미확인/});if(await all.count())await all.click();
-  await page.getByTestId('live-workstream').filter({hasText:title}).locator('h2 a').click();await page.getByTestId(title==='Fictional Atlas checkout'?'summary-journey':'note-link-journey').waitFor();
+  await overview();const all=page.getByRole('button',{name:/현재 관측/});if(await all.count())await all.first().click();
+  await page.getByTestId('project-list-item').filter({hasText:title}).locator('a').click();await page.getByTestId('live-workstream').locator('h2 a').click();await page.getByTestId(title==='Fictional Atlas checkout'?'summary-journey':'note-link-journey').waitFor();
 }
 async function selectTasks(ids,provider='claude'){
   const details=page.getByTestId('summary-task-selection');if(!await details.evaluate(el=>el.open))await details.locator('summary').click();
@@ -108,7 +108,7 @@ try{
 
   security=await app.evaluate(({BrowserWindow})=>{const p=BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences();return {sandbox:p.sandbox,contextIsolation:p.contextIsolation,nodeIntegration:p.nodeIntegration,webSecurity:p.webSecurity,webviewTag:p.webviewTag,noSandboxArg:process.argv.some(a=>a.includes('no-sandbox'))};});
   assert.deepEqual(security,{sandbox:true,contextIsolation:true,nodeIntegration:false,webSecurity:true,webviewTag:false,noSandboxArg:false});
-  const bridgeKeys=['approveSummary','cancelNoteLink','cancelSummary','confirmNoteLink','connectLive','disconnectLive','getEnvironment','getLiveState','getPhase1Options','loadDemo','onLiveState','onSummary','prepareSummary','previewNoteLink','readSummary','refreshLive','rejectSummary','runSummary'].sort();
+  const bridgeKeys=['cancelReadRoot','confirmReadRoot','getReadRoots','revokeReadRoot','selectReadRoot','summarizeNow','openProjectDocument','confirmProjectConnection','setProjectStatus','approveSummary','cancelNoteLink','cancelSummary','confirmNoteLink','connectLive','disconnectLive','getEnvironment','getLiveState','getPhase1Options','loadDemo','onLiveState','onSummary','prepareSummary','previewNoteLink','readSummary','refreshLive','rejectSummary','runSummary'].sort();
   assert.deepEqual(await page.evaluate(()=>({require:typeof window.require,process:typeof window.process,keys:Object.keys(window.noteApp).sort()})),{require:'undefined',process:'undefined',keys:bridgeKeys});
   const invalidPayloads=await page.evaluate(async()=>{const api=window.noteApp;const cases=[['prepareSummary',null],['prepareSummary',{workstreamId:'valid',taskIds:Array.from({length:33},(_,i)=>`T-${i}`),provider:'auto'}],['prepareSummary',{workstreamId:'valid',taskIds:['T-0'],provider:'claude',path:'/etc/passwd'}],['runSummary',{ticketId:'valid',provider:'shell'}],['approveSummary',{ticketId:'valid',candidateHash:'sha256:'+ 'a'.repeat(64),approvedAt:'forged'}],['rejectSummary',{ticketId:'valid',candidateHash:'bad'}],['readSummary',{ticketId:'../path'}],['cancelSummary',{ticketId:'valid',command:'echo'}]];return Promise.all(cases.map(async([name,request])=>{try{await api[name](request);return false;}catch{return true;}}));});assert(invalidPayloads.every(Boolean));
   const escaped=await page.evaluate(()=>window.noteApp.previewNoteLink({worktreeId:'not-registered',scopeId:'../outside'}));assert.equal(escaped.status,'rejected');
