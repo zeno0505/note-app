@@ -479,7 +479,7 @@ export function createLiveRuntime(options: {
         const documents=await readProjectDocuments(workstream,value.worktreeSources.find(s=>s.id===workstream.id),dag,signal);
         inputs.push({workstream,dag,documents});
       }
-      const summaries = await reading.update(inputs, signal, reason==='manual'?'manual':'scheduled');
+      const summaries = await reading.update(inputs, signal, reason==='manual'?'manual':'scheduled',registry?.records().filter(p=>p.status==='completed').map(p=>p.id)??[]);
       for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
       if(registry){await registry.capture(value.workstreams,value.dags,reason==='manual',signal);registryError=null;}
       const observation = result.value;

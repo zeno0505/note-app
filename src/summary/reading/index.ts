@@ -158,11 +158,13 @@ export function createReadingScheduler(options: {adapter?: PullObservationAdapte
   }
   return {
     cancel,
-    update(inputs: ReadingInput[], signal: AbortSignal, intent: 'scheduled'|'manual' = 'scheduled'): Promise<ReadingSummary[]> {
+    update(inputs: ReadingInput[], signal: AbortSignal, intent: 'scheduled'|'manual' = 'scheduled', retainCompletedIds:string[]=[]): Promise<ReadingSummary[]> {
       if (signal.aborted) return Promise.reject(new Error('Reading cancelled'));
       if (inputs.length > 1_000 || new Set(inputs.map(i => i.workstream.id)).size !== inputs.length) return Promise.reject(new Error('Reading scope limit'));
+      if(retainCompletedIds.length>1000||retainCompletedIds.some(id=>typeof id!=='string'||!id||id.length>4096)||new Set(retainCompletedIds).size!==retainCompletedIds.length)return Promise.reject(new Error('Retained reading scope limit'));
+      const keepCompleted=new Set(retainCompletedIds);
       inputs = structuredClone(inputs);
-      const key = digest(inputs.map(i => semantics(i, {state: 'unconfigured'})));
+      const key = digest([inputs.map(i => semantics(i, {state: 'unconfigured'})),[...keepCompleted].sort()]);
       if (flight?.key === key) return flight.promise;
       controller?.abort(); const epoch = ++generation; const owned = new AbortController(); controller = owned;
       const abort = () => owned.abort(); signal.addEventListener('abort', abort, {once: true});
@@ -212,8 +214,11 @@ export function createReadingScheduler(options: {adapter?: PullObservationAdapte
           summaries.push(summary); next.set(input.workstream.id, structuredClone(summary));
         }
         if (owned.signal.aborted || signal.aborted || generation !== epoch) throw new Error('Reading cancelled');
-        cached = next;
-        retainedPulls = nextPulls;
+        // Only main's app-owned completed project identities survive temporary exclusion.
+        // Departed unregistered scopes still lose their history; no global lifetime cache.
+        for(const [id,value] of cached)if(!next.has(id)&&keepCompleted.has(id)&&next.size<1000)next.set(id,value);
+        for(const [id,value] of retainedPulls)if(!nextPulls.has(id)&&keepCompleted.has(value.workstreamId)&&nextPulls.size<1000)nextPulls.set(id,value);
+        cached=next;retainedPulls=nextPulls;
         return structuredClone(summaries);
       })().finally(() => {
         signal.removeEventListener('abort', abort);

@@ -16,8 +16,8 @@ export async function runFakeProvider({requestId,input,mode='success',deadlineMs
   if(signal?.aborted)return {status:'cancelled',spawned:false,modelRun:false};
   const root=await mkdtemp(path.join(tmpdir(),'note-app-fake-'));
   const env=Object.freeze({NOTE_APP_FAKE_MODE:mode});
-  let child,timer,onAbort;let reason=null,output='',errorBytes=0,outputBytes=0;
-  const kill=()=>{if(child?.pid){try{process.kill(-child.pid,'SIGKILL');}catch(error){if(error.code!=='ESRCH')throw error;}}};
+  let child,timer,onAbort;let reason=null,output='',errorBytes=0,outputBytes=0,terminationIssued=false;
+  const kill=()=>{if(child?.pid&&!terminationIssued){try{process.kill(-child.pid,'SIGKILL');terminationIssued=true;}catch(error){if(error.code!=='ESRCH')throw error;terminationIssued=true;}}};
   try{
     if(signal?.aborted)return {status:'cancelled',spawned:false,modelRun:false};
     child=spawn(executable,[script],{cwd:root,env,detached:true,stdio:['pipe','pipe','pipe']});

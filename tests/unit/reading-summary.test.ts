@@ -209,3 +209,9 @@ it('does not borrow document records from a different DAG or a failed current DA
  const data=input();data.documents={state:'ready',dagId:'foreign',records:[]};expect(text(explainReading(data,{state:'unconfigured'}))).toContain('근거 문서를 현재 범위에서 확인하지 못했습니다');
  data.documents.dagId=fixture.dagId;data.dag!.state='error';expect(text(explainReading(data,{state:'unconfigured'}))).toContain('근거 문서를 현재 범위에서 확인하지 못했습니다');
 });
+
+it('retains unchanged reading across temporary exclusion of a completed project',async()=>{
+ const scheduler=createReadingScheduler();const data=input(),first=(await scheduler.update([data],signal()))[0];
+ await scheduler.update([],signal(),'scheduled',[data.workstream.id]);vi.advanceTimersByTime(20000);const resumed=(await scheduler.update([data],signal()))[0];
+ expect(resumed.fingerprint).toBe(first.fingerprint);expect(resumed.changed).toBe(false);expect(resumed.generatedAt).toBe(first.generatedAt);expect(resumed.revision).toBe(first.revision);
+});
