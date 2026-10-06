@@ -30,6 +30,8 @@
 - `native-T028-7b0f42d/ui-review.mjs`, `ui-report.json`, 각 페이지 760/1600 스크린샷
 - `app-update-T028-7b0f42d/update-report.json`, `protected-cache-before.json`, `actual-state.json`
 
-실제 CodeBurn 첫 조회는 모두 성공했으므로 `failureLabels`의 빈 배열 판정을 실제 Mac 부분 timeout의 양성 증거로 취급하지 않는다. 부분 timeout/retained/unknown은 단위/SSR 근거가 있고, 실제 Mac의 해당 실패 발생 화면은 추가 확인 대상이다. 일반 프로필 자동 입력은 `window_not_focused`로 차단되어 공개 저장 요약 클릭과 OS 폴더 선택창 취소는 미검증으로 남긴다. 이 한계는 별도 프로필의 실제 화면 전환 성공을 무효화하지 않는다.
+실제 CodeBurn 첫 조회는 모두 성공했으므로 `failureLabels`의 빈 배열 판정을 실제 Mac 부분 timeout의 양성 증거로 취급하지 않는다. 후속 격리 Mac 검증에서는 앱 소유 wrapper로 Claude status만 제한 시간을 넘겼다. 약 6.9초 후 timeout과 이전 성공값/다른 성공 조회의 공존을 실제 renderer에서 확인했고, 다음 정상 조회에서 모든 결과 성공과 timeout 표시 제거를 확인했다. `native-T028-partial/report.json`과 화면을 비공개 보존한다. 이는 통제된 timeout 검사이며 실제 제공자 장애가 아니다.
+
+정상 사용자 앱의 후속 실제 캡처에서도 첫 수집 완료·로딩 해제·워크트리 74개/현재 관측 71개·프로젝트 목록·다음 background 조회를 확인했다. 최초 로딩 캡처만으로 실패나 지연 원인을 확정하지 않는다. 실제 화면은 `app-update-T028-7b0f42d/actual-settled-overview.png`에 있다. 일반 프로필 자동 입력은 `window_not_focused`로 차단되어 공개 저장 요약 클릭과 OS 폴더 선택창 취소는 미검증으로 남긴다. 이 한계는 별도 프로필의 실제 화면 전환 성공을 무효화하지 않는다.
 
 T-028은 구현·회귀·실제 페이지 검증 근거가 있는 in_review이며, 원래 의존성/미검증 조건을 무시해 done 처리하지 않는다. Phase 1 전체 완료나 일반 AI transport 활성화를 의미하지 않는다.
