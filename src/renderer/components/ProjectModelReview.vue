@@ -22,7 +22,7 @@ onMounted(load);onUnmounted(()=>{disposed=true;void dismissRetry();generation++;
 </script>
 <template>
   <section class="public-model-review" data-testid="project-model-review">
-    <h3>{{summaryPrefix?summaryPrefix+' 접두사의':'이 프로젝트의'}} Claude AI 요약</h3><p class="notice warning" data-testid="project-ai-warning">{{AI_TRANSFER_WARNING,PREFIX_AI_TRANSFER_WARNING}}</p>
+    <h3>{{summaryPrefix?summaryPrefix+' 접두사의':'이 프로젝트의'}} Claude AI 요약</h3><p class="notice warning" data-testid="project-ai-warning">{{summaryPrefix?PREFIX_AI_TRANSFER_WARNING:AI_TRANSFER_WARNING}}</p>
     <label><input v-model="confirmed" type="checkbox" data-testid="project-ai-confirm"> 전송 대상과 자료 범위·민감정보 주의사항을 확인했습니다</label>
     <p v-if="summaryPrefix" class="muted">선택 접두사의 작업 최대 20개와 연결된 의존성 ID·상태만 AI 입력에 포함합니다. 접두사와 연결되지 않은 문서 본문은 제외합니다.</p><p class="muted">관련 근거를 한도 안에서 선별합니다. 동시 1개 · 생성 1회/형식 검증 실패 수정 최대 1회 · 일반 요약의 같은 입력 재호출 없음 · 실패 진단은 별도 확인 후 1회 · 선택 범위별 성공 본문 1개 보존</p>
     <Button label="지금 요약 · Claude AI" data-testid="project-ai-run" :disabled="running||!current||!confirmed||model?.state==='disabled'" :loading="running" @click="run"/><Button v-if="running" label="요약 취소" outlined data-testid="project-ai-cancel" @click="cancel"/>
