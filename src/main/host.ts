@@ -1,3 +1,4 @@
+import {reconnectReadiness} from '../shared/reconnect-readiness';
 import {createModelRetryStorage} from '../summary/reading/model-retry-storage';
 import {createNoteReconnect} from './note-reconnect';
 import {createDagCandidateScanner} from './dag-candidates';
@@ -158,7 +159,7 @@ app.whenReady().then(async()=>{
   ipcMain.handle('note-app:note-reconnect-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('취소 요청 오류');reconnect.cancel(args[0]);});
   ipcMain.handle('note-app:note-reconnect-confirm',(event,...args)=>{
     checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('재연결 요청 오류');reconnectBusy=true;
-    return tracked((async()=>{try{await liveRuntime.refresh();projectModel?.cancel();await publicModel?.cancel();for(const controller of linkControllers)controller.abort();const result=await reconnect.confirm(args[0]);await liveRuntime.refresh();const workstreamId=reconnectWorktreePath?liveRuntime.reconnectedWorkstream(reconnectWorktreePath):undefined;return {...result,...(workstreamId?{workstreamId}:{})};}finally{reconnectBusy=false;reconnectWorktreePath=undefined;}})());
+    return tracked((async()=>{try{await liveRuntime.refresh();projectModel?.cancel();await publicModel?.cancel();for(const controller of linkControllers)controller.abort();const result=await reconnect.confirm(args[0]);await liveRuntime.refresh();const workstreamId=reconnectWorktreePath?liveRuntime.reconnectedWorkstream(reconnectWorktreePath):undefined;return {...result,...(workstreamId?{workstreamId}:{}),readiness:reconnectReadiness(liveRuntime.getState(),workstreamId,!!publicClaude)};}finally{reconnectBusy=false;reconnectWorktreePath=undefined;}})());
   });
   ipcMain.handle('note-app:read-roots',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return readRoots.view();});
   ipcMain.handle('note-app:read-root-select',async(event,...args)=>{

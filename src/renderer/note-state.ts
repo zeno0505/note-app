@@ -4,6 +4,7 @@ export function noteState(workstream:LiveWorkstreamView,live:LiveWorkspaceView|n
  if(workstream.project?.status==='completed')return {label:'완료 · 노트 조회 중단',block:'완료한 프로젝트입니다. 프로젝트 재개 후 요약할 수 있습니다.'};
  if(live?.connection!=='connected')return {label:'노트 연결 미확인',block:'소스 연결이 해제돼 있습니다. 연결 및 설정에서 연결해 주세요.'};
  if(live.refreshing)return {label:'노트 연결 조회 중',block:'소스 조회가 진행 중입니다. 완료 후 다시 확인해 주세요.'};
+ if(dag?.readerRecovery?.retired){const r=dag.readerRecovery;return {label:'DAG 조회 중단 · '+r.cause,block:r.cleanup==='verified'?'이전 DAG 조회는 중단됐고 정리가 확인됐습니다. 소스 새로고침으로 안전하게 다시 조회할 수 있습니다.':'이전 DAG 조회의 정리가 '+(r.cleanup==='pending'?'진행 중입니다.':'확인되지 않았습니다.')+' 겹치는 조회를 시작하지 않습니다. 계속되면 앱을 정상 종료한 뒤 다시 열어 주세요.'};}
  if(live.freshness!=='current')return {label:'노트 연결 관측 오래됨',block:'현재 관측이 오래됐거나 최신성을 확인하지 못했습니다. 소스 새로고침으로 다시 확인해 주세요.'};
  if(workstream.noteMapping.state!=='resolved'){
   const reason=workstream.noteMapping.reason,label=reason==='dag-not-registered'?'등록된 DAG 없음':mappingLabel(reason);

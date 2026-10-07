@@ -35,3 +35,6 @@ export interface DagReaderOptions {
   /** Candidate discovery additionally requires the existing phases/tasks document shape. */
   requireDocumentShape?: boolean;
 }
+
+export interface DagReaderRecovery {cause: 'cancelled'|'timeout'|'cleanup_unverified'; cleanup: 'pending'|'verified'|'unverified'; retired:boolean; generation:number}
+export interface DagReader {read(dagId:string,request?:{signal?:AbortSignal}):Promise<DagReadResult>; recoveryState?():DagReaderRecovery|null; recover?():boolean}

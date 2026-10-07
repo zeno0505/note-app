@@ -8,6 +8,7 @@ import { projectDagQuery } from '../../src/facts/dag-read-model/projection';
 import { QUERY_SHA256 } from '../../src/facts/dag-read-model/process';
 import {delayFixtureStartup,waitForReadyPid} from './helpers/process-startup';
 import { createSnapshotStore } from '../../src/collector/snapshot';
+import * as ownedGroups from '../../src/collector/orca/process-group';
 
 const ioHooks = vi.hoisted(() => ({
   realpath: null as null | ((...args: unknown[]) => Promise<unknown>),
@@ -252,4 +253,33 @@ describe.skipIf(!pythonPath || !queryScriptPath)('actual external authoritative 
     const t = await setup();
     expect(await createDagReader({ ...t.options, pythonPath: pythonPath!, queryScriptPath: t.script }).read('dag-test')).toMatchObject({ ok: false, error: { kind: 'command_failed' } });
   });
+});
+
+it('recovers a cancelled reader only after all owned work settles; repeated generations reject overlap',async()=>{
+ const t=await setup('setInterval(()=>{},1000)');await delayFixtureStartup(t.executable,t.directory,1100);const reader=createDagReader(t.options);
+ for(let generation=0;generation<2;generation++){
+  const controller=new AbortController(),pending=reader.read('dag-test',{signal:controller.signal});
+  expect(reader.recover!()).toBe(false);expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'busy'}});
+  await waitForReadyPid(t.directory);controller.abort();expect(await pending).toMatchObject({ok:false,error:{kind:'cancelled'}});
+  expect(reader.recoveryState!()).toMatchObject({cause:'cancelled',retired:true,generation});
+  await vi.waitFor(()=>expect(reader.recoveryState!()?.cleanup).toBe('verified'));
+  expect(reader.recover!()).toBe(true);expect(reader.recover!()).toBe(false);
+ }
+ await writeFile(t.executable,`#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(JSON.stringify(wire()))})`);
+ expect(await reader.read('dag-test')).toMatchObject({ok:true,unchanged:false});expect(reader.recoveryState!()).toMatchObject({cause:'cancelled',retired:false,generation:2,cleanup:'verified'});
+});
+it('keeps timeout cause and refuses recovery while filesystem IO remains unresolved',async()=>{
+ const t=await setup();const reader=createDagReader({...t.options,timeoutMs:20});let release!:(p:string)=>void;
+ ioHooks.realpath=async()=>new Promise<string>(r=>{release=r});
+ expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'timeout'}});expect(reader.recoveryState!()).toMatchObject({cause:'timeout',cleanup:'pending'});expect(reader.recover!()).toBe(false);
+ release(t.source);await vi.waitFor(()=>expect(reader.recoveryState!()?.cleanup).toBe('verified'));ioHooks.realpath=null;expect(reader.recover!()).toBe(true);
+});
+it('never recovers when process group cleanup was not verified',async()=>{
+ const t=await setup();const cleanup=vi.spyOn(ownedGroups,'finalizeQueryGroup').mockResolvedValue(false);const reader=createDagReader(t.options);
+ expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'cleanup_unverified'}});expect(reader.recoveryState!()).toMatchObject({cause:'cleanup_unverified',cleanup:'unverified',retired:true});cleanup.mockRestore();
+ expect(reader.recover!()).toBe(false);expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'cleanup_unverified'}});
+});
+it('refuses recovery when closing the owned source handle fails',async()=>{
+ const t=await setup();const actual=await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');const handle=await actual.open(t.source,'r');const close=vi.spyOn(handle,'close').mockRejectedValue(Error('synthetic close failure'));ioHooks.open=async()=>handle;
+ try{const reader=createDagReader(t.options);expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'cleanup_unverified'}});expect(reader.recoveryState!()).toMatchObject({cleanup:'unverified'});expect(reader.recover!()).toBe(false);}finally{close.mockRestore();await handle.close();}
 });

@@ -8,5 +8,5 @@ export interface NoteReconnectProposal {
 export interface NoteReconnectBridge {
   selectNoteReconnect(request:{workstreamId:string}):Promise<NoteReconnectProposal|null>;
   cancelNoteReconnect(request:{proposalId:string}):Promise<void>;
-  confirmNoteReconnect(request:{proposalId:string;candidateId:string|null;linkChangeConfirmed:true}):Promise<{backupPath:string|null;workstreamId?:string}>;
+  confirmNoteReconnect(request:{proposalId:string;candidateId:string|null;linkChangeConfirmed:true}):Promise<{backupPath:string|null;workstreamId?:string;readiness:import('./reconnect-readiness').ReconnectReadiness}>;
 }

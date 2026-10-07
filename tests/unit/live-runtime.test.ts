@@ -534,3 +534,9 @@ it('revokes new project reads while retaining historical summaries and requires 
  await f.runtime.connect();expect(f.readDag).toHaveBeenCalledTimes(reads);expect(f.runtime.getState().workstreams.some(w=>w.project&&w.readingSummary)).toBe(true);
  await expect(f.runtime.resolveSummarySource(project.id,new AbortController().signal)).rejects.toThrow();
 });
+it('manual collection recovers only a reader that verifies its own settled ownership',async()=>{
+ let ready=false;const read=vi.fn(async()=>ready?{ok:true as const,value:dag(),unchanged:false}:{ok:false as const,error:{kind:'cleanup_unverified' as const,message:'retired'}});const recover=vi.fn(()=>{ready=true;return true});const factory=vi.fn(()=>({read,recover}));const x=setup(configuration(),true,{dagReader:factory});await x.runtime.connect();expect(recover).not.toHaveBeenCalled();expect(x.runtime.getState().dags[0].state).toBe('error');await x.runtime.refresh();expect(recover).toHaveBeenCalledOnce();expect(x.runtime.getState().dags[0].state).toBe('ready');expect(factory).toHaveBeenCalledOnce();
+});
+it('manual collection retains the same reader when ownership recovery is refused',async()=>{
+ const read=vi.fn(async()=>({ok:false as const,error:{kind:'cleanup_unverified' as const,message:'retired'}})),recover=vi.fn(()=>false),factory=vi.fn(()=>({read,recover}));const x=setup(configuration(),true,{dagReader:factory});await x.runtime.connect();await x.runtime.refresh();await x.runtime.refresh();expect(recover).toHaveBeenCalledTimes(2);expect(factory).toHaveBeenCalledOnce();expect(x.runtime.getState().dags[0].state).toBe('error');
+});

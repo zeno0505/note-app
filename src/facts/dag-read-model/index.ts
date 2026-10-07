@@ -4,7 +4,7 @@ import { open, realpath, stat } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { createQueryProcess } from './process';
 import { projectDagQuery } from './projection';
-import type { DagFailureKind, DagReaderOptions, DagReadModel, DagReadResult } from './types';
+import type { DagFailureKind, DagReaderOptions, DagReader, DagReaderRecovery, DagReadModel, DagReadResult } from './types';
 export type * from './types';
 
 class SourceFailure extends Error { constructor(readonly kind: DagFailureKind) { super(kind); } }
@@ -52,10 +52,10 @@ async function fingerprint(path: string, maximum: number, signal: AbortSignal) {
       || before.dev !== after.dev || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || before.ino !== after.ino
       || canonicalAfter !== path) throw new SourceFailure('source_changed');
     return { hash: hash.digest('hex'), mtimeMs: after.mtimeMs, identity: `${after.dev}:${after.ino}:${after.size}:${after.mtimeMs}:${after.ctimeMs}` };
-  } finally { await handle.close(); }
+  } finally { try {await handle.close();} catch {throw new SourceFailure('cleanup_unverified');} }
 }
 /** Main-only factory. The sole per-read argument is a registered opaque DAG ID. */
-export function createDagReader(options: DagReaderOptions) {
+export function createDagReader(options: DagReaderOptions): DagReader {
   if (!trustedPath(options.pythonPath) || !trustedPath(options.queryScriptPath) || !Array.isArray(options.registrations) || options.registrations.length > 100) throw new Error('Invalid trusted DAG reader configuration.');
   const registrations = new Map<string, string>();
   for (const entry of options.registrations) {
@@ -68,17 +68,27 @@ export function createDagReader(options: DagReaderOptions) {
   const maxOutputBytes = limit(options.maxOutputBytes, 2 * 1024 * 1024, 8 * 1024 * 1024);
   const maxSourceBytes = limit(options.maxSourceBytes, 16 * 1024 * 1024, 64 * 1024 * 1024);
   if(options.requireDocumentShape!==undefined&&typeof options.requireDocumentShape!=='boolean')throw new Error('Invalid DAG shape requirement');
-  const run = createQueryProcess({ pythonPath: options.pythonPath, queryScriptPath: options.queryScriptPath, doneStatus, timeoutMs, maxOutputBytes,requireDocumentShape:options.requireDocumentShape });
+  let run = createQueryProcess({ pythonPath: options.pythonPath, queryScriptPath: options.queryScriptPath, doneStatus, timeoutMs, maxOutputBytes,requireDocumentShape:options.requireDocumentShape });
   const cache = new Map<string, DagReadModel>();
   let busy = false;
   let abandoned = false;
+  let operationSettled=true, cleanupFailed=false, generation=0;
+  let cause:DagReaderRecovery['cause']|null=null;
+  const recoveryState=():DagReaderRecovery|null=>cause?{cause,cleanup:!operationSettled?'pending':cleanupFailed?'unverified':'verified',retired:abandoned,generation}:null;
   return {
+    recoveryState,
+    recover(){
+      if(!abandoned||busy||!operationSettled||cleanupFailed)return false;
+      // No unresolved IO, handles, process groups or snapshot removal remain.
+      run=createQueryProcess({pythonPath:options.pythonPath,queryScriptPath:options.queryScriptPath,doneStatus,timeoutMs,maxOutputBytes,requireDocumentShape:options.requireDocumentShape});
+      cache.clear();abandoned=false;generation++;return true;
+    },
     async read(dagId: string, request: { signal?: AbortSignal } = {}): Promise<DagReadResult> {
       if (typeof dagId !== 'string' || !registrations.has(dagId)) return fail('invalid_request');
       if (abandoned) return fail('cleanup_unverified');
       if (busy) return fail('busy');
       if (request.signal?.aborted) return fail('cancelled');
-      busy = true;
+      busy = true;operationSettled=false;
       const deadline = AbortSignal.timeout(timeoutMs);
       const signal = request.signal ? AbortSignal.any([deadline, request.signal]) : deadline;
       const abortKind = (): DagFailureKind => request.signal?.aborted ? 'cancelled' : deadline.aborted ? 'timeout' : 'cancelled';
@@ -94,7 +104,8 @@ export function createDagReader(options: DagReaderOptions) {
             cache.set(dagId, value);
             return { ok: true, value: structuredClone(value), unchanged: true };
           }
-          const queried = await run(path, before.hash, maxSourceBytes, signal);
+          let queried;try{queried=await run(path,before.hash,maxSourceBytes,signal);}catch{throw new SourceFailure('cleanup_unverified');}
+          if (!queried.ok && queried.kind==='cleanup_unverified'){cleanupFailed=true;if(!abandoned)cause='cleanup_unverified';abandoned=true;}
           if (!queried.ok) return fail(queried.kind === 'cancelled' ? abortKind() : queried.kind);
           const after = await fingerprint(path, maxSourceBytes, signal);
           if (before.hash !== after.hash || before.identity !== after.identity) return fail('source_changed');
@@ -105,6 +116,7 @@ export function createDagReader(options: DagReaderOptions) {
           cache.set(dagId, value);
           return { ok: true, value: structuredClone(value), unchanged: false };
         } catch (error) {
+          if(error instanceof SourceFailure&&error.kind==='cleanup_unverified'){cleanupFailed=true;if(!abandoned)cause='cleanup_unverified';abandoned=true;}
           return fail(signal.aborted ? abortKind() : error instanceof SourceFailure ? error.kind : 'source_unavailable');
         }
       };
@@ -115,13 +127,14 @@ export function createDagReader(options: DagReaderOptions) {
           let settled = false;
           const abort = () => {
             if (settled) return;
-            settled = true; abandoned = true;
+            settled = true;if(!abandoned)cause=abortKind() as 'cancelled'|'timeout';abandoned=true;
             signal.removeEventListener('abort', abort);
             resolve(fail(abortKind()));
           };
           signal.addEventListener('abort', abort, { once: true });
-          if (signal.aborted) { abort(); return; }
+          if (signal.aborted) { operationSettled=true;abort(); return; }
           void observe().then(result => {
+            operationSettled=true;
             if (settled) return;
             settled = true; signal.removeEventListener('abort', abort); resolve(result);
           });

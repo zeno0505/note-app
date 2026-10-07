@@ -68,7 +68,7 @@ interface DagSession {
 }
 
 /** Read-only, main-owned orchestration. Construction does no IO and starts no timers.
- * Adapter lifetimes survive disconnect/reconnect: a poisoned reader is never recreated.
+ * Adapter lifetimes survive disconnect/reconnect: unverified readers are never recreated. Verified retirement can recover on a manual refresh.
  * Cache directories and files are never created or written by this runtime.
  */
 export function createLiveRuntime(options: {
@@ -429,6 +429,7 @@ export function createLiveRuntime(options: {
       let state: LiveDagView['state'] = reason ? 'unavailable' : 'error';
       if (!reason && session?.reader) {
         try {
+          if(manual)session.reader.recover?.();
           const result = await session.reader.read(mapping.dagId, { signal });
           if (result.ok && !signal.aborted) { session.model = result.value; unchanged = result.unchanged; state = 'ready'; }
           else if (!result.ok) reason = `DAG observation could not be refreshed (${result.error.kind}).`;
@@ -436,7 +437,7 @@ export function createLiveRuntime(options: {
       } else if (!reason) reason = 'DAG reader could not be initialized.';
       if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
-      dags.push({ dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
+      dags.push({ readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
         tasks: model?.tasks.slice(0, MAX_DISPLAY_TASKS).map(task => ({ ...task,
           dependencies: task.dependencies.slice(0, MAX_DISPLAY_REFERENCES),
