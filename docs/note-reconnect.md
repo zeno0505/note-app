@@ -77,7 +77,7 @@ live fixture와 동일한 절대 경로 Python·DAG query 환경을 사용하고
 | 요구사항·수용기준 | build6 구현과 감사 | 수정 및 검증 증거 | 최종 설치 검증 |
 | --- | --- | --- | --- |
 | PrimeVue 선택/확인과 테마 | 실제 build6 native select, 기본 label에 scope hash. native 재연결 checkbox | Select/Button/Checkbox와 Aura primary·dark selector 통일. 격리 Electron 라이트/다크 화면 확인 | build7 실제 PrimeVue control/Dialog 픽셀 확인 통과 |
-| DAG 파일명·상대경로 선택 | dag.yaml/dag.yml 존재만 확인, 다른 파일명·스키마·선택 없음 | 선택 폴더의 제한된 YAML만 authoritative query 및 phases/tasks 구조 검증. dag.yaml/back-dag.yaml 통과, 임의 YAML 제외. 선택은 main 소유 ID로 검증·저장 | 실제 허용 폴더에서 back-dag.yaml(40), back-dag-custom-table.yaml(14) 표시. 유효하지 않거나 안전하게 읽을 수 없는 YAML 4개 제외. 원본 변경0 |
+| DAG 파일명·상대경로 선택 | dag.yaml/dag.yml 존재만 확인, 다른 파일명·스키마·선택 없음 | 선택 폴더의 제한된 YAML만 authoritative query 및 phases/tasks 구조 검증. dag.yaml/back-dag.yaml 통과, 임의 YAML 제외. 선택은 main 소유 ID로 검증·저장 | build7/8에서는 정상 main dag.yaml(459)이 source_limit으로 누락돼 전체 요구 미충족. 16MiB 정합 수정 후 실제 scanner의 3개 유효 후보 통과, 최종 설치 목록 픽셀 확인 대기 |
 | 클릭 즉시 ‘노트 재연결’ 독립 Dialog | 실제 build6에서 picker 취소 뒤 titled Dialog 0개 | 클릭 즉시 Dialog, 그 안에서 디렉토리 선택·DAG 선택·명시 확인. 독립 시작 화면·취소·Escape 통과 | build7 클릭 즉시 시작 Dialog, 미선택 확인 비활성, close/reopen/Escape 통과 |
 | 데이터·권한 경계와 선택 유지 | 과거 링크 안전성 검증은 새 UI 완료 근거가 아님 | 격리 fixture의 원문/백업 보존, 취소, 허용 밖 거절, 복수 DAG, DAG 없음, back-dag 선택 후 재시작 통과. 모델 호출 0회 | 실제 사용자 프로젝트에서는 확인 버튼0회. 격리 확인·재시작만 수행 |
 | 라이트·다크·좁은 창·scroll·close | 기존 Aura darkModeSelector=false | 760/1600px, 높이620px, 테마 전환 후 색상·scroll·닫기·footer·가로 overflow 검증 및 픽셀 확인 | build7 실제 설치 760/1600px·높이620px, 라이트/다크·scroll·close·취소·가로 overflow 없음 통과 |
@@ -98,3 +98,36 @@ GitHub CI **37583623157 success**. `canonical-final/report.json`은 passed이며
 `actual-selected-dark-760.png`의 실제 픽셀을 확인했다. 초기 스크립트가 유효 후보에 dag.yaml을
 강제해 중단한 결과는 `canonical-build7-first/`에 보존했고, 실제 검증된 후보로 수정해 재검증했다.
 이후 문서만 갱신한 체크포인트는 앱 소스가 동일하다. 첨부 Library 픽셀 미확인은 위 HTTP403 제한으로 남는다.
+
+## 정상 main DAG 후보 제외 회귀 정정
+
+앞선 build7/8 목록 검증은 기존 main DAG를 포함하는 사용자 요구 전체의 완료 근거가 아니었다.
+실제 AI 폴더의 dag.yaml은 2,317,185바이트·459개 작업이며 phases/tasks 형식에 맞지만,
+새 후보 스캐너의 2MiB 제한으로 query 실행 전 source_limit 처리됐다.
+후보 목록은 기존 reader의 **16MiB 상한**을 사용하도록 수정한다.
+원래 허용 범위·파일 안전 검사·스키마 검사·출력 상한·기한은 유지한다.
+2MiB를 넘는 정상459개 fixture 포함과 16MiB 초과 제외를 회귀 검증한다.
+creator-launch-dag.yaml/growth-dag.yaml/layout-dag.yaml은 phases가 없어
+현재 query의 phases/tasks 계약과 호환되지 않는다. 기존 loader의 빈0개 결과를 유효 DAG로 확대하지 않는다.
+이 세 파일은 고정 코드 document_shape_invalid와 파일명을 UI에 표시한다.
+실제 main dag.yaml 포함 목록과 제외 사유의 최종 설치 픽셀 확인 전 검수를 요청하지 않는다.
+
+build7→8은 문서만 변경됐으며 dist 15개 파일의 바이트가 동일하다.
+build8의 독립 Dialog·라이트/다크·scroll·close·읽기 전용 미리보기는 별도로 실제 실행·픽셀 확인했다.
+이 사실은 main DAG 후보 누락을 해결했다는 의미가 아니다.
+
+다크 배경 원인 확인: build8 실제 OS 다크의 app-shell은 #09090b(Aura surface950),
+Dialog/새 선택 surface는 #18181b(surface900)다. 순흑 #000 명시 팔레트는 아니다.
+이번 UI 수정에서 앱 전체 shell을 surface950에 연결하고 OS 테마를 따르게 해
+이전 build6의 #f5f6f3 배경·darkModeSelector=false와 동작이 달라졌다.
+기존 카드/헤더에는 밝은 배경이 남아 혼합 테마다. 팔레트 변경 합의는 없으며
+현재 별도 사용자 결정 대기: 이번 DAG 회귀에서는 팔레트와 OS 설정을 변경하지 않는다.
+
+회귀 수정 검증: 타입 검사·빌드, **1005 통과/13 skip**,
+private `electron-size-regression/report.json`(격리 Electron passed).
+`candidate-exclusion/fixed-actual-scan.json`에서 이미 허용된 실제 AI 폴더의
+dag.yaml459/back-dag.yaml40/back-dag-custom-table.yaml14 포함과
+스키마 미지원3개 제외를 확인했다. 모델0회·링크 확인0회.
+최종 설치 결과와 픽셀은 같은 private `canonical-final/report.json` 및
+`actual-valid-dag-list.png`/`actual-exclusion-reasons.png`로 연결한다.
+문서 작성 시점 이후 최종 설치 통과 여부는 해당 보고서의 source SHA/build/status로 판정한다.

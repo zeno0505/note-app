@@ -25,13 +25,13 @@ export function createNoteReconnect(options:{resolve(id:string):Selection|null;a
   const note=(await snapshot(path.join(docsPath,'note'),budget)).snapshot;
   if(note.exists&&note.kind!=='symlink')throw Error('docs/note에 기존 파일 또는 디렉토리가 있습니다. 덮어쓰지 않습니다.');
   if(directory===docsPath||directory.startsWith(docsPath+path.sep))throw Error('docs 안의 디렉토리는 순환 연결 위험으로 선택할 수 없습니다.');
-  const scan=options.scan?await options.scan(directory):{candidates:[],excludedCount:0};
+  const scan=options.scan?await options.scan(directory):{candidates:[],excludedCount:0,excluded:[]};
   budget=new Budget(5000);await assertSnapshot(docs,budget,!docs.exists);await assertSnapshot(note,budget);
   const candidates=scan.candidates.map(({id,relativePath,taskCount})=>({id,relativePath,taskCount})),dag:NoteReconnectProposal['dag']=candidates.length?'present':'absent';
   const replacement=note.exists&&note.link!==directory;
-  const p={proposalId:randomUUID(),workstreamId,directory,linkPath:note.path,previousTarget:note.link??null,replacement,dag,candidates,excludedCount:scan.excludedCount,scan,expiresAt:now()+120000,selectedPath,tree:(await snapshot(tree,budget)).snapshot,docs,note,target:(await snapshot(directory,budget)).snapshot};
+  const p={proposalId:randomUUID(),workstreamId,directory,linkPath:note.path,previousTarget:note.link??null,replacement,dag,candidates,excludedCount:scan.excludedCount,excluded:scan.excluded,scan,expiresAt:now()+120000,selectedPath,tree:(await snapshot(tree,budget)).snapshot,docs,note,target:(await snapshot(directory,budget)).snapshot};
   if(own!==generation)throw Error('폴더 선택이 취소되거나 바뀌었습니다.');proposal=p;
-  return {proposalId:p.proposalId,workstreamId,directory,linkPath:p.linkPath,previousTarget:p.previousTarget,replacement,dag,candidates,excludedCount:p.excludedCount,expiresAt:p.expiresAt};
+  return {proposalId:p.proposalId,workstreamId,directory,linkPath:p.linkPath,previousTarget:p.previousTarget,replacement,dag,candidates,excludedCount:p.excludedCount,excluded:p.excluded,expiresAt:p.expiresAt};
  }
  function cancel(x:unknown){const r=request(x,['proposalId']);if(proposal?.proposalId===r.proposalId){proposal=null;generation++;}}
  async function confirm(x:unknown):Promise<{backupPath:string|null}>{

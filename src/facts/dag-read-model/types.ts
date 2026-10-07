@@ -1,4 +1,4 @@
-export type DagFailureKind = 'invalid_request' | 'busy' | 'cancelled' | 'timeout' | 'source_unavailable' | 'source_changed' | 'source_limit' | 'command_failed' | 'output_limit' | 'invalid_schema' | 'cleanup_unverified';
+export type DagFailureKind = 'invalid_request' | 'busy' | 'cancelled' | 'timeout' | 'source_unavailable' | 'source_changed' | 'source_limit' | 'command_failed' | 'output_limit' | 'invalid_schema' | 'document_shape_invalid' | 'cleanup_unverified';
 export interface DagError { kind: DagFailureKind; message: string }
 export interface DagTask {
   id: string; title: string | null;

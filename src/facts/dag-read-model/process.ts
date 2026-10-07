@@ -27,8 +27,8 @@ snapshot.write_bytes(raw)
 if require_shape == '1':
     if not callable(namespace.get('load')): raise RuntimeError('unsupported DAG loader')
     _, document, _ = namespace['load'](snapshot)
-    if not isinstance(document.get('phases'), list): raise RuntimeError('not a DAG document')
-    if any(not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list) for phase in document['phases']): raise RuntimeError('not a DAG phase')
+    if not isinstance(document, dict) or not isinstance(document.get('phases'), list): sys.exit(65)
+    if any(not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list) for phase in document['phases']): sys.exit(65)
 for mode, args in [('index', ['--index', '--fields', 'id,title,status,depends_on,e2e,commits']), ('coverage', ['--coverage', '--done-status', done])]:
     emitted = []
     namespace['emit'] = emitted.append
@@ -84,6 +84,7 @@ export function createQueryProcess(config: { pythonPath: string; queryScriptPath
       child.once('close', async (code, termination) => {
         if (!await clean() || settled) return;
         if (stopped) return finish({ ok: false, kind: stopped });
+        if (config.requireDocumentShape && code === 65 && termination === null) return finish({ok:false,kind:'document_shape_invalid'});
         if (code !== 0 || termination !== null) return finish({ ok: false, kind: 'command_failed' });
         const buffer = Buffer.concat(chunks); wipe();
         try { finish({ ok: true, data: JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer)) }); }
