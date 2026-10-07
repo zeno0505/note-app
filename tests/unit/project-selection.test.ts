@@ -17,16 +17,16 @@ it('uses navigation selection and back history without copying stale summaries',
   rows.value=[{...row('one'),title:'new observed title'},row('two')];await nextTick();expect(selection.selected.value?.title).toBe('new observed title');
   await selection.close();expect(selection.selected.value).toBeNull();router.back();await vi.waitFor(()=>expect(selection.selected.value?.id).toBe('one'));
 });
-it('clears a filtered-out selection without replacing it with a different project',async()=>{
+it('retains filtered-out navigation identity without showing a different project',async()=>{
   const {rows,selection,router}=await setup({project:'one'});expect(selection.selected.value?.id).toBe('one');rows.value=[row('two')];await nextTick();
-  expect(selection.selected.value).toBeNull();expect(selection.notice.value).toContain('현재 표시 범위');await vi.waitFor(()=>expect(router.currentRoute.value.query.project).toBeUndefined());
+  expect(selection.selected.value).toBeNull();expect(selection.notice.value).toContain('현재 표시 범위');expect(router.currentRoute.value.query.project).toBe('one');
   await router.push({query:{project:'two'}});await nextTick();expect(selection.selected.value?.id).toBe('two');expect(selection.notice.value).toBe('');
 });
-it('rejects a missing deep link and does not interpret an array query as an identity',async()=>{
-  const absent=await setup({project:'missing'});await vi.waitFor(()=>expect(absent.router.currentRoute.value.query.project).toBeUndefined());expect(absent.selection.selected.value).toBeNull();
+it('preserves a missing deep link with a notice and rejects array identity',async()=>{
+  const absent=await setup({project:'missing'});expect(absent.router.currentRoute.value.query.project).toBe('missing');expect(absent.selection.notice.value).toContain('현재 표시 범위');expect(absent.selection.selected.value).toBeNull();
   const array=await setup({project:['one','two']});expect(array.selection.selected.value).toBeNull();
 });
-it('clears the filtered-out warning when that project becomes visible again without auto-selecting it',async()=>{
- const {rows,selection,router}=await setup({project:'one'});rows.value=[row('two')];await nextTick();await vi.waitFor(()=>expect(router.currentRoute.value.query.project).toBeUndefined());expect(selection.notice.value).toContain('현재 표시 범위');
- rows.value=[row('one'),row('two')];await nextTick();expect(selection.notice.value).toBe('');expect(selection.selected.value).toBeNull();
+it('restores the same explicit project when its filter scope is recovered',async()=>{
+ const {rows,selection,router}=await setup({project:'one'});rows.value=[row('two')];await nextTick();expect(router.currentRoute.value.query.project).toBe('one');expect(selection.notice.value).toContain('현재 표시 범위');
+ rows.value=[row('one'),row('two')];await nextTick();expect(selection.notice.value).toBe('');expect(selection.selected.value?.id).toBe('one');
 });

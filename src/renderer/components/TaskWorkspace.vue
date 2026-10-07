@@ -16,7 +16,8 @@ const props=defineProps<{workstream:LiveWorkstreamView;dag?:LiveDagView;state:Ta
 const tasks=computed(()=>props.dag?.workspaceTasks??props.dag?.tasks??[]);
 const rows=computed(()=>interpretTasks(tasks.value,{projectId:props.workstream.id,dagId:props.dag?.dagId??'',sourceHash:props.dag?.sourceHash??'',observedAt:props.dag?.observedAt??'',policies:props.dag?.policies??[]}));
 const options=computed(()=>taskFilterOptions(rows.value));
-const visible=computed(()=>filterTasks(rows.value,{status:props.state.status as TaskStatusFilter,search:props.state.search,type:props.state.type==='all'?undefined:props.state.type.slice(5),phase:props.state.phase==='all'?undefined:props.state.phase,prefix:props.state.prefix==='all'?undefined:props.state.prefix.slice(7)}));
+const visible=computed(()=>filterTasks(rows.value,{status:props.state.status as TaskStatusFilter,search:props.state.search,type:props.state.type==='all'?undefined:props.state.type.slice(5),phase:props.state.phase==='all'?undefined:props.state.phase,prefix:props.state.prefix==='all'?undefined:props.state.prefix.slice(7)}).filter(row=>props.state.feature==='all'||row.task.rawFeature===props.state.feature.slice(8)));
+const features=computed(()=>[...new Set(tasks.value.flatMap(t=>t.rawFeature?[t.rawFeature]:[]))].sort());
 const selected=computed(()=>rows.value.find(r=>r.task.id===props.state.selected));
 const graph=computed(()=>layoutTaskGraph(tasks.value,visible.value.map(r=>r.task.id)));
 const list=ref<HTMLElement|null>(null),detail=ref<HTMLElement|null>(null),summaryOpen=ref(false),selectionBusy=ref(false),summaryError=ref('');
@@ -36,13 +37,14 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
   <p v-if="!current" class="notice warning">현재 근거를 재확인하지 못했습니다. 보존된 선언이며 최신 상태나 작업 없음으로 판단하지 않습니다.</p>
   <div class="task-filters">
    <label>상태<Select v-model="state.status" :options="[...TASK_STATUS_OPTIONS]" option-label="label" option-value="value" aria-label="태스크 상태" data-testid="task-status-filter"/></label>
-   <label>검색<InputText v-model="state.search" aria-label="태스크 검색" placeholder="ID·제목·원본 상태" data-testid="task-search"/></label>
+   <label>검색<InputText v-model="state.search" :maxlength="512" aria-label="태스크 검색" placeholder="ID·제목·원본 상태" data-testid="task-search"/></label>
    <label>타입<Select v-model="state.type" :options="[{value:'all',label:'모든 타입'},...options.types.map(t=>({value:'type:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 타입"/></label>
    <label>Phase<Select v-model="state.phase" :options="[{value:'all',label:'모든 Phase'},...options.phases]" option-label="label" option-value="value" aria-label="태스크 Phase"/></label>
    <label>접두사<Select v-model="state.prefix" :options="[{value:'all',label:'모든 접두사'},...options.prefixes.map(t=>({value:'prefix:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 접두사"/></label>
+   <label>기능<Select v-model="state.feature" :options="[{value:'all',label:features.length?'모든 기능':'기능 선언 없음'},...features.map(t=>({value:'feature:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 기능" :disabled="!features.length"/></label>
   </div>
   <div class="section-heading"><p role="status" data-testid="task-count">{{visible.length}}개 표시 · 수집된 {{tasks.length}}개 · 필터로 숨김 {{tasks.length-visible.length}}개<span v-if="(dag?.workspaceTaskCount??dag?.taskCount??0)>tasks.length"> · 표시 상한 밖 {{(dag?.workspaceTaskCount??dag?.taskCount??0)-tasks.length}}개</span></p><div class="filter-group"><button :aria-pressed="state.view==='list'" @click="state.view='list'">목록</button><button :aria-pressed="state.view==='dag'" data-testid="task-dag-toggle" @click="state.view='dag'">읽기 전용 DAG</button></div></div>
-  <p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p>
+  <p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 검토 대기는 명시된 태스크 완료 리뷰와 실제 관측한 PR 리뷰를 포함합니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p>
   <div class="task-split" :class="{'task-selected':!!selected}">
    <div ref="list" class="task-list-scroll" @scroll="state.scroll=($event.target as HTMLElement).scrollTop">
     <p v-if="!visible.length" class="empty-state">{{tasks.length?'현재 필터에 맞는 작업이 없습니다. 필터를 바꿔 주세요.':'표시할 작업 선언을 확인하지 못했습니다.'}}</p>

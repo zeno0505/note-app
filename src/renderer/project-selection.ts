@@ -10,7 +10,8 @@ export function createProjectSelection(route:Pick<RouteLocationNormalizedLoaded,
   const stop=watch([selectedId,rows],([id,visible])=>{
     if(id&&!visible.some(w=>w.id===id)){
       excludedId=id;notice.value='선택한 프로젝트가 현재 표시 범위에 없습니다. 프로젝트 상태·저장소·검색 필터를 확인해 주세요.';
-      void router?.replace({path:'/',query:{...route?.query,project:undefined}});
+      // Keep the explicit navigation identity. Filtering never silently discards it.
+      // The same project reappears when the user restores its visible scope.
     }else if(id||(excludedId&&visible.some(w=>w.id===excludedId))){notice.value='';excludedId=null;}
   },{immediate:true});
   return {selected,selectedId,notice,close:()=>{notice.value='';excludedId=null;return router?.push({path:'/',query:{...route?.query,project:undefined}});},dispose:stop};

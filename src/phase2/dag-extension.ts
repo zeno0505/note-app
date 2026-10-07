@@ -12,7 +12,7 @@ export function projectDagExtensions(raw:Record<string,unknown>,tasks:DagTask[])
   let omissions=0;
   const scalar=(v:unknown)=>{if(v==null)return null;const result=text(v);if(result===null)omissions++;return result;};
   const list=(v:unknown)=>{if(v==null)return [];const values=Array.isArray(v)?v:[v];const accepted:string[]=[];for(const entry of values){const value=text(entry);if(value!==null&&accepted.length<40)accepted.push(value);else omissions++;}return accepted;};
-  task.rawType=scalar(item.type);
+  task.rawType=scalar(item.type);task.rawFeature=scalar(item.feature);
   task.details={description:scalar(item.description),acceptanceCriteria:list(item.acceptance_criteria),targetFiles:list(item.target_files),discussion:list(item.discussion),design:list(item.design),omissions};
  }
  const assigned=new Set<string>();

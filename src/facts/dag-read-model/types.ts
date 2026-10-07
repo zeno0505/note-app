@@ -2,6 +2,7 @@ export type DagFailureKind = 'invalid_request' | 'busy' | 'cancelled' | 'timeout
 export interface DagError { kind: DagFailureKind; message: string }
 export interface DagTask {
   rawType?: string | null;
+  rawFeature?: string | null;
   phase?: {id:string|null;title:string|null;index:number}|null;
   details?: {description:string|null;acceptanceCriteria:string[];targetFiles:string[];discussion:string[];design:string[];omissions:number};
   id: string; title: string | null;

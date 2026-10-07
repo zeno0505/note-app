@@ -39,7 +39,7 @@ for mode, args in [('index', ['--index', '--fields', 'id,title,status,depends_on
 # Version 2 adds fixed allowlisted modes. The original pinned loader owns YAML parsing.
 emitted = []
 namespace['emit'] = emitted.append
-sys.argv = [script, str(snapshot), '--index', '--fields', 'id,type,description,acceptance_criteria,target_files,discussion,design']
+sys.argv = [script, str(snapshot), '--index', '--fields', 'id,type,feature,description,acceptance_criteria,target_files,discussion,design']
 namespace['main']()
 if len(emitted) != 1: raise RuntimeError('unsupported detail emission')
 result['details'] = emitted[0]
