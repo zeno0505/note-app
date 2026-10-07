@@ -1,3 +1,4 @@
+import {prefixSelection,scopedDagView,prefixReading} from '../summary/reading/prefix';
 import {ModelDiagnosticError} from './model-diagnostics';
 import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
@@ -11,7 +12,7 @@ import { createDagReader, type DagReadModel } from '../facts/dag-read-model';
 import { createCodeBurnReader, type CodeBurnQuery, type CodeBurnResult } from '../summary/budget/codeburn';
 import { createSummaryStore, restoreSummaryStoreFromLocalCache, type ClaimView } from '../summary/claims';
 import {observeProjectDocuments,type ProjectDocumentObservation} from '../summary/reading/documents';
-import { createReadingScheduler } from '../summary/reading';
+import { explainReading,createReadingScheduler } from '../summary/reading';
 import type { PullObservationAdapter } from '../summary/reading/pulls';
 import { createPublicGitHubObserver } from '../summary/reading/github';
 import { buildContextPack } from '../summary/context';
@@ -110,6 +111,10 @@ export function createLiveRuntime(options: {
   const orca = config ? (deps.orca ?? createOrcaAdapter)({ executablePath: config.orcaExecutablePath }) : null;
   const codeburn = config?.codeburnExecutablePath
     ? (deps.codeburn ?? createCodeBurnReader)({ executablePath: config.codeburnExecutablePath }) : null;
+  const prefixSummaries=new Map<string,import('../shared/reading-summary').ReadingSummary>();
+  function readPrefixSummary(w:LiveWorkstreamView,d:LiveDagView){const next=prefixReading(w,d),key=JSON.stringify([w.id,d.dagId,d.summaryScope!.selected]),prior=prefixSummaries.get(key);const result=prior?.fingerprint===next.fingerprint?{...prior,checkedAt:next.checkedAt,changed:w.readingSummary?.changed??false}:{...next,revision:(prior?.revision??0)+1};if(prefixSummaries.size>=256&&!prefixSummaries.has(key))prefixSummaries.delete(prefixSummaries.keys().next().value!);prefixSummaries.set(key,result);return structuredClone(result);}
+  const summaryPrefixes=new Map<string,string>();
+  const selectedPrefix=(id:string)=>registry?.records().find(p=>p.dagId===id)?.summaryPrefix??summaryPrefixes.get(id)??'T';
   const dagSessions = new Map<string, DagSession>();
   const excerptReaders = new Map<string, { identity: string; reader: ReturnType<typeof createRegisteredExcerptReader>; retired: boolean }>();
   const documentReaders=new Map<string,{identity:string;retired:boolean;reader:ReturnType<typeof createRegisteredExcerptReader>}>();
@@ -530,13 +535,15 @@ export function createLiveRuntime(options: {
         view.project=lifecycleView(p,view,present);if(p.status==='completed')view.project.sourceState='not-checked';else if(!observedView||!retainedAllowed(p)||!connected||snapshot.freshness!=='current'||registryError)view.project.sourceState='not-checked';
       }
     }
+    for(let i=0;i<dags.length;i++){const model=dagSessions.get(dags[i].dagId)?.model;if(model)dags[i]=scopedDagView(dags[i],model,selectedPrefix(dags[i].dagId));}
+    for(const w of value?.workstreams??[]){const dag=dags.find(d=>d.dagId===w.noteMapping.dagId);if(dag?.summaryScope)w.readingSummary=readPrefixSummary(w,dag);else if(w.readingSummary)w.readingSummary={...w.readingSummary,summaryPrefix:'T',...explainReading({workstream:w},{state:'unconfigured'})};}
     for (const dag of dags) {
       const sourceUnavailable = dag.state !== 'ready' || dag.summary.state === 'error';
       const aged = freshness !== 'current' || !dag.observedAt || now() - Date.parse(dag.observedAt) >= STALE_MS;
-      if (sourceUnavailable || aged) {
+      if (sourceUnavailable || aged || dag.summaryScope) {
         const historical = (claims: ClaimView[]): ClaimView[] => claims.map(claim => ({ ...claim,
           freshness: claim.freshness === 'unknown' ? 'unknown' : sourceUnavailable ? 'unknown' : 'stale',
-          reasons: [...claim.reasons, sourceUnavailable ? 'observation:unavailable' : 'observation:stale'] }));
+          reasons: [...claim.reasons, sourceUnavailable ? 'observation:unavailable' : aged?'observation:stale':'summary:unscoped-history'] }));
         dag.summary.candidateClaims = historical(dag.summary.candidateClaims);
         dag.summary.approvedClaims = historical(dag.summary.approvedClaims);
       }
@@ -555,6 +562,12 @@ export function createLiveRuntime(options: {
   const unsubscribe = store.subscribe(publish);
   return {
     getState,
+    async setSummaryPrefix(request:unknown){
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='prefix,workstreamId')throw Error('접두사 선택 요청 오류');
+      const r=request as {prefix:string;workstreamId:string};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
+      if(disposed||!connected||snapshot.refreshing||!id||!model||snapshot.value?.dags.find(d=>d.dagId===id)?.state!=='ready'||!prefixSelection(model).scope.available.some(p=>p.prefix===r.prefix))throw Error('현재 DAG의 실제 접두사를 선택해야 합니다.');
+      if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix);summaryPrefixes.set(id,r.prefix);publish();return getState();
+    },
     /** Main-only authority resolution. These raw paths/models never cross the live view IPC. */
     // A running manual request may outlive the display freshness window. Only
     // time ageing is relaxed on revalidation: mapping, root grants, DAG bytes,
@@ -587,8 +600,18 @@ export function createLiveRuntime(options: {
       session.model=currentDag.value;
       return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
-    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
-    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''):null;},
+    async resolveProjectModelSource(workstreamId:string,signal:AbortSignal,revalidate=false){
+      const w=this.getState().workstreams.find(w=>w.id===workstreamId),id=w?.noteMapping.dagId;
+      if(!id)throw new ModelDiagnosticError('current_dag_unavailable');const prefix=selectedPrefix(id);
+      const source=await this.resolveSummarySource(workstreamId,signal,revalidate);
+      if(prefix!==selectedPrefix(id))throw new ModelDiagnosticError('source_changed');
+      const {tasks,scope}=prefixSelection(source.dag,prefix);if(!tasks.length)throw new ModelDiagnosticError('current_dag_unavailable');
+      const base=this.getState().dags.find(d=>d.dagId===id)!;
+      const coverage={tasksTotal:tasks.length,declared:tasks.filter(t=>t.e2e.state==='declared').length,required:tasks.filter(t=>t.e2e.required).length,uncoveredDone:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status===source.dag.doneStatus).map(t=>t.id),uncoveredOpen:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status!==source.dag.doneStatus).map(t=>t.id),malformed:tasks.filter(t=>t.e2e.coverage==='malformed').map(t=>t.id)};
+      return {observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix]),codeburn:source.codeburn};
+    },
+    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!))).fingerprint]):null;},
+    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'prefix-v1',selectedPrefix(w.noteMapping.dagId!)])).replace(/^sha256:/,''):null;},
     resolveReconnectWorktree(id:string){const snapshot=store.getState();if(disposed||!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)return null;const s=snapshot.value?.worktreeSources.find(w=>w.id===id);return s?.hostId===config.localHostId&&s.worktreePath&&s.present!==false?{worktreePath:s.worktreePath}:null;},
     reconnectedWorkstream(worktreePath:string){return store.getState().value?.worktreeSources.find(s=>s.worktreePath===worktreePath&&s.hostId===config?.localHostId&&s.present!==false)?.id;},
     async bindReconnectedNote(selection:{worktreePath:string;directory:string;dagRelativePath:string}){

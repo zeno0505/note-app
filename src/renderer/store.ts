@@ -114,3 +114,11 @@ export function formatTime(value:string|number):string {
 }
 
 export async function openProjectDocument(workstreamId:string,linkId:string){try{await window.noteApp.openProjectDocument({workstreamId,linkId});}catch(error){bridgeError.value=error instanceof Error?error.message:String(error);}}
+
+export async function setSummaryPrefix(workstreamId:string,prefix:string){
+  if(liveBusy.value||mode.value==='demo')return;
+  const generation=++liveGeneration,observed=observedGeneration;liveBusy.value=true;bridgeError.value=null;
+  try{const state=await window.noteApp.setSummaryPrefix({workstreamId,prefix});if(generation===liveGeneration&&observed===observedGeneration)liveState.value=state;}
+  catch{if(generation===liveGeneration)bridgeError.value='접두사 선택을 저장하지 못했습니다. 현재 선택과 DAG 연결을 확인해 주세요.';}
+  finally{if(generation===liveGeneration)liveBusy.value=false;}
+}

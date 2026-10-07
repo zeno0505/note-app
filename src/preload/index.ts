@@ -4,6 +4,7 @@ const bridge: NoteAppBridge = Object.freeze({
   prepareModelRetry:(request:Parameters<NoteAppBridge['prepareModelRetry']>[0])=>ipcRenderer.invoke('note-app:model-retry-prepare',request),
   cancelModelRetry:(request:Parameters<NoteAppBridge['cancelModelRetry']>[0])=>ipcRenderer.invoke('note-app:model-retry-cancel',request),
   runModelRetry:(request:Parameters<NoteAppBridge['runModelRetry']>[0])=>ipcRenderer.invoke('note-app:model-retry-run',request),
+  setSummaryPrefix:(request:Parameters<NoteAppBridge['setSummaryPrefix']>[0])=>ipcRenderer.invoke('note-app:summary-prefix',request),
   getProjectModelState:(request:Parameters<NoteAppBridge['getProjectModelState']>[0])=>ipcRenderer.invoke('note-app:project-model-state',request),
   summarizeProjectModel:(request:Parameters<NoteAppBridge['summarizeProjectModel']>[0])=>ipcRenderer.invoke('note-app:project-model-run',request),
   cancelProjectModel:(request:Parameters<NoteAppBridge['cancelProjectModel']>[0])=>ipcRenderer.invoke('note-app:project-model-cancel',request),

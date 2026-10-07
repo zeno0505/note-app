@@ -109,7 +109,7 @@ describe('connected-project rule reading integration',()=>{
     expect(first.workstreams[0].noteMapping.registration).toBe('explicit-read-only');expect(first.workstreams[1].noteMapping.registration).toBeUndefined();
     expect(read).toHaveBeenCalledTimes(1);expect(read.mock.calls[0][0].workstreamId).toBe(first.workstreams[0].id);
     await f.runtime.summarizeNow();expect(read.mock.calls.at(-1)![2]).toBe('manual');
-    expect(first.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('직접 푸시'))).toBe(true);
+    expect(first.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('대응된 PR·CI·리뷰 근거는 포함되지'))).toBe(true);
   });
   it('uses background collection cadence and does not regenerate unchanged content',async()=>{
     const f=setup();const first=await f.runtime.connect();const reading=first.workstreams[0].readingSummary!;
@@ -292,7 +292,7 @@ describe('main-owned live read-only orchestration',()=>{
   it('restores historical candidate and approval, recomputes changed and missing evidence, and never writes',async()=>{
     const x=setup(),record=persisted();x.cacheRead.mockResolvedValue(record);
     const first=await x.runtime.connect();expect(first.dags[0].summary).toMatchObject({state:'restored',revision:7,approvedAt:new Date(EPOCH).toISOString()});
-    expect(first.dags[0].summary.candidateClaims).toHaveLength(6);expect(first.dags[0].summary.approvedClaims.every(c=>c.freshness==='current')).toBe(true);
+    expect(first.dags[0].summary.candidateClaims).toHaveLength(6);expect(first.dags[0].summary.approvedClaims.every(c=>c.freshness==='stale'&&c.reasons.includes('summary:unscoped-history'))).toBe(true);
     const changed=dag();changed.tasks[0].title='Changed task';changed.sourceHash='b'.repeat(64);x.readDag.mockResolvedValue({ok:true,value:changed,unchanged:false});
     const stale=await x.runtime.refresh();expect(stale.dags[0].summary.approvedClaims.every(c=>c.freshness==='stale')).toBe(true);
     const missing=dag(0);x.readDag.mockResolvedValue({ok:true,value:missing,unchanged:false});
@@ -369,10 +369,10 @@ describe('main-owned live read-only orchestration',()=>{
     const first=await x.runtime.connect();expect(first.dags[0].summary.state).toBe('unavailable');expect(x.cacheRead).not.toHaveBeenCalled();
     await x.runtime.refresh();expect(x.mapNotes).toHaveBeenCalledTimes(2);expect(x.runtime.getState().dags[0].state).toBe('unavailable');
   });
-  it('keeps unchanged projection claims current after unselected upstream edits and downgrades aged history',async()=>{
+  it('preserves unscoped approval history after upstream edits without presenting it as current prefix evidence',async()=>{
     const x=setup();x.cacheRead.mockResolvedValue(persisted());await x.runtime.connect();
     const next=dag();next.tasks[2].title='Unselected change';next.sourceHash='b'.repeat(64);x.readDag.mockResolvedValue({ok:true,value:next,unchanged:false});
-    const fresh=await x.runtime.refresh();expect(fresh.dags[0].summary.approvedClaims.every(c=>c.freshness==='current')).toBe(true);
+    const fresh=await x.runtime.refresh();expect(fresh.dags[0].summary.approvedClaims.every(c=>c.freshness==='stale')).toBe(true);
     x.runtime.setActivity({active:false,visible:true});await vi.advanceTimersByTimeAsync(40_000);
     expect(x.runtime.getState().dags[0].summary.approvedClaims.every(c=>c.freshness==='stale')).toBe(true);
   });
@@ -386,7 +386,7 @@ describe('main-owned live read-only orchestration',()=>{
     expect(x.cacheRead).toHaveBeenCalledTimes(1);
   });
   it('bounds status and reference display lists with explicit omission counts without changing context facts',async()=>{
-    const x=setup(),model=dag(20);model.statusCounts=Array.from({length:20},(_,i)=>({status:`status-${i}`,count:1}));
+    const x=setup(),model=dag(20);model.statusCounts=Array.from({length:20},(_,i)=>({status:`status-${i}`,count:1}));model.tasks.forEach((t,i)=>{t.status=`status-${i}`;});
     model.tasks[0].dependencies=Array.from({length:20},(_,i)=>({id:`T-${i}`,scope:'internal'}));
     model.tasks[0].commitReferences=Array.from({length:20},(_,i)=>`commit-${i}`);
     model.tasks[0].e2e={state:'declared',required:true,coverage:'references-declared',coveredBy:Array.from({length:20},(_,i)=>`evidence-${i}`)};
@@ -482,11 +482,11 @@ function projectDocumentFixture(links?:{role:'inbox'|'discussion'|'design';wikil
 it('production-wires project documents only for the exact verified worktree and keeps them separate from model context',async()=>{
  const {config,registration,context}=projectDocumentFixture();const read=vi.fn(async()=>structuredClone(context));const excerptReader=vi.fn<LiveRuntimeDependencies['excerptReader']>(()=>({read}));const f=setup(config,true,{excerptReader});
  const first=await f.runtime.connect();expect(excerptReader).toHaveBeenCalledTimes(1);expect(excerptReader.mock.calls[0][0]).toMatchObject({canonicalScopePath:'/synthetic/worktree/0',canonicalNotePath:'/synthetic/worktree/0',registrations:[registration]});
- expect(first.workstreams[0].readingSummary?.sections[0].paragraphs[0].text).toContain('등록된 프로젝트 구현 기록');
+ expect(first.workstreams[0].readingSummary?.summaryPrefix).toBe('T');expect(first.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
  expect(first.workstreams[1].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
  expect(first.dags[0].summary.context).toBeNull();const again=await f.runtime.refresh();expect(again.workstreams[0].readingSummary?.changed).toBe(false);
  read.mockRejectedValueOnce(new Error('Missing current document'));const missing=await f.runtime.refresh();expect(missing.workstreams[0].readingSummary?.sections[0].paragraphs.some(p=>p.text.includes('등록된 프로젝트 구현 기록'))).toBe(false);
- expect(missing.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('근거 문서를 현재 범위에서 확인하지 못했습니다'))).toBe(true);
+ expect(missing.workstreams[0].readingSummary?.sections.find(s=>s.id==='evidence')?.paragraphs.some(p=>p.text.includes('접두사에 대응되지 않은 프로젝트 문서'))).toBe(true);
 });
 it('bounds a non-cooperative project document reader, retires it and rejects late publication',async()=>{
  const {config,context}=projectDocumentFixture();let finish!:(context:RegisteredExcerptContext)=>void;const read=vi.fn((..._args:Parameters<ReturnType<LiveRuntimeDependencies['excerptReader']>['read']>)=>new Promise<RegisteredExcerptContext>(resolve=>{finish=resolve;}));
@@ -539,4 +539,24 @@ it('manual collection recovers only a reader that verifies its own settled owner
 });
 it('manual collection retains the same reader when ownership recovery is refused',async()=>{
  const read=vi.fn(async()=>({ok:false as const,error:{kind:'cleanup_unverified' as const,message:'retired'}})),recover=vi.fn(()=>false),factory=vi.fn(()=>({read,recover}));const x=setup(configuration(),true,{dagReader:factory});await x.runtime.connect();await x.runtime.refresh();await x.runtime.refresh();expect(recover).toHaveBeenCalledTimes(2);expect(factory).toHaveBeenCalledOnce();expect(x.runtime.getState().dags[0].state).toBe('error');
+});
+
+it('selects an exact prefix from the full model before display caps, separates identities and retains choice on disconnect',async()=>{
+ const f=setup(),model=dag(205);model.tasks=model.tasks.map((t,i)=>({...t,id:'MP-'+i,title:'Other prefix body'}));model.tasks.push(task('T-227'),task('TT-001'));model.coverage.tasksTotal=model.tasks.length;
+ f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const first=await f.runtime.connect(),id=first.workstreams[0].id;
+ expect(first.dags[0].tasks.map(t=>t.id)).toEqual(['T-227']);expect(first.dags[0].summaryScope?.available).toEqual([{prefix:'MP',count:205},{prefix:'T',count:1},{prefix:'TT',count:1}]);
+ const tKey=f.runtime.identifyModelProject(id),tRevision=f.runtime.modelSourceRevision(id);const selected=await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'MP'});
+ expect(selected.dags[0].tasks).toHaveLength(200);expect(selected.dags[0].taskCount).toBe(205);expect(selected.workstreams[0].readingSummary?.summaryPrefix).toBe('MP');expect(JSON.stringify(selected.workstreams[0].readingSummary)).not.toContain('T-227');
+ expect(f.runtime.identifyModelProject(id)).not.toBe(tKey);expect(f.runtime.modelSourceRevision(id)).not.toBe(tRevision);await expect(f.runtime.setSummaryPrefix({workstreamId:id,prefix:'M'})).rejects.toThrow();
+ await f.runtime.disconnect();await f.runtime.connect();expect(f.runtime.getState().dags[0].summaryScope?.selected).toBe('MP');await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'T'});expect(f.runtime.identifyModelProject(id)).toBe(tKey);
+});
+it('defaults to absent T without selecting another prefix and persists explicit choices in app registry',async()=>{
+ const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry),model=dag(1);model.tasks[0].id='MP-002c';f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});
+ const first=await f.runtime.connect(),id=first.workstreams[0].id;expect(first.dags[0].summaryScope?.selected).toBe('T');expect(first.dags[0].tasks).toEqual([]);expect(JSON.stringify(first.workstreams[0].readingSummary)).toContain('직접 선택');
+ await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'MP'});expect(registry.records()[0].summaryPrefix).toBe('MP');expect(f.runtime.getState().dags[0].tasks[0].id).toBe('MP-002c');
+});
+
+it('manual prefix AI uses all selected tasks before its own cap, including tasks after display index 200',async()=>{
+ const f=setup(),model=dag(251);model.tasks.forEach(t=>{t.status='done';});model.tasks[250].status='running';f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const view=await f.runtime.connect();const source=await f.runtime.resolveProjectModelSource(view.workstreams[0].id,new AbortController().signal);
+ expect(source.summaryPrefix).toBe('T');expect(view.dags[0].tasks).toHaveLength(200);expect(source.dag.tasks).toHaveLength(251);expect(source.readingSummary.summaryPrefix).toBe('T');const {buildProjectModelPack}=await import('../../src/main/project-model');const pack=buildProjectModelPack(source);expect(pack.sources.find(s=>s.path==='dag/task-state.json')?.excerpt).toContain('T-250');expect(source).not.toHaveProperty('registeredExcerpts');
 });

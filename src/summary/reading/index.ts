@@ -37,7 +37,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       ? paragraph(`DAG는 ${names(done)}의 작업 완료를 선언합니다. 이 선언만으로 실제 구현 검수나 배포 완료를 확인할 수는 없습니다.`, 'declaration', sources)
       : paragraph('현재 표시 범위의 DAG에는 완료로 선언된 작업이 없습니다. 실제 구현이 없다는 뜻은 아닙니다.', 'declaration', sources));
     if (running.length) implemented.push(paragraph(`DAG는 ${names(running)}을 진행 중으로 기록합니다. 현재 에이전트 실행 여부와는 별개입니다.`, 'declaration', sources));
-    const ready = remaining.filter(t => t.status === 'pending' && t.displayOmissions.dependencies === 0 && t.dependencies.every(d => d.scope === 'internal' && dag.tasks.some(other => other.id === d.id && other.status === doneStatus)));
+    const ready = remaining.filter(t => t.status === 'pending' && t.displayOmissions.dependencies === 0 && t.dependencies.every(d => d.scope === 'internal' && (dag.tasks.some(other => other.id === d.id && other.status === doneStatus)||dag.summaryScope?.dependencies.some(other=>other.scope==='internal'&&other.id===d.id&&other.status===doneStatus))));
     if (ready.length) next.push(paragraph(`원문 DAG 기준에서만 ${names(ready)}은 표시된 내부 의존성의 완료 선언을 기준으로 다음 구현 후보입니다. 실제 코드에서 이미 구현되었는지는 확인하지 않았습니다. 새로 구현하기 전에 기존 코드·검증 근거와의 대응을 확인해야 합니다. 설계 합의·우선순위·실행 승인은 확인하지 않았습니다.`, 'proposal', sources));
     else next.push(paragraph(remaining.length ? `남은 선언 작업은 ${names(remaining)}입니다. 다음 착수 후보를 확정할 근거는 부족합니다.` : '표시 범위에 남은 선언 작업이 없습니다. 전체 구현이 검증되었다는 뜻은 아닙니다.', 'declaration', sources));
     const blocked = dag.tasks.filter(t => t.status === 'blocked');

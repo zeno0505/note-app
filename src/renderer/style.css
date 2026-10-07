@@ -95,3 +95,5 @@ input:disabled,select:disabled,textarea:disabled{background:var(--app-surface-mu
 ::selection{background:var(--app-selected);color:var(--app-text)}
 :where(button:not(.p-button)):hover:not(:disabled){background:var(--app-surface-hover)}
 :where(button:not(.p-button)){background:var(--app-surface);color:var(--app-text);border:1px solid var(--app-control-border);border-radius:var(--p-border-radius-md)}
+
+.summary-prefix{display:grid;gap:8px;padding:16px 0}.summary-prefix .p-select{width:min(100%,320px);min-width:0}.summary-prefix p{overflow-wrap:anywhere}

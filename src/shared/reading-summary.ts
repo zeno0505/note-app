@@ -21,6 +21,7 @@ export interface ReadingSection {
 }
 export interface ReadingSummary {
   kind: 'rules-only';
+  summaryPrefix?:string;
   workstreamId: string;
   fingerprint: string;
   revision: number;
