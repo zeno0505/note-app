@@ -1,3 +1,4 @@
+import {createNoteReconnect} from './note-reconnect';
 import {createReadRoots,readRootsCodec} from './read-roots';
 import {readInstallation,verificationProfile,allowInstallation,canonicalTargetVerified} from './install-identity';
 import {trayIconPng} from './tray-icon';
@@ -144,13 +145,25 @@ app.whenReady().then(async()=>{
   });
   let changingReadRoots=false,pickingReadRoot=false;
   function checkReadSender(event:Electron.IpcMainInvokeEvent){if(!mainWindow||quitting)throw Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);}
+  const reconnect=createNoteReconnect({resolve:id=>liveRuntime.resolveReconnectWorktree(id),allowed:p=>readRoots.allowsDirectory(p)});
+  let reconnectBusy=false;
+  ipcMain.handle('note-app:note-reconnect-select',async(event,...args)=>{
+    checkReadSender(event);if(args.length!==1||!args[0]||Object.keys(args[0]).join(',')!=='workstreamId'||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('프로젝트 선택 오류');
+    if(pickingReadRoot||changingReadRoots||reconnectBusy)throw Error('폴더 선택 또는 재연결 처리 중입니다.');pickingReadRoot=true;reconnect.invalidate();
+    try{await liveRuntime.refresh();if(!liveRuntime.resolveReconnectWorktree(args[0].workstreamId))throw Error('현재 로컬 프로젝트 연결을 확인할 수 없습니다.');const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 재연결',message:'이 프로젝트의 노트가 있는 디렉토리를 선택하세요.',properties:['openDirectory'],buttonLabel:'이 디렉토리 검토'});if(result.canceled||result.filePaths.length!==1)return null;return await reconnect.prepare(args[0].workstreamId,result.filePaths[0]);}finally{pickingReadRoot=false;}
+  });
+  ipcMain.handle('note-app:note-reconnect-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('취소 요청 오류');reconnect.cancel(args[0]);});
+  ipcMain.handle('note-app:note-reconnect-confirm',(event,...args)=>{
+    checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('재연결 요청 오류');reconnectBusy=true;
+    return tracked((async()=>{try{await liveRuntime.refresh();projectModel?.cancel();await publicModel?.cancel();for(const controller of linkControllers)controller.abort();const result=await reconnect.confirm(args[0]);await liveRuntime.refresh();return result;}finally{reconnectBusy=false;}})());
+  });
   ipcMain.handle('note-app:read-roots',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return readRoots.view();});
   ipcMain.handle('note-app:read-root-select',async(event,...args)=>{
-    checkReadSender(event);assertNoArguments(args);if(pickingReadRoot||changingReadRoots)throw Error('폴더 선택이 진행 중입니다.');pickingReadRoot=true;
+    checkReadSender(event);assertNoArguments(args);if(pickingReadRoot||changingReadRoots||reconnectBusy)throw Error('폴더 선택이 진행 중입니다.');pickingReadRoot=true;
     try{const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 읽기를 허용할 폴더 선택',properties:['openDirectory'],buttonLabel:'읽기 범위 검토'});if(result.canceled||result.filePaths.length!==1)return null;return await readRoots.prepare(result.filePaths[0]);}finally{pickingReadRoot=false;}
   });
   ipcMain.handle('note-app:read-root-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');readRoots.cancel(args[0]);});
-  async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
+  async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
     try{for(const controller of linkControllers)controller.abort();await publicModel?.cancel();projectModel?.cancel();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
     finally{summaryWorkflow=makeSummaryWorkflow();changingReadRoots=false;}
   }
@@ -169,7 +182,7 @@ app.whenReady().then(async()=>{
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
-    if(changingReadRoots&&channel!=='note-app:live-state')throw Error('읽기 권한 변경이 진행 중입니다.');
+    if((changingReadRoots||reconnectBusy)&&channel!=='note-app:live-state')throw Error('읽기 권한 변경이 진행 중입니다.');
     return action();
   });
   for(const [channel,action] of [
@@ -177,7 +190,7 @@ app.whenReady().then(async()=>{
     ['note-app:project-model-run',(id:string)=>projectModel!.run(id)],
     ['note-app:project-model-cancel',(id:string)=>{projectModel!.cancel(id);return projectModel!.view(id);}],
   ] as const)ipcMain.handle(channel,(event,...args)=>{
-    if(!mainWindow||quitting||changingReadRoots)throw Error('App unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);
+    if(!mainWindow||quitting||changingReadRoots||reconnectBusy)throw Error('App unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);
     if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).sort().join(',')!==(channel==='note-app:project-model-run'?'transferConfirmed,workstreamId':'workstreamId')||(channel==='note-app:project-model-run'&&args[0].transferConfirmed!==true)||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('Invalid project model selection');
     return tracked(action(args[0].workstreamId));
   });

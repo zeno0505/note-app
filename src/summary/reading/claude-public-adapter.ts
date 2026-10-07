@@ -1,3 +1,5 @@
+import {ModelProcessFailure,type ModelProcessInfo} from './model-process-failure';
+import {finalizeQueryGroup} from '../../collector/orca/process-group';
 import {spawn,execFile,execFileSync} from 'node:child_process';
 import {mkdir,open,readFile,rename,unlink,writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -35,26 +37,33 @@ export function publicModelPrompt(request:Parameters<ModelAdapter['generate']>[0
 }
 export function createClaudePublicAdapter(executable:string,cwd:string,env:NodeJS.ProcessEnv):ModelAdapter {
   if(!path.isAbsolute(executable)||!path.isAbsolute(cwd))throw Error('Explicit absolute adapter paths required');
+  let cleanupUnverified=false;
   return {async generate(request,signal,observe){
+    if(cleanupUnverified)throw Error('Owned model cleanup unverified; no further calls');
     if(signal.aborted)return Promise.reject(Error('Cancelled before spawn'));
     await observe?.('authentication');await checkSubscriptionAuthentication(executable,cwd,env,signal);
     if(signal.aborted)return Promise.reject(Error('Cancelled after auth status'));
     await observe?.('launch-requested');if(signal.aborted)throw Error('Cancelled before spawn');const started=Date.now();let observed:Promise<void>=Promise.resolve();const completed=new Promise<ModelReceipt>((resolve,reject)=>{
       const child=spawn(executable,[...CLAUDE_PUBLIC_FLAGS,'--json-schema',JSON.stringify(modelOutputSchema(request.binding))],{cwd,env:subscriptionEnvironment(env),shell:false,detached:process.platform!=='win32',stdio:['pipe','pipe','pipe']});
       if(child.pid){observed=observe?.('started')??Promise.resolve();void observed.catch(()=>{});}
-      let output='',error='' ,bytes=0,stopping=false,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
+      let output='',stderrBytes=0,bytes=0,stopping=false,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
       const terminate=()=>{if(stopping)return;stopping=true;try{if(child.pid){if(process.platform==='win32')child.kill('SIGTERM');else process.kill(-child.pid,'SIGTERM');}}catch{}killTimer=setTimeout(()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}},1000);};
       const abort=()=>{failure='Cancelled owned model process';terminate();};signal.addEventListener('abort',abort,{once:true});
       child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>256000){failure='Model output exceeded bound';terminate();}else output+=chunk.toString();});
-      child.stderr.on('data',chunk=>{if(error.length<4000)error+=chunk.toString().slice(0,4000-error.length);});
+      child.stderr.on('data',chunk=>{stderrBytes=Math.min(2147483647,stderrBytes+chunk.length);});
       child.on('error',()=>{failure='Owned model process could not start';});
-      child.on('close',code=>{signal.removeEventListener('abort',abort);if(killTimer)clearTimeout(killTimer);if(failure||code!==0)return reject(Error(failure??'Model exited unsuccessfully'));
-        try{const result=JSON.parse(output);if(result.is_error||result.type!=='result'||result.subtype!=='success'||!result.structured_output)throw Error('No completed structured model result');
-          // These fields are returned observations; total_cost_usd is never a subscription billing promise.
-          const usage=Object.fromEntries(['usage','modelUsage','duration_ms','duration_api_ms','num_turns','total_cost_usd'].filter(k=>result[k]!==undefined).map(k=>[k,result[k]]));
-          resolve({answer:result.structured_output,usage,runtimeMs:Date.now()-started,provider:'claude-subscription-cli'});
-        }catch{reject(Error('Invalid or incomplete model result'));}
-      });child.stdin.on('error',()=>{});child.stdin.end(publicModelPrompt(request));
+      child.on('close',(code,signalName)=>{void (async()=>{
+        signal.removeEventListener('abort',abort);if(killTimer)clearTimeout(killTimer);
+        const cleanup=await finalizeQueryGroup(child),info:ModelProcessInfo={exitCode:code!==null&&code>=0&&code<=255?code:null,signal:signalName===null?'none':signalName==='SIGTERM'||signalName==='SIGKILL'?signalName:'other',durationMs:Date.now()-started,outputBytes:Math.min(bytes,2147483647),stderrBytes,cleanup:cleanup?'verified':'unverified'};
+        if(!cleanup){cleanupUnverified=true;return reject(new ModelProcessFailure('model_cleanup_unverified',info));}
+        if(failure)return reject(Error(failure));
+        if(code!==0)return reject(new ModelProcessFailure('model_exited_unsuccessfully',info));
+        let result;try{result=JSON.parse(output);}catch{return reject(new ModelProcessFailure('model_json_invalid',info));}
+        if(result?.is_error)return reject(new ModelProcessFailure('model_result_rejected',info));
+        if(result?.type!=='result'||result?.subtype!=='success'||!result?.structured_output)return reject(new ModelProcessFailure('model_result_incomplete',info));
+        const usage=Object.fromEntries(['usage','modelUsage','duration_ms','duration_api_ms','num_turns','total_cost_usd'].filter(k=>result[k]!==undefined).map(k=>[k,result[k]]));
+        resolve({answer:result.structured_output,usage,runtimeMs:Date.now()-started,provider:'claude-subscription-cli'});
+      })().catch(()=>{cleanupUnverified=true;reject(Error('Owned model cleanup unverified; no further calls'));});});child.stdin.on('error',()=>{});child.stdin.end(publicModelPrompt(request));
     });try{return await completed;}finally{await observed;}
   }};
 }

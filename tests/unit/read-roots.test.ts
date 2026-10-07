@@ -65,3 +65,5 @@ describe('explicit read roots',()=>{
     const aborted=new AbortController();aborted.abort();await expect(s.scopesFor(worktree(),[],aborted.signal)).rejects.toThrow();
   });
 });
+
+it('distinguishes verified fixed DAG absence from an unsafe DAG symlink without expanding grants',async()=>{const s=service([]);await allow(s);await rm(path.join(note,'dag.yaml'));const absent=await s.scopesFor(worktree());expect(absent[0].dagRelativePaths).toEqual([]);expect(await s.allowsDirectory(note)).toBe(true);expect(await s.allowsDirectory(vault)).toBe(false);await symlink(path.join(vault,'missing-dag'),path.join(note,'dag.yaml'));expect(await s.scopesFor(worktree())).toEqual([]);});

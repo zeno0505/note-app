@@ -59,11 +59,12 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
     for(const w of worktrees){if(signal?.aborted)throw Error('읽기 범위 확인 취소');if(w.hostId!==options.hostId)continue;
       try{const tree=await directory(w.worktreePath),docs=await directory(path.join(tree.path,'docs'));if(!inside(tree.path,docs.path))continue;const link=path.join(docs.path,'note');if(!(await lstat(link)).isSymbolicLink())continue;const target=await realpath(link);const root=usable.find(r=>r?.kind==='vault'&&target!==r.path&&inside(r.path,target));if(!root)continue;const note=await directory(target);if(note.path!==target)continue;
         if([...scopes.values()].some(s=>s.scopePath===target))continue;
-        const dags:string[]=[],identities=new Set<string>();for(const name of ['dag.yaml','dag.yml']){try{const file=path.join(target,name),stat=await lstat(file);if(stat.isFile()&&!stat.isSymbolicLink()&&await realpath(file)===file&&!identities.has(`${stat.dev}:${stat.ino}`)){dags.push(name);identities.add(`${stat.dev}:${stat.ino}`);}}catch{}}
-        if(dags.length)scopes.set('read-root:'+id(target),{scopeId:'read-root:'+id(target),hostId:w.hostId,vaultRootPath:root.path,scopePath:target,dagRelativePaths:dags});
+        const dags:string[]=[],identities=new Set<string>();let absent=0;for(const name of ['dag.yaml','dag.yml']){try{const file=path.join(target,name),stat=await lstat(file);if(stat.isFile()&&!stat.isSymbolicLink()&&await realpath(file)===file&&!identities.has(`${stat.dev}:${stat.ino}`)){dags.push(name);identities.add(`${stat.dev}:${stat.ino}`);}}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')absent++;}}
+        if(dags.length||absent===2)scopes.set('read-root:'+id(target),{scopeId:'read-root:'+id(target),hostId:w.hostId,vaultRootPath:root.path,scopePath:target,dagRelativePaths:dags});
       }catch{}
     }
     if(scopes.size>NOTE_MAPPING_LIMITS.scopes)throw Error('프로젝트 노트 범위 초과');return [...scopes.values()];
   }
-  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor};
+  async function allowsDirectory(p:string){await load();try{const selected=await directory(p);if(selected.path!==p)return false;for(const root of roots){if(!await valid(root))continue;if(root.kind==='vault'&&p!==root.path&&inside(root.path,p))return true;if(root.kind==='project'&&p===root.path&&options.initialScopes.some(s=>s.scopePath===p))return true;}return false;}catch{return false;}}
+  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor,allowsDirectory};
 }

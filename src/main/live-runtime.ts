@@ -582,6 +582,7 @@ export function createLiveRuntime(options: {
     },
     modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
     identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''):null;},
+    resolveReconnectWorktree(id:string){const snapshot=store.getState();if(disposed||!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)return null;const s=snapshot.value?.worktreeSources.find(w=>w.id===id);return s?.hostId===config.localHostId&&s.worktreePath&&s.present!==false?{worktreePath:s.worktreePath}:null;},
     resolveNoteSelection(worktreeId: string, scopeId: string) {
       const snapshot=store.getState();
       if(disposed || !connected || snapshot.freshness!=='current' || !snapshot.value || !config?.localHostId) return null;
