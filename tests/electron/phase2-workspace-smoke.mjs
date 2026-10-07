@@ -12,6 +12,10 @@ const f=await createPhase1Fixture(),out=path.resolve(process.env.NOTE_APP_PHASE2
 const report={status:'running',source:'500 fictional tasks, actual Linux Electron production host/preload/renderer; no real models or accounts',modelCalls:0,checks:[],performance:{},screenshots:[]};
 let app,page,id,policyProjectId='unbound',dagBytes;
 const config=JSON.parse(await readFile(f.configPath,'utf8'));config.summarySelections=[];config.publicModelClaudePath=process.execPath;await writeFile(f.configPath,JSON.stringify(config),{mode:0o600});
+// The shared handoff fixture deliberately has repoId:null. Supply explicit observed
+// identity here so this case tests known-repository/unregistered-project, while
+// the third usage bucket separately covers genuinely unknown repository identity.
+const observedTreesPath=path.join(path.dirname(config.orcaExecutablePath),'worktrees.json'),observedTrees=JSON.parse(await readFile(observedTreesPath,'utf8'));assert.equal(observedTrees.result.worktrees[1].repoId,null);observedTrees.result.worktrees[1].repoId='repo-unregistered-fixture';await writeFile(observedTreesPath,JSON.stringify(observedTrees));
 const branchCalls=path.join(f.root,'branch-calls.jsonl');
 const tokenSplit={inputTokens:100,outputTokens:20,reasoningTokens:5,cacheReadTokens:30,cacheWriteTokens:10},active={firstActive:'2026-10-07T10:00:00.000Z',lastActive:'2026-10-07T11:00:00.000Z'};
 const knownCoverage={branchKnownCost:2,branchUnknownCost:0,noBranchDataCost:0,noBranchDataSessions:0,noBranchDataProviders:[],distinctSessions:1};
