@@ -154,11 +154,11 @@ describe('main-owned live read-only orchestration',()=>{
     const x=setup();const view=await x.runtime.connect();const id=view.workstreams[0].id,revision=x.runtime.modelSourceRevision(id);
     x.runtime.setActivity({visible:false,active:false});await vi.advanceTimersByTimeAsync(41000);
     expect(x.runtime.getState().freshness).toBe('stale');expect(x.runtime.modelSourceRevision(id)).toBe(revision);
-    await expect(x.runtime.resolveSummarySource(id)).rejects.toThrow('Current source unavailable');
+    await expect(x.runtime.resolveSummarySource(id)).rejects.toThrow('current_source_unavailable');
     x.mapNotes.mockClear();x.readDag.mockClear();const source=await x.runtime.resolveSummarySource(id,new AbortController().signal,true);
     expect(source.readingSummary).toBeDefined();expect(x.mapNotes).toHaveBeenCalledTimes(1);expect(x.readDag).toHaveBeenCalledTimes(1);
     x.mapNotes.mockImplementation(async request=>{const result=mapping(request);const m=result.mappings[0];if(m.state==='resolved')m.canonicalDagPath='/synthetic/revoked';return result;});
-    await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow('Source mapping changed');
+    await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow('read_permission_or_mapping_changed');
     await x.runtime.disconnect();expect(x.runtime.modelSourceRevision(id)).toBeNull();await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow();
   });
   it('does not treat a failed observation as mere time ageing when revalidating a model snapshot',async()=>{
@@ -178,7 +178,7 @@ describe('main-owned live read-only orchestration',()=>{
   it('rejects changed source mapping, disconnected state and pre-aborted authorization reads',async()=>{
     const x=setup();const view=await x.runtime.connect();x.readDag.mockClear();
     x.mapNotes.mockImplementation(async request=>{const result=mapping(request);const m=result.mappings[0];if(m.state==='resolved')m.canonicalDagPath='/synthetic/changed';return result;});
-    await expect(x.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow('Source mapping changed');expect(x.readDag).not.toHaveBeenCalled();
+    await expect(x.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow('read_permission_or_mapping_changed');expect(x.readDag).not.toHaveBeenCalled();
     const controller=new AbortController();controller.abort();await expect(x.runtime.resolveSummarySource(view.workstreams[0].id,controller.signal)).rejects.toThrow();
     await x.runtime.disconnect();await expect(x.runtime.resolveSummarySource(view.workstreams[0].id)).rejects.toThrow();
   });
@@ -260,7 +260,7 @@ describe('main-owned live read-only orchestration',()=>{
   });
   it('does not recreate a failed/retired DAG reader even after disconnect, map loss, and reconnect',async()=>{
     const x=setup();await x.runtime.connect();x.readDag.mockResolvedValue({ok:false,error:{kind:'cleanup_unverified',message:'PRIVATE_READER_ERROR'}});
-    const failed=await x.runtime.refresh();expect(failed.dags[0]).toMatchObject({state:'error',taskCount:3});expect(failed.dags[0].tasks).toHaveLength(3);
+    const failed=await x.runtime.refresh();await expect(x.runtime.resolveSummarySource(failed.workstreams[0].id)).rejects.toMatchObject({code:'dag_cleanup_unverified'});expect(failed.dags[0]).toMatchObject({state:'error',taskCount:3});expect(failed.dags[0].tasks).toHaveLength(3);
     x.mapNotes.mockRejectedValueOnce(new Error('PRIVATE_MAPPING_ERROR'));
     const missing=await x.runtime.refresh();expect(missing.dags[0]).toMatchObject({state:'unavailable',taskCount:3});expect(missing.workstreams[0].noteMapping.state).toBe('unresolved');
     await x.runtime.disconnect();await x.runtime.connect();expect(x.dagReader).toHaveBeenCalledTimes(1);expect(x.runtime.getState().dags[0].state).toBe('unavailable');

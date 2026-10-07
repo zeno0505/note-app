@@ -1,7 +1,7 @@
 import {spawn,execFile,execFileSync} from 'node:child_process';
 import {mkdir,open,readFile,rename,unlink,writeFile} from 'node:fs/promises';
 import path from 'node:path';
-import {modelOutputSchema,type HarnessLedger,type HarnessRecord,type ModelAdapter} from './model-harness';
+import {modelOutputSchema,type HarnessLedger,type HarnessRecord,type ModelAdapter,type ModelReceipt} from './model-harness';
 
 export const CLAUDE_PUBLIC_FLAGS=['--safe-mode','--restricted','--tools','','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--setting-sources','','--permission-prompts','none','--no-chrome','--no-session-persistence','-p','--output-format','json'] as const;
 /** Existing subscription auth remains in HOME; API/provider-routing environment is not inherited. */
@@ -35,13 +35,14 @@ export function publicModelPrompt(request:Parameters<ModelAdapter['generate']>[0
 }
 export function createClaudePublicAdapter(executable:string,cwd:string,env:NodeJS.ProcessEnv):ModelAdapter {
   if(!path.isAbsolute(executable)||!path.isAbsolute(cwd))throw Error('Explicit absolute adapter paths required');
-  return {async generate(request,signal){
+  return {async generate(request,signal,observe){
     if(signal.aborted)return Promise.reject(Error('Cancelled before spawn'));
-    await checkSubscriptionAuthentication(executable,cwd,env,signal);
+    await observe?.('authentication');await checkSubscriptionAuthentication(executable,cwd,env,signal);
     if(signal.aborted)return Promise.reject(Error('Cancelled after auth status'));
-    const started=Date.now();return new Promise((resolve,reject)=>{
+    await observe?.('launch-requested');if(signal.aborted)throw Error('Cancelled before spawn');const started=Date.now();let observed:Promise<void>=Promise.resolve();const completed=new Promise<ModelReceipt>((resolve,reject)=>{
       const child=spawn(executable,[...CLAUDE_PUBLIC_FLAGS,'--json-schema',JSON.stringify(modelOutputSchema(request.binding))],{cwd,env:subscriptionEnvironment(env),shell:false,detached:process.platform!=='win32',stdio:['pipe','pipe','pipe']});
-      let output='',error='',bytes=0,stopping=false,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
+      if(child.pid){observed=observe?.('started')??Promise.resolve();void observed.catch(()=>{});}
+      let output='',error='' ,bytes=0,stopping=false,failure:string|undefined,killTimer:ReturnType<typeof setTimeout>|undefined;
       const terminate=()=>{if(stopping)return;stopping=true;try{if(child.pid){if(process.platform==='win32')child.kill('SIGTERM');else process.kill(-child.pid,'SIGTERM');}}catch{}killTimer=setTimeout(()=>{try{if(child.pid){if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}}catch{}},1000);};
       const abort=()=>{failure='Cancelled owned model process';terminate();};signal.addEventListener('abort',abort,{once:true});
       child.stdout.on('data',chunk=>{bytes+=chunk.length;if(bytes>256000){failure='Model output exceeded bound';terminate();}else output+=chunk.toString();});
@@ -54,7 +55,7 @@ export function createClaudePublicAdapter(executable:string,cwd:string,env:NodeJ
           resolve({answer:result.structured_output,usage,runtimeMs:Date.now()-started,provider:'claude-subscription-cli'});
         }catch{reject(Error('Invalid or incomplete model result'));}
       });child.stdin.on('error',()=>{});child.stdin.end(publicModelPrompt(request));
-    });
+    });try{return await completed;}finally{await observed;}
   }};
 }
 export function createFileHarnessLedger(directory:string):HarnessLedger {

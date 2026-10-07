@@ -1,3 +1,4 @@
+import {diagnosticCode,diagnosticProject,diagnosticCorrelation,type DiagnosticStage,type DiagnosticCode,type ModelCallState,type ModelDiagnosticView,type createModelDiagnostics} from './model-diagnostics';
 import {createHash} from 'node:crypto';
 import {createPublicReadingHarness,readingInputHash,SECTION_IDS,type ModelAdapter,type ProjectReadingPack} from '../summary/reading/model-harness';
 import type {createModelReadingStorage,LatestModelReadingView} from '../summary/reading/model-reading-storage';
@@ -5,7 +6,7 @@ import type {SummaryWorkflowSource} from '../summary/workflow';
 import type {DeepReadonly} from '../collector/snapshot/types';
 import type {ReadingSummary} from '../shared/reading-summary';
 export interface ProjectModelSource extends SummaryWorkflowSource {projectKey:string;readingSummary:DeepReadonly<ReadingSummary>}
-export interface ProjectModelView {state:'disabled'|'idle'|'running'|'failed'|'cancelled';message:string;latest:LatestModelReadingView;inputHash:string|null}
+export interface ProjectModelView {state:'disabled'|'idle'|'running'|'failed'|'cancelled';message:string;latest:LatestModelReadingView;inputHash:string|null;diagnostics?:ModelDiagnosticView}
 
 const hash=(x:string)=>createHash('sha256').update(x).digest('hex');
 export function assertSafeModelInput(text:string,filename=''){
@@ -57,29 +58,28 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   const content={project:source.projectKey,scope:'connected-project' as const,sources,facts};
   const pack={...content,sourceSha:hash(JSON.stringify(content)).slice(0,40)};readingInputHash(pack);return pack;
 }
-export function createProjectModelController(options:{storage:ReturnType<typeof createModelReadingStorage>;adapter?:ModelAdapter;resolve(workstreamId:string,signal:AbortSignal,phase?:'start'|'revalidate'):Promise<ProjectModelSource>;identify(workstreamId:string):string|null;revision?(workstreamId:string):string|null;timeoutMs?:number}){
-  const views=new Map<string,ProjectModelView>();let active:{id:string;abort:AbortController;harness:ReturnType<typeof createPublicReadingHarness>|null;flight:Promise<ProjectModelView>}|undefined,disposed=false;
+export function createProjectModelController(options:{storage:ReturnType<typeof createModelReadingStorage>;adapter?:ModelAdapter;resolve(workstreamId:string,signal:AbortSignal,phase?:'start'|'revalidate'):Promise<ProjectModelSource>;identify(workstreamId:string):string|null;revision?(workstreamId:string):string|null;timeoutMs?:number;diagnostics?:ReturnType<typeof createModelDiagnostics>}){
+  const views=new Map<string,ProjectModelView>();let active:{id:string;abort:AbortController;harness:ReturnType<typeof createPublicReadingHarness>|null;correlationId:string;flight:Promise<ProjectModelView>}|undefined,disposed=false;
   const bindings=new Map<string,string>();
   const empty=(state:ProjectModelView['state'],message:string):ProjectModelView=>({state,message,inputHash:null,latest:{state:'empty',message:'저장된 AI 요약이 없습니다. 화면 조회는 모델을 호출하지 않습니다.'}});
-  async function view(id:string):Promise<ProjectModelView>{const project=options.identify(id),previous=views.get(id);return {...previous??empty(options.adapter?'idle':'disabled',options.adapter?'선택한 프로젝트만 수동 요약합니다.':'Claude 실행 경로가 설정되지 않았습니다.'),latest:project?await options.storage.readLatest(project,bindings.get(id)!==options.revision?.(id)?'0'.repeat(64):previous?.inputHash??'0'.repeat(64)):{state:'unavailable',message:'현재 프로젝트 연결을 확인할 수 없습니다. 저장 결과를 다른 프로젝트에 표시하지 않습니다.'}};}
+  async function view(id:string):Promise<ProjectModelView>{const project=options.identify(id),previous=views.get(id);return {...(options.diagnostics?{diagnostics:await options.diagnostics.view(diagnosticProject(id))}:{}),...previous??empty(options.adapter?'idle':'disabled',options.adapter?'선택한 프로젝트만 수동 요약합니다.':'Claude 실행 경로가 설정되지 않았습니다.'),latest:project?await options.storage.readLatest(project,bindings.get(id)!==options.revision?.(id)?'0'.repeat(64):previous?.inputHash??'0'.repeat(64)):{state:'unavailable',message:'현재 프로젝트 연결을 확인할 수 없습니다. 저장 결과를 다른 프로젝트에 표시하지 않습니다.'}};}
   const current=async(id:string,signal:AbortSignal,phase:'start'|'revalidate'='start')=>{const s=await options.resolve(id,signal,phase);if(signal.aborted||disposed||s.projectKey!==options.identify(id))throw Error('Source retired');return buildProjectModelPack(s);};
   function cancel(id?:string,message='취소했습니다. 늦은 결과는 저장하지 않습니다.'){if(active&&(!id||active.id===id)){active.abort.abort();active.harness?.cancel();views.set(active.id,empty('cancelled',message));}}
   return {view,cancel,invalidate(){if(active&&bindings.has(active.id)&&bindings.get(active.id)!==(options.revision?.(active.id)??''))cancel(undefined,'프로젝트 근거·연결·읽기 권한이 변경되어 취소했습니다. 늦은 결과는 저장하지 않으며 같은 입력을 자동 재전송하지 않습니다.');},dispose(){disposed=true;cancel();},settle(){return active?.flight??Promise.resolve();},
-    run(id:string):Promise<ProjectModelView>{if(disposed||!options.adapter)return view(id);if(active){if(active.id===id)return active.flight;return Promise.resolve(empty('failed','다른 프로젝트 요약이 진행 중입니다. 동시에 실행하지 않습니다.'));}
-      const abort=new AbortController();const own={id,abort,harness:null as ReturnType<typeof createPublicReadingHarness>|null,flight:null as unknown as Promise<ProjectModelView>};active=own;
+    run(id:string):Promise<ProjectModelView>{if(disposed||!options.adapter)return view(id);if(active){if(active.id===id){void options.diagnostics?.append({correlationId:active.correlationId,projectId:diagnosticProject(id),stage:'reservation',code:'duplicate_joined',modelCall:'unknown',attempt:null}).catch(()=>{});return active.flight;}return (async()=>{await options.diagnostics?.append({correlationId:diagnosticCorrelation(),projectId:diagnosticProject(id),stage:'reservation',code:'request_busy',modelCall:'not-started',attempt:null}).catch(()=>{});return {...await view(id),state:'failed' as const,message:'다른 프로젝트 요약이 진행 중입니다. 동시에 실행하지 않습니다.'};})();}
+      const abort=new AbortController();const own={id,abort,correlationId:diagnosticCorrelation(),harness:null as ReturnType<typeof createPublicReadingHarness>|null,flight:null as unknown as Promise<ProjectModelView>};active=own;
       views.set(id,empty('running','현재 근거와 민감정보를 검사하고 있습니다.'));
-      own.flight=(async()=>{try{
-        const pack=await current(id,abort.signal),inputHash=readingInputHash(pack);bindings.set(id,options.revision?.(id)??'');
+      own.flight=(async()=>{let stage:DiagnosticStage='source-check',modelCall:ModelCallState='not-started',attempt:number|null=null,adapterFailure:DiagnosticCode|null=null,adapterEntered=false;const record=async(code:DiagnosticCode)=>{await options.diagnostics?.append({correlationId:own.correlationId,projectId:diagnosticProject(id),stage,code,modelCall,attempt});};try{
+        await record('request_started');const resolved=await options.resolve(id,abort.signal,'start');if(abort.signal.aborted||disposed||resolved.projectKey!==options.identify(id))throw Error('Source retired');stage='input-check';const pack=buildProjectModelPack(resolved),inputHash=readingInputHash(pack);bindings.set(id,options.revision?.(id)??'');
         views.set(id,{...empty('running','Claude 수동 요약 중입니다.'),inputHash});
         const adapter:ModelAdapter={generate:async(request,signal)=>{
-          if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before send');
-          const receipt=await options.adapter!.generate(request,signal);assertSafeModelInput(JSON.stringify(receipt.answer));
-          if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before publish');return receipt;
+          adapterEntered=true;attempt=request.binding.attempt;try{stage='source-check';if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before send');stage='model-call';modelCall='unknown';const receipt=await options.adapter!.generate(request,signal,async event=>{if(event==='authentication'){stage='authentication';modelCall='not-started';}else if(event==='launch-requested'){stage='model-call';modelCall='launch-requested';await record('model_launch_requested');}else{stage='model-call';modelCall='started';await record('model_started');}});stage='result-check';assertSafeModelInput(JSON.stringify(receipt.answer));stage='publish';if(readingInputHash(await current(id,signal,'revalidate'))!==inputHash)throw Error('Source changed before publish');return receipt;}catch(error){adapterFailure=diagnosticCode(error,stage);if(adapterFailure==='model_start_failed')modelCall='not-started';throw error;}
         }};
-        own.harness=createPublicReadingHarness(adapter,options.storage.ledger(pack),options.timeoutMs);
+        stage='reservation';own.harness=createPublicReadingHarness(adapter,options.storage.ledger(pack),options.timeoutMs);
         const result=await own.harness.summarize(pack);
+        if(adapterFailure)await record(adapterFailure);else{stage='complete';await record(abort.signal.aborted||result.status==='cancelled'?'request_cancelled':result.status==='model'?adapterEntered?'request_succeeded':'saved_input_reused':adapterEntered?'model_result_invalid':'saved_input_reused');}
         if(!abort.signal.aborted&&!disposed)views.set(id,{...empty(result.status==='model'?'idle':'failed',result.status==='model'?'시작 시점 근거의 성공 요약을 저장했습니다. 같은 입력은 재호출하지 않습니다.':'완료하지 못했습니다. 이전 성공 결과를 보존하며 자동 재전송하지 않습니다.'),inputHash});
-      }catch{if(!abort.signal.aborted&&!disposed)views.set(id,{...views.get(id)??empty('failed',''),state:'failed',message:'근거·읽기 권한·민감정보 검사를 통과하지 못했거나 실행에 실패했습니다. 원문을 표시하지 않으며 이전 성공 결과를 보존합니다.'});}
+      }catch(error){await record(abort.signal.aborted?'request_cancelled':diagnosticCode(error,stage)).catch(()=>{});if(!abort.signal.aborted&&!disposed)views.set(id,{...views.get(id)??empty('failed',''),state:'failed',message:'근거·읽기 권한·민감정보 검사를 통과하지 못했거나 실행에 실패했습니다. 원문을 표시하지 않으며 이전 성공 결과를 보존합니다. 아래 진단 기록에서 단계와 코드를 확인해 주세요.'});}
       return view(id);})().finally(()=>{if(active===own)active=undefined;});return own.flight;
     },
   };

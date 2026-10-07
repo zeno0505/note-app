@@ -19,7 +19,7 @@ export interface ModelAnswer extends ModelBinding {
   sections:{id:SectionId;text:string;facts:{id:string;state:FactState}[];sourceIds:string[]}[];
 }
 export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string}
-export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[]},signal:AbortSignal):Promise<ModelReceipt>}
+export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[]},signal:AbortSignal,observe?:(event:'authentication'|'launch-requested'|'started')=>Promise<void>):Promise<ModelReceipt>}
 export interface HarnessRecord {inputHash:string;runId?:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
 export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord,signal?:AbortSignal):Promise<void>;lock():Promise<()=>Promise<void>>}
 const exact=(x:Record<string,unknown>,keys:string[])=>Object.keys(x).sort().join('|')===keys.sort().join('|');

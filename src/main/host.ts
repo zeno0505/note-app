@@ -13,6 +13,7 @@ import { loadLiveConfiguration } from './live-config';
 import {createProjectRegistry,projectRegistryCodec} from './projects/registry';
 import {createModelReadingStorage} from '../summary/reading/model-reading-storage';
 import {createPublicModelController} from './public-model';
+import {createModelDiagnostics} from './model-diagnostics';
 import {createProjectModelController} from './project-model';
 import {createClaudePublicAdapter} from '../summary/reading/claude-public-adapter';
 import publicReadingPack from '../shared/public-reading-pack.json';
@@ -129,7 +130,8 @@ app.whenReady().then(async()=>{
   const readRoots=createReadRoots({initialScopes:configuration.configuration?.noteScopes??[],hostId:configuration.configuration?.localHostId,persistence:readPersistence,unavailable:!readPersistence});
   await readRoots.load();
   liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry,readRoots});
-  projectModel=createProjectModelController({storage:modelReading,adapter:publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined,identify:id=>liveRuntime.identifyModelProject(id),revision:id=>liveRuntime.modelSourceRevision(id),resolve:async(id,signal,phase)=>{const source=await liveRuntime.resolveSummarySource(id,signal,phase==='revalidate');if(!source.readingSummary||liveRuntime.getState().dags.find(d=>d.dagId===source.dag.dagId)?.sourceHash!==source.dag.sourceHash)throw Error('Current reading source unavailable');return {...source,readingSummary:source.readingSummary};}});
+  const modelDiagnostics=createModelDiagnostics(join(userData,'model-diagnostics'),buildSha);
+  projectModel=createProjectModelController({diagnostics:modelDiagnostics,storage:modelReading,adapter:publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined,identify:id=>liveRuntime.identifyModelProject(id),revision:id=>liveRuntime.modelSourceRevision(id),resolve:async(id,signal,phase)=>{const source=await liveRuntime.resolveSummarySource(id,signal,phase==='revalidate');if(!source.readingSummary||liveRuntime.getState().dags.find(d=>d.dagId===source.dag.dagId)?.sourceHash!==source.dag.sourceHash)throw Error('Current reading source unavailable');return {...source,readingSummary:source.readingSummary};}});
   function makeSummaryWorkflow(){const workflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
     if(signal.aborted||!cacheLocation.available)throw new Error('App-owned cache unavailable or request cancelled');return liveRuntime.resolveSummarySource(workstreamId,signal);
   }});workflow.subscribe(view=>{if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:summary-changed',view);});return workflow;}

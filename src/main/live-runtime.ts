@@ -1,3 +1,4 @@
+import {ModelDiagnosticError} from './model-diagnostics';
 import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
@@ -559,23 +560,23 @@ export function createLiveRuntime(options: {
     // registered excerpts, runtime identity and failed observations still gate it.
     async resolveSummarySource(workstreamId: string, signal: AbortSignal = new AbortController().signal, revalidateSnapshot=false) {
       const snapshot=store.getState();
-      if(disposed || !connected || snapshot.refreshing || signal.aborted || (!revalidateSnapshot&&snapshot.freshness!=='current') || ['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'') || !snapshot.value || !config?.localHostId) throw new Error('Current source unavailable');
+      if(disposed || !connected || snapshot.refreshing || signal.aborted || (!revalidateSnapshot&&snapshot.freshness!=='current') || ['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'') || !snapshot.value || !config?.localHostId) throw new ModelDiagnosticError(snapshot.refreshing?'collection_refreshing':'current_source_unavailable');
       const workstream=snapshot.value.workstreams.find(w=>w.id===workstreamId);
       const mapping=workstream?.noteMapping;
       const dagView=mapping?.dagId?snapshot.value.dags.find(d=>d.dagId===mapping.dagId):undefined;
       const session=mapping?.dagId?dagSessions.get(mapping.dagId):undefined;
-      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) throw new Error('Current DAG unavailable');
+      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind?'dag_other_failure':'current_dag_unavailable');}
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
-      if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new Error('Current mapping unavailable');
+      if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new ModelDiagnosticError('project_mapping_unavailable');
       const verified=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
         worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath}],signal});
       const currentMapping=verified.mappings[0];
-      if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new Error('Source mapping changed');
+      if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new ModelDiagnosticError('read_permission_or_mapping_changed');
       const currentDag=await session.reader.read(mapping.dagId!,{signal});
-      if(!currentDag.ok||signal.aborted)throw new Error('Current DAG could not be verified');
+      if(!currentDag.ok||signal.aborted)throw new ModelDiagnosticError(currentDag.ok?'source_changed':currentDag.error.kind==='cleanup_unverified'?'dag_cleanup_unverified':currentDag.error.kind==='timeout'?'dag_timeout':currentDag.error.kind==='command_failed'?'dag_command_failed':'dag_other_failure');
       const registeredExcerpts=await readRegistered(currentMapping,signal);
       const after=store.getState();
-      if(disposed||!connected||after.refreshing||(!revalidateSnapshot&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new Error('Source changed during validation');
+      if(disposed||!connected||after.refreshing||(!revalidateSnapshot&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new ModelDiagnosticError('source_changed');
       session.model=currentDag.value;
       return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
