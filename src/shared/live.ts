@@ -80,5 +80,6 @@ export interface LiveWorkspaceView {
   coverage: null | {projects: 'complete' | 'partial' | 'unknown'; worktrees: 'complete' | 'partial' | 'unknown'; processes: 'complete' | 'partial' | 'unknown'; totalWorktrees: number | null};
   workstreams: LiveWorkstreamView[];
   dags: LiveDagView[];
+  repositoryUsage?:{capability:'configured'|'unconfigured';views:import('../phase2/repository-usage').RepositoryUsageView[];lastAttemptAt:number|null;durationMs:number|null;minimumIntervalMs:number};
   codeburn: { state: 'unconfigured' | 'idle' | 'observed'; results: CodeBurnResult[] };
 }

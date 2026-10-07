@@ -1,3 +1,4 @@
+import {projectAppMemory} from '../phase2/app-memory';
 import {createWorkspaceStateStore,workspaceStateCodec} from './workspace-state';
 import {reconnectReadiness} from '../shared/reconnect-readiness';
 import {createModelRetryStorage} from '../summary/reading/model-retry-storage';
@@ -201,6 +202,8 @@ app.whenReady().then(async()=>{
     if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).sort().join(',')!==(channel==='note-app:project-model-run'?'transferConfirmed,workstreamId':'workstreamId')||(channel==='note-app:project-model-run'&&args[0].transferConfirmed!==true)||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('Invalid project model selection');
     return tracked(action(args[0].workstreamId));
   });
+  let appMemoryCache:ReturnType<typeof projectAppMemory>|null=null,appMemoryAt=0;
+  ipcMain.handle('note-app:app-memory',(event,...args)=>{checkReadSender(event);assertNoArguments(args);const at=Date.now();if(appMemoryCache&&at-appMemoryAt<1000)return appMemoryCache;let metrics:unknown=null;try{metrics=app.getAppMetrics();}catch{}appMemoryCache=projectAppMemory(metrics,process.platform,at);appMemoryAt=at;return appMemoryCache;});
   for(const operation of ['get','set'] as const)ipcMain.handle('note-app:workspace-state-'+operation,(event,...args)=>{checkReadSender(event);const request=args[0];if(args.length!==1||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!==(operation==='get'?'workstreamId':'state,workstreamId')||typeof request.workstreamId!=='string'||!liveRuntime.getState().workstreams.some(w=>w.id===request.workstreamId))throw Error('화면 상태 요청 오류');return operation==='get'?tracked(workspaceState.get(request.workstreamId)):tracked(workspaceState.set(request.workstreamId,request.state));});
   ipcMain.handle('note-app:evidence-release',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('근거 취소 요청 오류');return liveRuntime.releaseTaskEvidence(args[0]);});
   ipcMain.handle('note-app:evidence-prepare',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('근거 요청 불가');return tracked(liveRuntime.prepareTaskEvidence(args[0]));});

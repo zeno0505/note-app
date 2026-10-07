@@ -1,3 +1,5 @@
+import {createRepositoryUsageReader,projectRepositoryUsage,type RepositoryUsageResult,type RepositoryUsagePeriod,type RepositoryUsageObservation,type ObservedRepositoryCheckout} from '../phase2/repository-usage';
+import {extractDocumentReferences} from '../phase2/markdown';
 import {createEvidenceReader,parseEvidenceTarget,type EvidenceRegistration} from '../phase2/evidence';
 import type {EvidenceList,EvidenceReadView} from '../shared/evidence';
 import {prefixSelection,scopedDagView,prefixReading} from '../summary/reading/prefix';
@@ -47,6 +49,7 @@ export interface LiveRuntimeDependencies {
   mapNotes: typeof mapWorktreesToNotes;
   dagReader: typeof createDagReader;
   codeburn: typeof createCodeBurnReader;
+  repositoryUsage:typeof createRepositoryUsageReader;
   summaryCache(options: {directory: string; codec: typeof summaryCacheCodec}): {
     read(signal?: AbortSignal): Promise<SummaryCacheRecord<SummaryCachePayload> | null>;
   };
@@ -57,7 +60,7 @@ export interface LiveRuntimeDependencies {
   publicGitHubObserver: typeof createPublicGitHubObserver;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null; present?:boolean}
-interface CurrentWorktree {worktreeId:string;hostId:string|null;path:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
+interface CurrentWorktree {viewId?:string;worktreeId:string;hostId:string|null;path:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[];currentWorktrees:CurrentWorktree[] }
 interface DagSession {
   canonicalPath: string;
@@ -92,7 +95,7 @@ export function createLiveRuntime(options: {
   const now = deps.clock?.now ?? Date.now;
   const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
   const documentLinks=new Map<string,{workstreamId:string;wikilink:string;canonicalNotePath:string;vaultRootPath:string}>();
-  const evidenceSessions=new Map<string,{reader:Awaited<ReturnType<typeof createEvidenceReader>>;root:string;registrations:EvidenceRegistration[];authorize:()=>Promise<boolean>;controller:AbortController}>();
+  const evidenceSessions=new Map<string,{reader:Awaited<ReturnType<typeof createEvidenceReader>>;root:string;registrations:EvidenceRegistration[];authorize:()=>Promise<boolean>;controller:AbortController;proofs:{sessionId:string;evidenceId:string;sourceHash:string}[];children:Map<string,EvidenceList>}>();
   let evidencePending=0,evidenceEpoch=0,evidencePermissionPending=0;
   let evidenceLifetime=new AbortController();
   async function boundedEvidencePermission(operation:()=>Promise<boolean>,signal:AbortSignal):Promise<boolean>{
@@ -104,15 +107,26 @@ export function createLiveRuntime(options: {
     try{return await Promise.race([work,stopped]);}finally{if(timer)clearTimeout(timer);signal.removeEventListener('abort',onAbort);}
   }
   function clearEvidence(){evidenceEpoch++;evidenceLifetime.abort();evidenceLifetime=new AbortController();for(const session of evidenceSessions.values()){session.controller.abort();session.reader.retire();}evidenceSessions.clear();}
-  async function registerEvidence(root:string,registrations:EvidenceRegistration[],authorize:()=>Promise<boolean>,unsupportedCount=0):Promise<EvidenceList>{
+  function releaseEvidenceSession(id:string){
+    const affected=[...evidenceSessions].filter(([key,session])=>key===id||session.proofs.some(proof=>proof.sessionId===id)).map(([key])=>key);
+    for(const key of affected){const session=evidenceSessions.get(key);session?.controller.abort();session?.reader.retire();evidenceSessions.delete(key);}
+  }
+  function reserveEvidenceCapacity(proofs:{sessionId:string}[]){
+    if(evidenceSessions.size<16)return;
+    const protectedIds=new Set([...proofs.map(p=>p.sessionId),...[...evidenceSessions.values()].flatMap(session=>session.proofs.map(p=>p.sessionId))]);
+    const candidate=[...evidenceSessions.keys()].find(id=>!protectedIds.has(id));
+    if(!candidate)throw Error('근거 탐색 상한입니다. 이전 창을 닫고 다시 선택해 주세요.');releaseEvidenceSession(candidate);
+  }
+  async function registerEvidence(root:string,registrations:EvidenceRegistration[],authorize:()=>Promise<boolean>,unsupportedCount=0,proofs:{sessionId:string;evidenceId:string;sourceHash:string}[]=[]):Promise<EvidenceList>{
+    if(proofs.length>8)throw Error('근거 연결은8단계까지 확인합니다. 원래 목록에서 다시 선택해 주세요.');
     if(evidencePending>=4)throw Error('근거 읽기 요청 처리 중입니다.');evidencePending++;
     try {
     if(!await authorize())throw Error('근거 읽기 범위가 변경되었습니다.');
-    if(evidenceSessions.size>=16){const oldest=evidenceSessions.keys().next().value!;evidenceSessions.get(oldest)?.controller.abort();evidenceSessions.get(oldest)?.reader.retire();evidenceSessions.delete(oldest);}
+    reserveEvidenceCapacity(proofs);
     const sessionId=randomUUID(),reader=await createEvidenceReader({scopeId:sessionId,canonicalRootPath:root,registrations,authorize,now});
     if(!await authorize()){reader.retire();throw Error('근거 읽기 범위가 변경되었습니다.');}
-    if(evidenceSessions.size>=16){const oldest=evidenceSessions.keys().next().value!;evidenceSessions.get(oldest)?.controller.abort();evidenceSessions.get(oldest)?.reader.retire();evidenceSessions.delete(oldest);}
-    evidenceSessions.set(sessionId,{reader,root,registrations,authorize,controller:new AbortController()});return {sessionId,items:reader.list(),unsupportedCount};
+    reserveEvidenceCapacity(proofs);
+    evidenceSessions.set(sessionId,{reader,root,registrations,authorize,controller:new AbortController(),proofs:[...proofs],children:new Map()});return {sessionId,items:reader.list(),unsupportedCount};
     }finally{evidencePending--;}
   }
 
@@ -137,6 +151,17 @@ export function createLiveRuntime(options: {
   const orca = config ? (deps.orca ?? createOrcaAdapter)({ executablePath: config.orcaExecutablePath }) : null;
   const codeburn = config?.codeburnExecutablePath
     ? (deps.codeburn ?? createCodeBurnReader)({ executablePath: config.codeburnExecutablePath }) : null;
+  // Test-only budget injection must not unexpectedly spawn an uninjected executable.
+  const repositoryReader=config?.codeburnExecutablePath&&(!deps.codeburn||deps.repositoryUsage)?(deps.repositoryUsage??createRepositoryUsageReader)({executablePath:config.codeburnExecutablePath}):null;
+  const repositoryResults=new Map<RepositoryUsagePeriod,RepositoryUsageResult>(),repositoryLastGood=new Map<RepositoryUsagePeriod,RepositoryUsageObservation>();
+  let repositoryAttemptAt:number|null=null,repositoryDurationMs:number|null=null;
+  async function readRepositoryUsage(signal:AbortSignal,manual:boolean){
+    const interval=activity.active&&activity.visible?60000:300000;
+    if(!repositoryReader||signal.aborted||!manual&&repositoryAttemptAt!==null&&now()-repositoryAttemptAt<interval)return;
+    const start=now();repositoryAttemptAt=start;
+    for(const period of ['today','month'] as const){if(signal.aborted)break;let result:RepositoryUsageResult;try{result=await repositoryReader.read(period,{signal});}catch{result={ok:false,observedAt:now(),error:{kind:'command-failed',query:period}};}if(!signal.aborted&&!disposed){repositoryResults.set(period,result);if(result.ok)repositoryLastGood.set(period,result.value);}}
+    repositoryDurationMs=Math.max(0,now()-start);
+  }
   const prefixSummaries=new Map<string,import('../shared/reading-summary').ReadingSummary>();
   function readPrefixSummary(w:LiveWorkstreamView,d:LiveDagView){const next=prefixReading(w,d),key=JSON.stringify([w.id,d.dagId,d.summaryScope!.selected]),prior=prefixSummaries.get(key);const result=prior?.fingerprint===next.fingerprint?{...prior,checkedAt:next.checkedAt,changed:w.readingSummary?.changed??false}:{...next,revision:(prior?.revision??0)+1};if(prefixSummaries.size>=256&&!prefixSummaries.has(key))prefixSummaries.delete(prefixSummaries.keys().next().value!);prefixSummaries.set(key,result);return structuredClone(result);}
   const summaryPrefixes=new Map<string,string>();
@@ -394,6 +419,7 @@ export function createLiveRuntime(options: {
           ? { state: 'resolved', reason: null, dagId: mapping.dagId,context:{state:'verified',noteRootPath:mapping.canonicalNotePath,dagPath:mapping.canonicalDagPath},...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
+    observedRows.forEach(({worktree},index)=>{const current=currentByWorktree.get(identity(worktree.identity.hostId,worktree.id));if(current)current.viewId=workstreams[index].id;});
     connectionChoices.clear();documentLinks.clear();
     if(registry){let checks=0;for(let index=0;index<observedRows.length;index++) {
       const view=workstreams[index],row=observedRows[index].worktree;
@@ -515,7 +541,7 @@ export function createLiveRuntime(options: {
     clock: deps.clock, intervalMs: INTERVAL_MS, staleAfterMs: STALE_MS, active: false, visible: true,
     backgroundIntervalMs: 300_000, resumeDelayMs: 5_000,
     async load({signal,reason}) {
-      const budgets = readCodeburn(signal);
+      const budgets = readCodeburn(signal),repositoryRead=readRepositoryUsage(signal,reason==='manual');
       let result;
       try { result = await orca!.collect({signal}); }
       catch { result = { ok: false as const, error: { kind: 'load_failed', message: 'Orca observation could not be refreshed.' } }; }
@@ -524,7 +550,7 @@ export function createLiveRuntime(options: {
       if (result.ok && !signal.aborted) {
         try { value = await collectView(result.value, signal,reason==='manual'); } catch { projectionFailed = true; }
       }
-      const costResults = await budgets;
+      const costResults = await budgets;await repositoryRead;
       if (!signal.aborted && !disposed) acceptCodeburn(costResults);
       if (!result.ok) return {kind: 'failure', error: { kind: result.error.kind, message: `Orca observation could not be refreshed (${result.error.kind}).` }};
       if (projectionFailed || !value) return {kind: 'failure', error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
@@ -576,12 +602,19 @@ export function createLiveRuntime(options: {
         dag.summary.approvedClaims = historical(dag.summary.approvedClaims);
       }
     }
+    const checkouts:ObservedRepositoryCheckout[]=(value?.currentWorktrees??[]).flatMap(checkout=>{
+      if(!checkout.hostId||!checkout.path)return [];
+      const retained=registry?.records().filter(p=>p.hostId===checkout.hostId&&p.worktrees.some(w=>w.id===checkout.worktreeId&&w.path===checkout.path))??[];
+      const viewId=checkout.viewId??(retained.length===1?retained[0].id:null),workstream=value?.workstreams.find(w=>w.id===viewId);
+      return viewId&&workstream?[{workstreamId:viewId,hostId:checkout.hostId,checkoutPath:checkout.path,repositoryId:checkout.repository.id,repositoryKey:checkout.repository.key,registeredProjectId:workstream.project?workstream.id:null}]:[];
+    });
+    const repositoryViews=(['today','month'] as const).map(period=>{const prior=repositoryLastGood.get(period),aged=prior&&now()-prior.observedAt>(activity.active&&activity.visible?120000:600000);return projectRepositoryUsage(repositoryResults.get(period)??null,config?.localHostId?{localHostId:config.localHostId,checkouts}:null,!connected||aged?'stale':freshness,prior);});
     return structuredClone({ mode: 'live-read-only', connection: connected ? 'connected' : 'disconnected', configuration: {...loaded.view,noteScopeCount:noteScopes.length},
       refreshing: connected && snapshot.refreshing, observedAt: snapshot.observedAt, freshness,
       polling: {activity: !connected ? 'stopped' : activity.active && activity.visible ? 'foreground' : 'background',
         nextRefreshAt: connected ? snapshot.nextPollAt : null, countdownSeconds: connected ? snapshot.resumeCountdownSeconds : 0},
       lastError: registryError??snapshot.lastAttempt?.error?.message ?? null, coverage: snapshot.coverage,
-      workstreams: value?.workstreams ?? [], dags, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
+      workstreams: value?.workstreams ?? [], dags,repositoryUsage:{capability:repositoryReader?'configured':'unconfigured',views:repositoryViews,lastAttemptAt:repositoryAttemptAt,durationMs:repositoryDurationMs,minimumIntervalMs:activity.active&&activity.visible?60000:300000}, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
   }
   const publish = () => {
     if (disposed) return;
@@ -688,7 +721,7 @@ export function createLiveRuntime(options: {
     },
     releaseTaskEvidence(request:unknown):void{
       if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).join(',')!=='sessionId'||typeof (request as {sessionId:unknown}).sessionId!=='string')throw Error('근거 세션 취소 요청 오류');
-      const id=(request as {sessionId:string}).sessionId,session=evidenceSessions.get(id);session?.controller.abort();session?.reader.retire();evidenceSessions.delete(id);
+      releaseEvidenceSession((request as {sessionId:string}).sessionId);
     },
     async prepareTaskEvidence(request:unknown):Promise<EvidenceList>{
       if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='sourceHash,taskId,workstreamId')throw Error('근거 선택 오류');
@@ -709,17 +742,46 @@ export function createLiveRuntime(options: {
       const r=request as {sessionId:string;evidenceId:string;expectedSourceHash:string|null};
       if(typeof r.sessionId!=='string'||r.sessionId.length>128)throw Error('근거 세션 오류');
       const session=evidenceSessions.get(r.sessionId);if(!session)throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
-      const liveSession=async()=>{const allowed=await session.authorize();return allowed&&evidenceSessions.get(r.sessionId)===session&&!session.controller.signal.aborted;};
+      const operationSignal=AbortSignal.any([session.controller.signal,AbortSignal.timeout(5000)]);
+      const operation=async():Promise<EvidenceReadView>=>{
+      const liveSession=async()=>{
+        if(operationSignal.aborted||evidenceSessions.get(r.sessionId)!==session)return false;
+        if(!await session.authorize()||operationSignal.aborted)return false;
+        for(const proof of session.proofs){const ancestor=evidenceSessions.get(proof.sessionId);if(!ancestor||ancestor.controller.signal.aborted||operationSignal.aborted)return false;const checked=await ancestor.reader.read({evidenceId:proof.evidenceId,expectedSourceHash:proof.sourceHash},operationSignal);if(!checked.ok||evidenceSessions.get(proof.sessionId)!==ancestor||ancestor.controller.signal.aborted)return false;}
+        return evidenceSessions.get(r.sessionId)===session&&!operationSignal.aborted;
+      };
       if(!await liveSession())throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
-      const result=await session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:r.expectedSourceHash},session.controller.signal);
+      const result=await session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:r.expectedSourceHash},operationSignal);
       if(!await liveSession())throw Error('근거 읽기가 취소되거나 변경되었습니다.');
-      let images:EvidenceList|undefined;
+      let images:EvidenceList|undefined,references:EvidenceReadView['references'];
+      const derive=async(registrations:EvidenceRegistration[],kind:string,unsupportedCount:number)=>{
+        if(!result.ok)throw Error('근거 읽기 실패');
+        const key=digest(JSON.stringify([r.evidenceId,result.sourceHash,kind,registrations]));const prior=session.children.get(key);
+        if(prior&&evidenceSessions.has(prior.sessionId))return prior;
+        if(operationSignal.aborted)throw Error('근거 조회 취소');
+        const child=await registerEvidence(session.root,registrations,session.authorize,unsupportedCount,[...session.proofs,{sessionId:r.sessionId,evidenceId:r.evidenceId,sourceHash:result.sourceHash}]);
+        if(operationSignal.aborted||evidenceSessions.get(r.sessionId)!==session){releaseEvidenceSession(child.sessionId);throw Error('근거 조회 취소');}
+        if(session.children.size>=32)session.children.delete(session.children.keys().next().value!);session.children.set(key,child);return child;
+      };
+
       if(result.ok&&result.content.kind==='text'&&result.content.imageReferences.targets.length){
         const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),registration=session.registrations.find(v=>v.id===descriptor?.registrationId);
-        if(registration){const registrations=result.content.imageReferences.targets.map((t,i)=>({...t,id:String(i),relativePath:path.posix.join(path.posix.dirname(registration.relativePath),t.relativePath)}));const authorizeImage=async()=>{if(!await liveSession())return false;const check=await session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:result.sourceHash},session.controller.signal);return check.ok&&evidenceSessions.get(r.sessionId)===session&&!session.controller.signal.aborted;};images=await registerEvidence(session.root,registrations,authorizeImage,result.content.imageReferences.unsupportedCount);}
+        if(registration){const registrations=result.content.imageReferences.targets.map((t,i)=>({...t,id:String(i),relativePath:path.posix.join(path.posix.dirname(registration.relativePath),t.relativePath)}));images=await derive(registrations,'images',result.content.imageReferences.unsupportedCount);}
       }
-      if(!await liveSession()){if(images){evidenceSessions.get(images.sessionId)?.controller.abort();evidenceSessions.get(images.sessionId)?.reader.retire();evidenceSessions.delete(images.sessionId);}throw Error('근거 읽기가 취소되거나 변경되었습니다.');}
-      return {result,...(images?{images}:{})};
+      if(result.ok&&result.content.kind==='text'&&result.content.mime==='text/markdown'){
+        const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),document=session.registrations.find(v=>v.id===descriptor?.registrationId);
+        if(document){
+          const extracted=extractDocumentReferences(result.content.text),registrations:EvidenceRegistration[]=[],targets:{href:string;kind:'link'|'image';registrationId:string}[]=[];let unsupportedCount=extracted.unsupportedCount;
+          for(const target of extracted.targets){try{const parsed=parseEvidenceTarget(target.href),id=String(registrations.length);registrations.push({id,relativePath:path.posix.join(path.posix.dirname(document.relativePath),parsed.relativePath),anchor:parsed.anchor,label:target.label});targets.push({href:target.href,kind:target.kind,registrationId:id});}catch{unsupportedCount++;}}
+          if(registrations.length){const referenceSession=await derive(registrations,'references',unsupportedCount);references={session:referenceSession,targets:targets.map(target=>({href:target.href,kind:target.kind,evidenceId:referenceSession.items.find(item=>item.registrationId===target.registrationId)!.evidenceId}))};}
+        }
+      }
+      if(!await liveSession()){for(const child of [images,references?.session])if(child){releaseEvidenceSession(child.sessionId);}throw Error('근거 읽기가 취소되거나 변경되었습니다.');}
+      return {result,...(images?{images}:{}),...(references?{references}:{})};
+      };
+      let onAbort:()=>void=()=>{};
+      const aborted=new Promise<never>((_,reject)=>{onAbort=()=>{releaseEvidenceSession(r.sessionId);reject(Error('근거 조회가 취소됐거나5초 응답 한도를 넘었습니다.'));};operationSignal.addEventListener('abort',onAbort,{once:true});if(operationSignal.aborted)onAbort();});
+      try{return await Promise.race([operation(),aborted]);}finally{operationSignal.removeEventListener('abort',onAbort);}
     },
     async resolveDocumentLink(request:unknown):Promise<string>{
       if(disposed||!connected||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='linkId,workstreamId')throw new Error('문서 열기 요청 오류');
