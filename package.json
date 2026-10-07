@@ -28,7 +28,8 @@
     "test:electron:reconnect": "node tests/electron/note-reconnect-smoke.mjs",
     "test:electron:phase1": "node scripts/build-phase1-test.mjs && node tests/electron/phase1-smoke.mjs",
     "test:electron:excerpts": "node scripts/build-phase1-test.mjs && node tests/electron/registered-excerpts-smoke.mjs",
-    "package:mac:local": "node scripts/package-mac-local.mjs"
+    "package:mac:local": "node scripts/package-mac-local.mjs",
+    "test:electron:theme": "node tests/electron/theme-smoke.mjs"
   },
   "dependencies": {
     "@primeuix/themes": "3.0.1",

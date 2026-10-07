@@ -131,3 +131,9 @@ dag.yaml459/back-dag.yaml40/back-dag-custom-table.yaml14 포함과
 최종 설치 결과와 픽셀은 같은 private `canonical-final/report.json` 및
 `actual-valid-dag-list.png`/`actual-exclusion-reasons.png`로 연결한다.
 문서 작성 시점 이후 최종 설치 통과 여부는 해당 보고서의 source SHA/build/status로 판정한다.
+
+## 전체 테마 지원 승인
+
+사용자가 “prime vue 색상을 기반으로 다크모드를 지원하는 방향”을 승인했다.
+위 팔레트 결정 대기 기록 이후의 요구이며, 현재 구현·검수 기준은 [전체 테마 검수](theme-support.md)다.
+기존 main DAG459 회귀는 보존하며 테마 변경이 사용자 노트·요약·권한을 변경하지 않는다.
