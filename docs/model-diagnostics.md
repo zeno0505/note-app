@@ -1,5 +1,7 @@
 # 수동 프로젝트 AI 진단 기록
 
+실제 적용과 기존 기록 한계는 [후속 조사·설치 보고서](../reviews/model-diagnostics-followup-2026-10-07.md)를 참고한다.
+
 AI 프로젝트와 투자자문 프로젝트에서 동일한 일반 실패 문구가 보고됐다. 빌드2 조사 시 두 프로젝트의 저장 DAG 관측은 `cleanup_unverified`였다. 이는 query process group 정리를 확인하지 못해 해당 reader가 이후 관측을 차단한 상태다. 왜 최초 정리 확인이 실패했는지는 당시 로그에서 알 수 없다. 이전 버튼 클릭 시각/내부 예외/단계가 기록되지 않았으므로 각 클릭 원인을 소급 확정하지 않는다. 기존 ledger/권한/성공본문은 설치 후 baseline과 byte-identical이고 새 모델 예약은 없었다. 모델 호출 전에 durable ledger 예약이 필요한 현재 경로상 새 호출 근거가 없지만 과거 프로세스 추적을 수행한 것은 아니다. 정상 LaunchServices 실행의 stdout/stderr는 `/dev/null`이며 별도 raw 실행 로그는 없었다.
 
 새 버전은 앱 데이터의 **`model-diagnostics/summary-cache-v1.json`**에 최소 진단 metadata를 저장한다. Mac 경로는 `~/Library/Application Support/note-app/model-diagnostics/summary-cache-v1.json`이다. 프로젝트 AI 영역의 **요약 진단 기록**에서 해당 프로젝트 최근12건과 파일 위치를 확인한다. 기록은 표시·재시작 조회만으로 모델을 호출하지 않는다.
