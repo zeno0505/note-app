@@ -67,7 +67,8 @@ export function createDagReader(options: DagReaderOptions) {
   const timeoutMs = limit(options.timeoutMs, 5000, 60000);
   const maxOutputBytes = limit(options.maxOutputBytes, 2 * 1024 * 1024, 8 * 1024 * 1024);
   const maxSourceBytes = limit(options.maxSourceBytes, 16 * 1024 * 1024, 64 * 1024 * 1024);
-  const run = createQueryProcess({ pythonPath: options.pythonPath, queryScriptPath: options.queryScriptPath, doneStatus, timeoutMs, maxOutputBytes });
+  if(options.requireDocumentShape!==undefined&&typeof options.requireDocumentShape!=='boolean')throw new Error('Invalid DAG shape requirement');
+  const run = createQueryProcess({ pythonPath: options.pythonPath, queryScriptPath: options.queryScriptPath, doneStatus, timeoutMs, maxOutputBytes,requireDocumentShape:options.requireDocumentShape });
   const cache = new Map<string, DagReadModel>();
   let busy = false;
   let abandoned = false;

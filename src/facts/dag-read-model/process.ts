@@ -9,7 +9,7 @@ import type { DagFailureKind } from './types';
  * No DAG semantics are implemented here. Original bytes are verified before execution. */
 export const QUERY_SHA256 = '23d00c96beb0661bb7da064d7dd83566ea754f75165bb9790831dabc25887d47';
 const TRANSPORT = `import sys, json, hashlib, pathlib, os, stat
-script, source, done, expected, source_hash, maximum, directory = sys.argv[1:]
+script, source, done, expected, source_hash, maximum, directory, require_shape = sys.argv[1:]
 with open(script, 'rb') as stream: code = stream.read(1024 * 1024 + 1)
 if hashlib.sha256(code).hexdigest() != expected: raise RuntimeError('unsupported query version')
 namespace = {'__name__': '__dag_query_transport__', '__file__': script}
@@ -24,6 +24,11 @@ if len(raw) > int(maximum) or hashlib.sha256(raw).hexdigest() != source_hash: ra
 result = {}
 snapshot = pathlib.Path(directory) / 'dag.yaml'
 snapshot.write_bytes(raw)
+if require_shape == '1':
+    if not callable(namespace.get('load')): raise RuntimeError('unsupported DAG loader')
+    _, document, _ = namespace['load'](snapshot)
+    if not isinstance(document.get('phases'), list): raise RuntimeError('not a DAG document')
+    if any(not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list) for phase in document['phases']): raise RuntimeError('not a DAG phase')
 for mode, args in [('index', ['--index', '--fields', 'id,title,status,depends_on,e2e,commits']), ('coverage', ['--coverage', '--done-status', done])]:
     emitted = []
     namespace['emit'] = emitted.append
@@ -35,7 +40,7 @@ print(json.dumps(result, ensure_ascii=True, allow_nan=False))
 `;
 export type ProcessResult = { ok: true; data: unknown } | { ok: false; kind: DagFailureKind };
 /** Same-group cleanup is shared with Orca; query argv is independently fixed here. */
-export function createQueryProcess(config: { pythonPath: string; queryScriptPath: string; doneStatus: string; timeoutMs: number; maxOutputBytes: number }) {
+export function createQueryProcess(config: { pythonPath: string; queryScriptPath: string; doneStatus: string; timeoutMs: number; maxOutputBytes: number;requireDocumentShape?:boolean }) {
   let poisoned = false;
   return async (source: string, sourceHash: string, maxSourceBytes: number, signal: AbortSignal): Promise<ProcessResult> => {
     if (poisoned) return { ok: false, kind: 'cleanup_unverified' };
@@ -45,7 +50,7 @@ export function createQueryProcess(config: { pythonPath: string; queryScriptPath
       if (signal.aborted) return { ok: false, kind: 'cancelled' };
       return await new Promise<ProcessResult>(resolve => {
       let chunks: Buffer[] = [], bytes = 0, stopped: DagFailureKind | null = null, settled = false;
-      const child = spawn(config.pythonPath, ['-I', '-B', '-c', TRANSPORT, config.queryScriptPath, source, config.doneStatus, QUERY_SHA256, sourceHash, String(maxSourceBytes), directory], {
+      const child = spawn(config.pythonPath, ['-I', '-B', '-c', TRANSPORT, config.queryScriptPath, source, config.doneStatus, QUERY_SHA256, sourceHash, String(maxSourceBytes), directory,config.requireDocumentShape?'1':'0'], {
         shell: false, windowsHide: true, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
       });
       let cleanup: Promise<boolean> | null = null;

@@ -32,4 +32,6 @@ export interface DagReaderOptions {
   pythonPath: string; queryScriptPath: string;
   registrations: readonly DagRegistration[];
   doneStatus?: string; timeoutMs?: number; maxOutputBytes?: number; maxSourceBytes?: number;
+  /** Candidate discovery additionally requires the existing phases/tasks document shape. */
+  requireDocumentShape?: boolean;
 }

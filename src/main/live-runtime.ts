@@ -77,7 +77,7 @@ export function createLiveRuntime(options: {
   cacheAvailable?: boolean;
   dependencies?: Partial<LiveRuntimeDependencies>;
   projectRegistry?:ProjectRegistry;
-  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>;
+  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>&Partial<Pick<ReturnType<typeof createReadRoots>,'scopeForDirectory'>>;
 }) {
   const registry=options.projectRegistry;
   let registryError:string|null=null;
@@ -369,7 +369,7 @@ export function createLiveRuntime(options: {
       for(const scope of noteScopes)for(const dagRelativePath of scope.dagRelativePaths){if(checks++>=8||signal.aborted)break;
         const candidate=await readMapping({localHostId:config.localHostId!,scopes:[scope],signal,worktrees:[{worktreeId:row.id,hostId:row.identity.hostId!,worktreePath:row.path,selectedScopeId:scope.scopeId,selectedDagRelativePath:dagRelativePath}]});
         const resolved=candidate.mappings[0];if(resolved?.state!=='resolved')continue;
-        const id=digest(JSON.stringify([view.id,scope.scopeId,dagRelativePath,resolved.canonicalDagPath]));connectionChoices.set(id,{workstreamId:view.id,hostId:row.identity.hostId!,worktreePath:row.path,scopeId:scope.scopeId,dagRelativePath,canonicalDagPath:resolved.canonicalDagPath});view.connectionOptions.push({id,label:`${scope.scopeId} · ${dagRelativePath}`});
+        const id=digest(JSON.stringify([view.id,scope.scopeId,dagRelativePath,resolved.canonicalDagPath]));connectionChoices.set(id,{workstreamId:view.id,hostId:row.identity.hostId!,worktreePath:row.path,scopeId:scope.scopeId,dagRelativePath,canonicalDagPath:resolved.canonicalDagPath});view.connectionOptions.push({id,label:`${path.relative(resolved.canonicalNotePath,resolved.canonicalDagPath)} · ${path.basename(resolved.canonicalNotePath)}`});
       }
     }}
     publicSelections.clear();
@@ -589,6 +589,14 @@ export function createLiveRuntime(options: {
     modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,w.readingSummary.fingerprint]):null;},
     identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''):null;},
     resolveReconnectWorktree(id:string){const snapshot=store.getState();if(disposed||!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)return null;const s=snapshot.value?.worktreeSources.find(w=>w.id===id);return s?.hostId===config.localHostId&&s.worktreePath&&s.present!==false?{worktreePath:s.worktreePath}:null;},
+    reconnectedWorkstream(worktreePath:string){return store.getState().value?.worktreeSources.find(s=>s.worktreePath===worktreePath&&s.hostId===config?.localHostId&&s.present!==false)?.id;},
+    async bindReconnectedNote(selection:{worktreePath:string;directory:string;dagRelativePath:string}){
+      if(!registry||disposed||!connected||!config?.localHostId||!options.readRoots?.scopeForDirectory)throw Error('DAG 선택 저장을 사용할 수 없습니다.');
+      const scope=await options.readRoots.scopeForDirectory(selection.directory,selection.dagRelativePath);
+      const mapped=await readMapping({localHostId:config.localHostId,scopes:[scope],worktrees:[{worktreeId:selection.worktreePath,hostId:config.localHostId,worktreePath:selection.worktreePath,selectedScopeId:scope.scopeId,selectedDagRelativePath:selection.dagRelativePath}]});
+      const m=mapped.mappings[0];if(m?.state!=='resolved'||m.canonicalNotePath!==selection.directory||m.canonicalDagPath!==path.join(selection.directory,selection.dagRelativePath))throw Error('선택한 DAG 연결이 변경됐습니다.');
+      await registry.discover([m]);await registry.chooseConnection({hostId:config.localHostId,worktreePath:selection.worktreePath,scopeId:scope.scopeId,dagRelativePath:selection.dagRelativePath});
+    },
     resolveNoteSelection(worktreeId: string, scopeId: string) {
       const snapshot=store.getState();
       if(disposed || !connected || snapshot.freshness!=='current' || !snapshot.value || !config?.localHostId) return null;

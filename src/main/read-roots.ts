@@ -55,7 +55,8 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
   async function scopesFor(worktrees:readonly NoteWorktree[],retained:readonly AllowedNoteScope[]=[],signal?:AbortSignal){
     await load();if(worktrees.length>1000)throw Error('워크트리 범위 초과');const usable=await Promise.all(roots.map(async r=>await valid(r)?r:null));
     const normalized=[...options.initialScopes,...retained].map(s=>{const root=usable.find(r=>r&&inside(r.path,s.scopePath));const initial=options.initialScopes.find(original=>original.scopeId===s.scopeId&&original.hostId===s.hostId);return root?.kind==='vault'?{...s,vaultRootPath:root.path}:root?.kind==='project'&&initial?initial:s;});
-    const scopes=new Map((await filterScopes(normalized,signal)).map(s=>[s.scopeId,s]));
+    const scopes=new Map<string,AllowedNoteScope>();
+    for(const s of await filterScopes(normalized,signal)){const previous=scopes.get(s.scopeId);if(previous&&previous.scopePath===s.scopePath&&previous.hostId===s.hostId&&previous.vaultRootPath===s.vaultRootPath)scopes.set(s.scopeId,{...s,dagRelativePaths:[...new Set([...previous.dagRelativePaths,...s.dagRelativePaths])]});else scopes.set(s.scopeId,s);}
     for(const w of worktrees){if(signal?.aborted)throw Error('읽기 범위 확인 취소');if(w.hostId!==options.hostId)continue;
       try{const tree=await directory(w.worktreePath),docs=await directory(path.join(tree.path,'docs'));if(!inside(tree.path,docs.path))continue;const link=path.join(docs.path,'note');if(!(await lstat(link)).isSymbolicLink())continue;const target=await realpath(link);const root=usable.find(r=>r?.kind==='vault'&&target!==r.path&&inside(r.path,target));if(!root)continue;const note=await directory(target);if(note.path!==target)continue;
         if([...scopes.values()].some(s=>s.scopePath===target))continue;
@@ -66,5 +67,11 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
     if(scopes.size>NOTE_MAPPING_LIMITS.scopes)throw Error('프로젝트 노트 범위 초과');return [...scopes.values()];
   }
   async function allowsDirectory(p:string){await load();try{const selected=await directory(p);if(selected.path!==p)return false;for(const root of roots){if(!await valid(root))continue;if(root.kind==='vault'&&p!==root.path&&inside(root.path,p))return true;if(root.kind==='project'&&p===root.path&&options.initialScopes.some(s=>s.scopePath===p))return true;}return false;}catch{return false;}}
-  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor,allowsDirectory};
+  async function scopeForDirectory(p:string,dagRelativePath:string):Promise<AllowedNoteScope>{
+    if(!options.hostId||path.basename(dagRelativePath)!==dagRelativePath||!dagRelativePath||!await allowsDirectory(p))throw Error('현재 읽기 범위에서 DAG를 등록할 수 없습니다.');
+    const root=roots.find(r=>inside(r.path,p));if(!root||!await valid(root))throw Error('읽기 허용 범위가 변경됐습니다.');
+    const initial=options.initialScopes.find(s=>s.scopePath===p&&s.hostId===options.hostId);
+    return {scopeId:initial?.scopeId??'read-root:'+id(p),hostId:options.hostId,vaultRootPath:root.kind==='vault'?root.path:initial!.vaultRootPath,scopePath:p,dagRelativePaths:[dagRelativePath]};
+  }
+  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor,allowsDirectory,scopeForDirectory};
 }

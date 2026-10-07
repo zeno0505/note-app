@@ -1,5 +1,6 @@
 import {createModelRetryStorage} from '../summary/reading/model-retry-storage';
 import {createNoteReconnect} from './note-reconnect';
+import {createDagCandidateScanner} from './dag-candidates';
 import {createReadRoots,readRootsCodec} from './read-roots';
 import {readInstallation,verificationProfile,allowInstallation,canonicalTargetVerified} from './install-identity';
 import {trayIconPng} from './tray-icon';
@@ -147,17 +148,17 @@ app.whenReady().then(async()=>{
   });
   let changingReadRoots=false,pickingReadRoot=false;
   function checkReadSender(event:Electron.IpcMainInvokeEvent){if(!mainWindow||quitting)throw Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);}
-  const reconnect=createNoteReconnect({resolve:id=>liveRuntime.resolveReconnectWorktree(id),allowed:p=>readRoots.allowsDirectory(p)});
-  let reconnectBusy=false;
+  const reconnect=createNoteReconnect({resolve:id=>liveRuntime.resolveReconnectWorktree(id),allowed:p=>readRoots.allowsDirectory(p),scan:configuration.configuration?.dagQuery?createDagCandidateScanner(configuration.configuration.dagQuery):async()=>{throw Error('DAG 검증 실행 환경이 없습니다. 연결 및 설정에서 실행 환경을 확인해 주세요.');},bind:s=>liveRuntime.bindReconnectedNote(s)});
+  let reconnectBusy=false,reconnectWorktreePath:string|undefined;
   ipcMain.handle('note-app:note-reconnect-select',async(event,...args)=>{
     checkReadSender(event);if(args.length!==1||!args[0]||Object.keys(args[0]).join(',')!=='workstreamId'||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('프로젝트 선택 오류');
     if(pickingReadRoot||changingReadRoots||reconnectBusy)throw Error('폴더 선택 또는 재연결 처리 중입니다.');pickingReadRoot=true;reconnect.invalidate();
-    try{await liveRuntime.refresh();if(!liveRuntime.resolveReconnectWorktree(args[0].workstreamId))throw Error('현재 로컬 프로젝트 연결을 확인할 수 없습니다.');const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 재연결',message:'이 프로젝트의 노트가 있는 디렉토리를 선택하세요.',properties:['openDirectory'],buttonLabel:'이 디렉토리 검토'});if(result.canceled||result.filePaths.length!==1)return null;return await reconnect.prepare(args[0].workstreamId,result.filePaths[0]);}finally{pickingReadRoot=false;}
+    try{await liveRuntime.refresh();if(!liveRuntime.resolveReconnectWorktree(args[0].workstreamId))throw Error('현재 로컬 프로젝트 연결을 확인할 수 없습니다.');const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 재연결',message:'이 프로젝트의 노트가 있는 디렉토리를 선택하세요.',properties:['openDirectory'],buttonLabel:'이 디렉토리 검토'});if(result.canceled||result.filePaths.length!==1)return null;reconnectWorktreePath=liveRuntime.resolveReconnectWorktree(args[0].workstreamId)?.worktreePath;return await reconnect.prepare(args[0].workstreamId,result.filePaths[0]);}finally{pickingReadRoot=false;}
   });
   ipcMain.handle('note-app:note-reconnect-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('취소 요청 오류');reconnect.cancel(args[0]);});
   ipcMain.handle('note-app:note-reconnect-confirm',(event,...args)=>{
     checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('재연결 요청 오류');reconnectBusy=true;
-    return tracked((async()=>{try{await liveRuntime.refresh();projectModel?.cancel();await publicModel?.cancel();for(const controller of linkControllers)controller.abort();const result=await reconnect.confirm(args[0]);await liveRuntime.refresh();return result;}finally{reconnectBusy=false;}})());
+    return tracked((async()=>{try{await liveRuntime.refresh();projectModel?.cancel();await publicModel?.cancel();for(const controller of linkControllers)controller.abort();const result=await reconnect.confirm(args[0]);await liveRuntime.refresh();const workstreamId=reconnectWorktreePath?liveRuntime.reconnectedWorkstream(reconnectWorktreePath):undefined;return {...result,...(workstreamId?{workstreamId}:{})};}finally{reconnectBusy=false;reconnectWorktreePath=undefined;}})());
   });
   ipcMain.handle('note-app:read-roots',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return readRoots.view();});
   ipcMain.handle('note-app:read-root-select',async(event,...args)=>{

@@ -1,9 +1,13 @@
 import { createApp } from 'vue';
 import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
+import {definePreset} from '@primeuix/themes';
 import { createRouter, createWebHashHistory } from 'vue-router';
 import App from './App.vue';
 import {routes} from './routes';
 import './style.css';
 const router = createRouter({history:createWebHashHistory(),routes});
-createApp(App).use(router).use(PrimeVue,{theme:{preset:Aura, options:{darkModeSelector:false}}}).mount('#app');
+const theme=definePreset(Aura,{semantic:{primary:{50:'#f0f6f1',100:'#dfebe1',200:'#bdd5c4',300:'#93b79f',400:'#68967a',500:'#47785d',600:'#35624e',700:'#2a503e',800:'#244635',900:'#203b2f',950:'#101f18'},colorScheme:{light:{primary:{color:'{primary.600}',contrastColor:'#ffffff',hoverColor:'{primary.700}',activeColor:'{primary.800}'}},dark:{primary:{color:'{primary.300}',contrastColor:'{surface.950}',hoverColor:'{primary.200}',activeColor:'{primary.100}'}}}}});
+const dark=matchMedia('(prefers-color-scheme: dark)');
+const syncTheme=()=>document.documentElement.classList.toggle('note-app-dark',dark.matches);syncTheme();dark.addEventListener('change',syncTheme);
+createApp(App).use(router).use(PrimeVue,{theme:{preset:theme, options:{darkModeSelector:'.note-app-dark'}}}).mount('#app');

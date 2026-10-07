@@ -65,3 +65,29 @@ live fixture와 동일한 절대 경로 Python·DAG query 환경을 사용하고
 기존 연결을 새로 추측하지 않는다. 현재 허용 범위에 해당 scope가 있어야 하며,
 실제 docs/note 링크와 DAG ID·canonical 경로가 기존 프로젝트와 일치해야 한다.
 권한 철회나 링크 대상 변경은 모델 호출 전에 차단한다.
+
+## 2026-10-07 UI 요청 정합성 감사
+
+전달된 사용자 요청: “최근 추가 UI에 PrimeVue 테마가 올바르게 적용되지 않아 보임”,
+“사용자에게 의미없는 hash 대신 선택디렉토리에서 DAG양식에 맞는 dag.yaml/back-dag.yaml 등을 파일명으로 나열”,
+“요청했던 별도의 ‘노트 재연결’ 다이얼로그가 빠져보임”.
+제목은 정확히 **노트 재연결**이며, 디렉토리 선택과 검증된 DAG 선택·확인을 한 독립 Dialog에서 제공한다.
+재연결과 기존 링크의 읽기 연결 선택은 구분하며, 해시는 기본 선택 문구에 노출하지 않는다.
+
+| 요구사항·수용기준 | build6 구현과 감사 | 수정 및 검증 증거 | 최종 설치 검증 |
+| --- | --- | --- | --- |
+| PrimeVue 선택/확인과 테마 | 실제 build6 native select, 기본 label에 scope hash. native 재연결 checkbox | Select/Button/Checkbox와 Aura primary·dark selector 통일. 격리 Electron 라이트/다크 화면 확인 | 설치 수정본의 실제 픽셀 확인 필요 |
+| DAG 파일명·상대경로 선택 | dag.yaml/dag.yml 존재만 확인, 다른 파일명·스키마·선택 없음 | 선택 폴더의 제한된 YAML만 authoritative query 및 phases/tasks 구조 검증. dag.yaml/back-dag.yaml 통과, 임의 YAML 제외. 선택은 main 소유 ID로 검증·저장 | 사용자 원본 변경 없이 실제 폴더 미리보기 예정 |
+| 클릭 즉시 ‘노트 재연결’ 독립 Dialog | 실제 build6에서 picker 취소 뒤 titled Dialog 0개 | 클릭 즉시 Dialog, 그 안에서 디렉토리 선택·DAG 선택·명시 확인. 독립 시작 화면·취소·Escape 통과 | 실제 설치 시작 Dialog 확인 필요 |
+| 데이터·권한 경계와 선택 유지 | 과거 링크 안전성 검증은 새 UI 완료 근거가 아님 | 격리 fixture의 원문/백업 보존, 취소, 허용 밖 거절, 복수 DAG, DAG 없음, back-dag 선택 후 재시작 통과. 모델 호출 0회 | 사용자 프로젝트에서는 확인 버튼을 누르지 않음 |
+| 라이트·다크·좁은 창·scroll·close | 기존 Aura darkModeSelector=false | 760/1600px, 높이620px, 테마 전환 후 색상·scroll·닫기·footer·가로 overflow 검증 및 픽셀 확인 | 실제 설치의 상태별 화면 확인 필요 |
+
+타입 검사·빌드 및 외부 query를 포함한 단위 테스트 **1004 통과/13 skip**.
+최종 소스의 격리 Electron 결과는 private `ui-reconnect-audit/electron-confirmed/report.json`(passed).
+실제 build6 감사는 `canonical-before/report.json`(source SHA 85c0b5c, build6, 모델0회, 링크 확인0회).
+수동 CDP 감사의 timeout은 실패로 보존했고, 후속 Electron launch 방식으로 실제 설치 재현에 성공했다.
+Library 첨부 다운로드는 HTTP403으로 차단되어 OCR 메타데이터만 확인했으며 첨부 픽셀을 보았다고 주장하지 않는다.
+
+기존 검수는 링크 안전성에 집중되어 요청한 시작 Dialog·파일 선택·테마의 완료를 입증하지 못했다.
+이 표의 누락과 미검증을 해결하고 최종 설치 화면을 확인하기 전 사용자 수용 검수를 요청하지 않는다.
+첨부·로컬 감사 증거는 private `ui-reconnect-audit/`에 보존하며 개인 경로·이미지를 Git에 넣지 않는다.
