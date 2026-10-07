@@ -1,3 +1,4 @@
+import {createWorkspaceStateStore,workspaceStateCodec} from './workspace-state';
 import {reconnectReadiness} from '../shared/reconnect-readiness';
 import {createModelRetryStorage} from '../summary/reading/model-retry-storage';
 import {createNoteReconnect} from './note-reconnect';
@@ -125,6 +126,8 @@ app.whenReady().then(async()=>{
   publicModel=createPublicModelController(publicReadingPack as PublicReadingPack,modelReading,
     publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined);
   const projectPersistence=cacheLocation.available?await boundedStartup((async()=>{const directory=join(cacheRoot,'projects');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw new Error('Unsafe project registry');return createLocalSummaryCache({directory,codec:projectRegistryCodec});})(),undefined):undefined;
+  const workspacePersistence=cacheLocation.available?await boundedStartup((async()=>{const directory=join(cacheRoot,'workspace-state');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw Error('Unsafe workspace state directory');return createLocalSummaryCache({directory,codec:workspaceStateCodec});})(),undefined):undefined;
+  const workspaceState=createWorkspaceStateStore(workspacePersistence);
   const projectRegistry=createProjectRegistry({persistence:projectPersistence??{read:async()=>null,write:async()=>{throw new Error('앱 프로젝트 상태 저장 위치를 사용할 수 없습니다.');}}});
   const readPersistence=cacheLocation.available?await boundedStartup((async()=>{
     const directory=join(cacheRoot,'read-permissions');await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});
@@ -198,6 +201,7 @@ app.whenReady().then(async()=>{
     if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).sort().join(',')!==(channel==='note-app:project-model-run'?'transferConfirmed,workstreamId':'workstreamId')||(channel==='note-app:project-model-run'&&args[0].transferConfirmed!==true)||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('Invalid project model selection');
     return tracked(action(args[0].workstreamId));
   });
+  for(const operation of ['get','set'] as const)ipcMain.handle('note-app:workspace-state-'+operation,(event,...args)=>{checkReadSender(event);const request=args[0];if(args.length!==1||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!==(operation==='get'?'workstreamId':'state,workstreamId')||typeof request.workstreamId!=='string'||!liveRuntime.getState().workstreams.some(w=>w.id===request.workstreamId))throw Error('화면 상태 요청 오류');return operation==='get'?tracked(workspaceState.get(request.workstreamId)):tracked(workspaceState.set(request.workstreamId,request.state));});
   ipcMain.handle('note-app:evidence-release',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('근거 취소 요청 오류');return liveRuntime.releaseTaskEvidence(args[0]);});
   ipcMain.handle('note-app:evidence-prepare',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('근거 요청 불가');return tracked(liveRuntime.prepareTaskEvidence(args[0]));});
   ipcMain.handle('note-app:evidence-read',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('근거 요청 불가');return tracked(liveRuntime.readTaskEvidence(args[0]));});

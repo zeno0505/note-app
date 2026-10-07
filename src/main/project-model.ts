@@ -49,10 +49,24 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   const selection=source.taskSelection??selectSummaryTasks(source.dag.tasks,source.dag.tasks,source.dag.doneStatus);
   const tasks=selection.taskIds.map(id=>source.dag.tasks.find(t=>t.id===id)!);
   const policyContext=source.dag.readContractVersion===2?interpretTasks(tasks,{projectId:source.policyProjectId??source.projectKey,dagId:source.dag.dagId,sourceHash:source.dag.sourceHash,observedAt:source.dag.observedAt,policies:source.dag.policies??[]}).map(row=>({id:row.task.id,lifecycle:row.lifecycle,discussion:row.discussion,verification:row.verification,verificationState:row.verificationState,policy:row.policy?{id:row.policy.id,revision:row.policy.revision,scope:row.policy.scope,mappingVersion:row.policy.mappingVersion}:null,interpretationVersion:row.provenance.interpretationVersion})):undefined;
-  const dagText=JSON.stringify({tasks,policyContext,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
+  const v2=source.dag.readContractVersion===2;
+  const coreTasks=v2?tasks.map(({details,...task})=>task):tasks;
+  const dagText=JSON.stringify({tasks:coreTasks,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
   if(Buffer.byteLength(dagText)>12000)throw Error('DAG selection exceeds limit');
-  const dagSource=add('dag/task-state.json',dagText);
-  facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'규칙 설명과 같은 작업 범위에서 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+selection.omittedCount+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.',sourceIds:[dagSource],anchors:['DAG','선언','생략']});
+  const dagSource=add('dag/task-state.json',dagText),dagSourceIds=[dagSource];
+  if(v2){
+    // Extra Phase2 declarations have their own bounded source; retain all selected IDs.
+    // This does not weaken the original 12KiB DAG or 48KiB total pack guard.
+    const encodeDetails=(limit:number)=>JSON.stringify({contract:'bounded-task-details-v1',tasks:tasks.map(task=>{const raw=JSON.stringify(task.details??null),bytes=Buffer.from(raw),cut=bytes.subarray(0,limit);return {id:task.id,sourceHash:hash(raw),excerpt:cut.toString('utf8'),omittedBytes:Math.max(0,bytes.length-cut.length),complete:cut.length===bytes.length};})});
+    let detailLimit=tasks.length?Math.floor(5000/tasks.length):0,detailText=encodeDetails(detailLimit);
+    while(Buffer.byteLength(detailText)>8000&&detailLimit>0){detailLimit=Math.floor(detailLimit/2);detailText=encodeDetails(detailLimit);}
+    if(Buffer.byteLength(detailText)>8000)throw Error('Task detail selection exceeds limit');
+    dagSourceIds.push(add('dag/selected-details.json',detailText));
+    const policyText=JSON.stringify({interpretationVersion:'phase2-task-v1',verificationState:'not-performed',tasks:policyContext?.map(({policy,...row})=>({...row,policy:policy?{id:policy.id,revision:policy.revision,mappingVersion:policy.mappingVersion,scopeHash:hash(JSON.stringify(policy.scope))}:null}))});
+    if(Buffer.byteLength(policyText)>8000)throw Error('Policy selection exceeds limit');
+    dagSourceIds.push(add('dag/selected-policy.json',policyText));
+  }
+  facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'규칙 설명과 같은 작업 범위에서 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+selection.omittedCount+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.'+(v2?' 상세 excerpt의 complete=false와 omittedBytes는 내용 생략이며 자료 부재가 아닙니다.':''),sourceIds:dagSourceIds,anchors:['DAG','선언','생략']});
   const focus=tasks.filter(t=>['running','in_progress','blocked','in_review'].includes(t.status??'')).slice(0,3);
   if(focus.length)facts.push({id:'F'+facts.length,section:'implemented',state:'known',text:'현재 DAG의 우선 확인 작업은 '+focus.map(t=>t.id+' '+(t.title??'제목 미기재')+' ('+t.status+')').join(', ')+'입니다. 검토·진행 상태는 구현 완료 인증이 아닙니다.',sourceIds:[dagSource],anchors:[...focus.map(t=>t.id),'완료 인증이 아닙니다']});
   for(const e of (source.registeredExcerpts?.excerpts??[]).slice(0,4)){
