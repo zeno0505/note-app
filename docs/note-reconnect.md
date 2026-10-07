@@ -76,11 +76,11 @@ live fixture와 동일한 절대 경로 Python·DAG query 환경을 사용하고
 
 | 요구사항·수용기준 | build6 구현과 감사 | 수정 및 검증 증거 | 최종 설치 검증 |
 | --- | --- | --- | --- |
-| PrimeVue 선택/확인과 테마 | 실제 build6 native select, 기본 label에 scope hash. native 재연결 checkbox | Select/Button/Checkbox와 Aura primary·dark selector 통일. 격리 Electron 라이트/다크 화면 확인 | 설치 수정본의 실제 픽셀 확인 필요 |
-| DAG 파일명·상대경로 선택 | dag.yaml/dag.yml 존재만 확인, 다른 파일명·스키마·선택 없음 | 선택 폴더의 제한된 YAML만 authoritative query 및 phases/tasks 구조 검증. dag.yaml/back-dag.yaml 통과, 임의 YAML 제외. 선택은 main 소유 ID로 검증·저장 | 사용자 원본 변경 없이 실제 폴더 미리보기 예정 |
-| 클릭 즉시 ‘노트 재연결’ 독립 Dialog | 실제 build6에서 picker 취소 뒤 titled Dialog 0개 | 클릭 즉시 Dialog, 그 안에서 디렉토리 선택·DAG 선택·명시 확인. 독립 시작 화면·취소·Escape 통과 | 실제 설치 시작 Dialog 확인 필요 |
-| 데이터·권한 경계와 선택 유지 | 과거 링크 안전성 검증은 새 UI 완료 근거가 아님 | 격리 fixture의 원문/백업 보존, 취소, 허용 밖 거절, 복수 DAG, DAG 없음, back-dag 선택 후 재시작 통과. 모델 호출 0회 | 사용자 프로젝트에서는 확인 버튼을 누르지 않음 |
-| 라이트·다크·좁은 창·scroll·close | 기존 Aura darkModeSelector=false | 760/1600px, 높이620px, 테마 전환 후 색상·scroll·닫기·footer·가로 overflow 검증 및 픽셀 확인 | 실제 설치의 상태별 화면 확인 필요 |
+| PrimeVue 선택/확인과 테마 | 실제 build6 native select, 기본 label에 scope hash. native 재연결 checkbox | Select/Button/Checkbox와 Aura primary·dark selector 통일. 격리 Electron 라이트/다크 화면 확인 | build7 실제 PrimeVue control/Dialog 픽셀 확인 통과 |
+| DAG 파일명·상대경로 선택 | dag.yaml/dag.yml 존재만 확인, 다른 파일명·스키마·선택 없음 | 선택 폴더의 제한된 YAML만 authoritative query 및 phases/tasks 구조 검증. dag.yaml/back-dag.yaml 통과, 임의 YAML 제외. 선택은 main 소유 ID로 검증·저장 | 실제 허용 폴더에서 back-dag.yaml(40), back-dag-custom-table.yaml(14) 표시. 유효하지 않거나 안전하게 읽을 수 없는 YAML 4개 제외. 원본 변경0 |
+| 클릭 즉시 ‘노트 재연결’ 독립 Dialog | 실제 build6에서 picker 취소 뒤 titled Dialog 0개 | 클릭 즉시 Dialog, 그 안에서 디렉토리 선택·DAG 선택·명시 확인. 독립 시작 화면·취소·Escape 통과 | build7 클릭 즉시 시작 Dialog, 미선택 확인 비활성, close/reopen/Escape 통과 |
+| 데이터·권한 경계와 선택 유지 | 과거 링크 안전성 검증은 새 UI 완료 근거가 아님 | 격리 fixture의 원문/백업 보존, 취소, 허용 밖 거절, 복수 DAG, DAG 없음, back-dag 선택 후 재시작 통과. 모델 호출 0회 | 실제 사용자 프로젝트에서는 확인 버튼0회. 격리 확인·재시작만 수행 |
+| 라이트·다크·좁은 창·scroll·close | 기존 Aura darkModeSelector=false | 760/1600px, 높이620px, 테마 전환 후 색상·scroll·닫기·footer·가로 overflow 검증 및 픽셀 확인 | build7 실제 설치 760/1600px·높이620px, 라이트/다크·scroll·close·취소·가로 overflow 없음 통과 |
 
 타입 검사·빌드 및 외부 query를 포함한 단위 테스트 **1004 통과/13 skip**.
 최종 소스의 격리 Electron 결과는 private `ui-reconnect-audit/electron-confirmed/report.json`(passed).
@@ -89,5 +89,12 @@ live fixture와 동일한 절대 경로 Python·DAG query 환경을 사용하고
 Library 첨부 다운로드는 HTTP403으로 차단되어 OCR 메타데이터만 확인했으며 첨부 픽셀을 보았다고 주장하지 않는다.
 
 기존 검수는 링크 안전성에 집중되어 요청한 시작 Dialog·파일 선택·테마의 완료를 입증하지 못했다.
-이 표의 누락과 미검증을 해결하고 최종 설치 화면을 확인하기 전 사용자 수용 검수를 요청하지 않는다.
+이번 수정의 최종 설치 화면은 확인했다. 이 UI 검증을 Phase1 전체 수용 완료로 확대하지 않는다.
 첨부·로컬 감사 증거는 private `ui-reconnect-audit/`에 보존하며 개인 경로·이미지를 Git에 넣지 않는다.
+
+실제 수정 설치 감사: source SHA **495bd4e67bf7e70651cc362915a4e0b6434ceee2**, build **7**,
+GitHub CI **37583623157 success**. `canonical-final/report.json`은 passed이며 모델0회·링크 확인0회.
+`actual-start-dialog.png`, `actual-valid-dag-list.png`, `actual-selected-light-760.png`,
+`actual-selected-dark-760.png`의 실제 픽셀을 확인했다. 초기 스크립트가 유효 후보에 dag.yaml을
+강제해 중단한 결과는 `canonical-build7-first/`에 보존했고, 실제 검증된 후보로 수정해 재검증했다.
+이후 문서만 갱신한 체크포인트는 앱 소스가 동일하다. 첨부 Library 픽셀 미확인은 위 HTTP403 제한으로 남는다.
