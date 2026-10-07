@@ -16,6 +16,7 @@ const issueText: Record<MarkdownIssue, string> = {
   'work-limit': '분석 작업 제한을 넘어 서식 없는 원문으로 표시합니다',
   'inline-limit': '긴 문단 일부는 서식 없는 원문으로 표시합니다',
   'depth-limit': '깊게 중첩된 서식 일부는 원문으로 표시합니다',
+  'table-limit': '표의 행·열 제한을 넘어 서식 없는 원문으로 표시합니다',
 };
 function scrollToAnchor(anchor: string): boolean {
   const target = headings.get(anchor);
@@ -54,7 +55,15 @@ function renderBlocks(nodes: MarkdownBlock[]): VNode[] {
       h('pre', [h('code', item.text)]),
     ]);
     if (item.type === 'quote') return h('blockquote', renderBlocks(item.children));
-    if (item.type === 'list') return h(item.ordered ? 'ol' : 'ul', item.ordered ? { start: item.start } : {}, item.items.map(children => h('li', renderInline(children))));
+    if (item.type === 'list') return h(item.ordered ? 'ol' : 'ul', item.ordered ? { start: item.start } : {}, item.items.map(entry => h('li', renderBlocks(entry.children))));
+    if (item.type === 'table') {
+      const row = (cells: MarkdownInline[][], header = false) => h('tr', cells.map((cell, index) => h(header ? 'th' : 'td', {
+        ...(header ? { scope: 'col' } : {}), class: item.alignments[index] ? `markdown-align-${item.alignments[index]}` : undefined,
+      }, renderInline(cell))));
+      return h('div', { class: 'markdown-table-scroll', tabindex: 0, role: 'region', 'aria-label': '문서 표' }, [
+        h('table', [h('thead', [row(item.header, true)]), h('tbody', item.rows.map(cells => row(cells)))]),
+      ]);
+    }
     return h(`h${item.level}`, {
       key: item.id, tabindex: -1, 'data-markdown-anchor': item.anchor,
       ref: (element: Element | ComponentPublicInstance | null) => {
@@ -91,6 +100,14 @@ defineExpose({ scrollToAnchor });
 .safe-markdown :deep(.markdown-body p), .safe-markdown :deep(.markdown-body li) { white-space: pre-wrap; line-height: 1.65; }
 .safe-markdown :deep(.markdown-body h1), .safe-markdown :deep(.markdown-body h2), .safe-markdown :deep(.markdown-body h3) { margin: 1.2em 0 .5em; }
 .safe-markdown :deep(.markdown-body blockquote) { margin: 1em 0; padding: .2em 1em; border-left: 3px solid var(--p-content-border-color, #888); }
+.safe-markdown :deep(.markdown-body li > p) { margin: .2em 0; }
+.safe-markdown :deep(.markdown-body li > ul), .safe-markdown :deep(.markdown-body li > ol) { margin: .2em 0; padding-left: 1.5em; }
+.safe-markdown :deep(.markdown-table-scroll) { max-width: 100%; overflow-x: auto; margin: 1em 0; }
+.safe-markdown :deep(.markdown-table-scroll table) { border-collapse: collapse; width: 100%; }
+.safe-markdown :deep(.markdown-table-scroll th), .safe-markdown :deep(.markdown-table-scroll td) { min-width: 6rem; padding: .4em .6em; border: 1px solid var(--p-content-border-color, #888); text-align: left; vertical-align: top; }
+.safe-markdown :deep(.markdown-table-scroll .markdown-align-center) { text-align: center; }
+.safe-markdown :deep(.markdown-table-scroll .markdown-align-right) { text-align: right; }
+.safe-markdown :deep(.markdown-table-scroll:focus-visible) { outline: 2px solid var(--p-primary-color, #2d76a8); outline-offset: 3px; }
 .safe-markdown :deep(.markdown-code-block pre) { overflow: auto; max-height: 60vh; padding: .8em; border: 1px solid var(--p-content-border-color, #888); border-radius: .4em; white-space: pre; }
 .safe-markdown :deep(.markdown-code-language), .safe-markdown :deep(.markdown-reference-reason) { font-size: .8rem; opacity: .8; }
 .safe-markdown :deep(.markdown-reference-button) { font: inherit; color: var(--p-primary-color, #2d76a8); background: transparent; border: 0; text-decoration: underline; cursor: pointer; padding: 0 .15em; text-align: left; overflow-wrap: anywhere; }

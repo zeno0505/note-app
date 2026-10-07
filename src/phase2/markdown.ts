@@ -1,10 +1,11 @@
 /** A deliberately bounded Markdown subset. Browser-safe: no Node APIs, HTML parser, URL loading or filesystem authority. */
 export const MARKDOWN_LIMITS = Object.freeze({
   sourceBytes: 256 * 1024, lines: 8192, nodes: 4096, workUnits: 1_500_000,
-  inlineChars: 16384, inlineDepth: 6, quoteDepth: 4,
+  inlineChars: 16384, inlineDepth: 6, quoteDepth: 4, listDepth: 6,
+  tableColumns: 32, tableRows: 256,
   referenceBytes: 4096, labelBytes: 512, anchorBytes: 512, references: 64,
 });
-export type MarkdownIssue = 'invalid-source' | 'source-limit' | 'line-limit' | 'node-limit' | 'work-limit' | 'inline-limit' | 'depth-limit';
+export type MarkdownIssue = 'invalid-source' | 'source-limit' | 'line-limit' | 'node-limit' | 'work-limit' | 'inline-limit' | 'depth-limit' | 'table-limit';
 export interface DocumentReference { href: string; relativePath: string; anchor: string | null; label: string; kind: 'link' | 'image' }
 export interface DocumentReferences { targets: DocumentReference[]; unsupportedCount: number }
 export interface MarkdownReference {
@@ -12,11 +13,14 @@ export interface MarkdownReference {
   disposition: 'local' | 'anchor' | 'blocked'; relativePath: string | null; anchor: string | null; reason: string | null;
 }
 export type MarkdownInline = { type: 'text' | 'code'; text: string } | { type: 'strong' | 'emphasis'; children: MarkdownInline[] } | MarkdownReference;
+export interface MarkdownListItem { children: MarkdownBlock[] }
+export type MarkdownAlignment = 'left' | 'center' | 'right' | null;
 export type MarkdownBlock =
   | { type: 'heading'; level: 1 | 2 | 3 | 4 | 5 | 6; id: string; anchor: string; children: MarkdownInline[] }
   | { type: 'paragraph'; children: MarkdownInline[] }
   | { type: 'code'; text: string; language: string | null }
-  | { type: 'list'; ordered: boolean; start: number; items: MarkdownInline[][] }
+  | { type: 'list'; ordered: boolean; start: number; items: MarkdownListItem[] }
+  | { type: 'table'; alignments: MarkdownAlignment[]; header: MarkdownInline[][]; rows: MarkdownInline[][][] }
   | { type: 'quote'; children: MarkdownBlock[] };
 export interface MarkdownDocument extends DocumentReferences { blocks: MarkdownBlock[]; issues: MarkdownIssue[]; limited: boolean }
 const utf8 = new TextEncoder();
@@ -87,6 +91,18 @@ function destinationEnd(text: string, from: number, context: Context): number {
   }
   return -1;
 }
+/** Both inline code and table splitting use exact backtick runs, so their cell boundaries agree. */
+function codeEnd(text: string, from: number, width: number, context: Context): number {
+  for (let cursor = from; cursor < text.length;) {
+    consume(context);
+    if (text[cursor] !== '`') { cursor++; continue; }
+    let end = cursor + 1;
+    while (text[end] === '`') { consume(context); end++; }
+    if (end - cursor === width) return cursor;
+    cursor = end;
+  }
+  return -1;
+}
 function inline(text: string, context: Context, depth = 0): MarkdownInline[] {
   if (text.length > MARKDOWN_LIMITS.inlineChars || depth >= MARKDOWN_LIMITS.inlineDepth) {
     context.issues.add(depth >= MARKDOWN_LIMITS.inlineDepth ? 'depth-limit' : 'inline-limit');
@@ -98,12 +114,12 @@ function inline(text: string, context: Context, depth = 0): MarkdownInline[] {
   while (cursor < text.length) {
     consume(context);
     const char = text[cursor];
-    if (char === '\\' && cursor + 1 < text.length && /[\\`*_[\]{}()#+.!>~-]/u.test(text[cursor + 1])) { pending += text[cursor + 1]; cursor += 2; continue; }
+    if (char === '\\' && cursor + 1 < text.length && /[\\`*_[\]{}()#+.!>|~-]/u.test(text[cursor + 1])) { pending += text[cursor + 1]; cursor += 2; continue; }
     if (char === '`') {
       let count = 1;
-      while (text[cursor + count] === '`') count++;
+      while (text[cursor + count] === '`') { consume(context); count++; }
       const marker = '`'.repeat(count);
-      const end = count <= 8 ? find(text, marker, cursor + count, text.length, context) : -1;
+      const end = count <= 8 ? codeEnd(text, cursor + count, count, context) : -1;
       if (end >= 0) { flush(); result.push(node(context, { type: 'code', text: text.slice(cursor + count, end) })); cursor = end + count; continue; }
       pending += marker; cursor += count; continue;
     }
@@ -158,12 +174,68 @@ function headingText(input: string): string {
   return end < text.length && end > 0 && /[ \t]/u.test(text[end - 1]) ? text.slice(0, end).trimEnd() : text;
 }
 const fence = (line: string) => /^ {0,3}(`{3,64}|~{3,64})([^`~]*)$/u.exec(line);
-const listItem = (line: string) => /^ {0,3}([-+*]|\d{1,6}[.)])[ \t]+(.*)$/u.exec(line);
+interface ListMarker { indent: number; contentIndent: number; marker: string; text: string }
+function indentation(line: string): number {
+  let columns = 0;
+  for (const char of line) { if (char === ' ') columns++; else if (char === '\t') columns += 4 - columns % 4; else break; }
+  return columns;
+}
+function listItem(line: string): ListMarker | null {
+  const match = /^([ \t]*)([-+*]|\d{1,6}[.)])([ \t]+)(.*)$/u.exec(line);
+  if (!match) return null;
+  const indent = indentation(match[1]);
+  // Count a tab after the marker at its real column, rather than as one space.
+  const contentIndent = indentation(' '.repeat(indent + match[2].length) + match[3]);
+  return { indent, contentIndent, marker: match[2], text: match[4] };
+}
+function unindent(line: string, columns: number): string {
+  let cursor = 0, removed = 0;
+  while (removed < columns && (line[cursor] === ' ' || line[cursor] === '\t')) {
+    removed += line[cursor++] === '\t' ? 4 - removed % 4 : 1;
+  }
+  return ' '.repeat(Math.max(0, removed - columns)) + line.slice(cursor);
+}
 const quote = (line: string) => /^ {0,3}>[ \t]?(.*)$/u.exec(line);
-function blocks(lines: string[], context: Context, depth = 0): MarkdownBlock[] {
+/** No pipe inside escaped text, a closed code span or a wiki alias can create a cell. */
+function tableRow(line: string, context: Context): string[] | null {
+  const text = line.trim(), cells: string[] = [];
+  let start = 0, boundaries = 0, lastBoundary = -1;
+  for (let cursor = 0; cursor < text.length; cursor++) {
+    consume(context);
+    if (text[cursor] === '\\') { cursor++; continue; }
+    if (text[cursor] === '`') {
+      let width = 1;
+      while (text[cursor + width] === '`') { consume(context); width++; }
+      const end = width <= 8 ? codeEnd(text, cursor + width, width, context) : -1;
+      cursor = end >= 0 ? end + width - 1 : cursor + width - 1;
+      continue;
+    }
+    if (text.startsWith('[[', cursor)) {
+      const end = find(text, ']]', cursor + 2, cursor + MARKDOWN_LIMITS.referenceBytes, context);
+      if (end >= 0) { cursor = end + 1; continue; }
+    }
+    if (text[cursor] !== '|') continue;
+    if (cursor !== 0) cells.push(text.slice(start, cursor).trim());
+    if (cells.length > MARKDOWN_LIMITS.tableColumns) throw new Limit('table-limit');
+    start = cursor + 1; lastBoundary = cursor; boundaries++;
+  }
+  if (!boundaries) return null;
+  if (lastBoundary !== text.length - 1) cells.push(text.slice(start).trim());
+  if (cells.length > MARKDOWN_LIMITS.tableColumns) throw new Limit('table-limit');
+  return cells.length ? cells : null;
+}
+function tableStart(lines: string[], cursor: number, context: Context): { header: string[]; alignments: MarkdownAlignment[] } | null {
+  const divider = lines[cursor + 1];
+  if (!divider || !lines[cursor].includes('|') || !/^[ \t|:-]+$/u.test(divider) || !divider.includes('-')) return null;
+  consume(context, divider.length + 1);
+  const separators = tableRow(divider, context), header = tableRow(lines[cursor], context);
+  if (!separators || !header || separators.length !== header.length || separators.some(cell => !/^:?-{3,}:?$/u.test(cell))) return null;
+  return { header, alignments: separators.map(cell => cell.startsWith(':') ? cell.endsWith(':') ? 'center' : 'left' : cell.endsWith(':') ? 'right' : null) };
+}
+function blocks(lines: string[], context: Context, depth = 0, listDepth = 0): MarkdownBlock[] {
   const result: MarkdownBlock[] = [];
   let cursor = 0;
-  const special = (line: string) => heading(line) || fence(line) || listItem(line) || quote(line);
+  const special = (line: string) => heading(line) || fence(line) || (listItem(line)?.indent ?? 4) < 4 || quote(line);
   while (cursor < lines.length) {
     const line = lines[cursor]; consume(context, line.length + 1);
     if (!line.trim()) { cursor++; continue; }
@@ -191,21 +263,59 @@ function blocks(lines: string[], context: Context, depth = 0): MarkdownBlock[] {
     if (quoted && depth < MARKDOWN_LIMITS.quoteDepth) {
       const content: string[] = [];
       while (cursor < lines.length) { const match = quote(lines[cursor]); if (!match) break; content.push(match[1]); cursor++; }
-      result.push(node(context, { type: 'quote', children: blocks(content, context, depth + 1) })); continue;
+      result.push(node(context, { type: 'quote', children: blocks(content, context, depth + 1, listDepth) })); continue;
     }
     if (quoted) context.issues.add('depth-limit');
     const item = listItem(line);
-    if (item) {
-      const ordered = /^\d/u.test(item[1]), items: MarkdownInline[][] = [];
+    if (item && item.indent < 4) {
+      const ordered = /^\d/u.test(item.marker), items: MarkdownListItem[] = [], start = cursor;
+      const limited = listDepth >= MARKDOWN_LIMITS.listDepth;
+      if (limited) context.issues.add('depth-limit');
       while (cursor < lines.length) {
         const match = listItem(lines[cursor]);
-        if (!match || /^\d/u.test(match[1]) !== ordered) break;
-        node(context, null); items.push(inline(match[2], context)); cursor++;
+        if (!match || match.indent !== item.indent || /^\d/u.test(match.marker) !== ordered) break;
+        consume(context, lines[cursor].length + 1);
+        const content = [match.text]; cursor++;
+        while (cursor < lines.length) {
+          const candidate = lines[cursor]; consume(context, candidate.length + 1);
+          if (!candidate.trim()) {
+            let next = cursor + 1;
+            while (next < lines.length && !lines[next].trim()) { consume(context, lines[next].length + 1); next++; }
+            if (next === lines.length || indentation(lines[next]) < match.contentIndent) break;
+            content.push(...lines.slice(cursor, next).map(() => '')); cursor = next; continue;
+          }
+          if (indentation(candidate) < match.contentIndent) break;
+          content.push(unindent(candidate, match.contentIndent)); cursor++;
+        }
+        if (!limited) items.push(node(context, { children: blocks(content, context, depth, listDepth + 1) }));
       }
-      result.push(node(context, { type: 'list', ordered, start: ordered ? Number.parseInt(item[1], 10) : 1, items })); continue;
+      if (limited) result.push(node(context, { type: 'paragraph', children: [node(context, { type: 'text', text: lines.slice(start, cursor).join('\n') })] }));
+      else result.push(node(context, { type: 'list', ordered, start: ordered ? Number.parseInt(item.marker, 10) : 1, items }));
+      continue;
+    }
+    const table = tableStart(lines, cursor, context);
+    if (table) {
+      const start = cursor, rows: string[][] = [];
+      let malformed = false;
+      cursor += 2;
+      while (cursor < lines.length && lines[cursor].trim() && !special(lines[cursor])) {
+        const row = tableRow(lines[cursor], context);
+        if (!row) break;
+        if (rows.length >= MARKDOWN_LIMITS.tableRows) throw new Limit('table-limit');
+        if (row.length !== table.header.length) malformed = true;
+        rows.push(row); cursor++;
+      }
+      if (malformed) {
+        // Do not drop or move malformed cells, and do not register links from an unrendered table.
+        result.push(node(context, { type: 'paragraph', children: [node(context, { type: 'text', text: lines.slice(start, cursor).join('\n') })] }));
+      } else {
+        const cells = (row: string[]) => { node(context, null); return row.map(cell => node(context, inline(cell, context))); };
+        result.push(node(context, { type: 'table', alignments: table.alignments, header: cells(table.header), rows: rows.map(cells) }));
+      }
+      continue;
     }
     const paragraph = [line]; cursor++;
-    while (cursor < lines.length && lines[cursor].trim() && !special(lines[cursor])) { paragraph.push(lines[cursor]); cursor++; }
+    while (cursor < lines.length && lines[cursor].trim() && !special(lines[cursor]) && !tableStart(lines, cursor, context)) { paragraph.push(lines[cursor]); cursor++; }
     result.push(node(context, { type: 'paragraph', children: inline(paragraph.join('\n'), context) }));
   }
   return result;

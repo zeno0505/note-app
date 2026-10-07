@@ -10,7 +10,8 @@ function references(blocks: MarkdownBlock[]): MarkdownReference[] {
   const visit = (nodes: MarkdownInline[]) => { for (const node of nodes) { if (node.type === 'reference') results.push(node); else if ('children' in node) visit(node.children); } };
   for (const node of blocks) {
     if (node.type === 'quote') results.push(...references(node.children));
-    else if (node.type === 'list') node.items.forEach(visit);
+    else if (node.type === 'list') node.items.forEach(item => results.push(...references(item.children)));
+    else if (node.type === 'table') { node.header.forEach(visit); node.rows.forEach(row => row.forEach(visit)); }
     else if ('children' in node) visit(node.children);
   }
   return results;
@@ -27,9 +28,9 @@ describe('bounded safe Markdown subset', () => {
     expect(parsed.blocks[5]).toEqual({ type: 'code', language: 'ts', text: 'const raw = "<script>";' });
   });
   it('normalizes line endings and keeps unsupported syntax literal', () => {
-    const parsed = parseSafeMarkdown('Title\r\n===\r\n[a][ref]\r\n| A | B |\r\n| --- | --- |\r\n$math$\r\n\r\n[ref]: doc.md');
+    const parsed = parseSafeMarkdown('Title\r\n===\r\n[a][ref]\r\n$math$\r\n\r\n[ref]: doc.md');
     expect(parsed.targets).toEqual([]);
-    expect(parsed.blocks).toMatchObject([{ type: 'paragraph', children: [{ type: 'text', text: 'Title\n===\n[a][ref]\n| A | B |\n| --- | --- |\n$math$' }] }, { type: 'paragraph' }]);
+    expect(parsed.blocks).toMatchObject([{ type: 'paragraph', children: [{ type: 'text', text: 'Title\n===\n[a][ref]\n$math$' }] }, { type: 'paragraph' }]);
     expect(parseSafeMarkdown('my_identifier and \\*literal\\*').blocks).toMatchObject([{ children: [{ type: 'text', text: 'my_identifier and *literal*' }] }]);
   });
   it('extracts local links, angle destinations, image placeholders and wiki aliases with exact hrefs', () => {
@@ -119,7 +120,152 @@ describe('bounded safe Markdown subset', () => {
   });
 });
 
+describe('bounded tables and nested lists', () => {
+  it('parses tables after paragraphs, with optional outer pipes, alignment and safe inline cells', () => {
+    const parsed = parseSafeMarkdown('Introduction\nLeft | Middle | Right | Default\n:--- | :---: | ---: | ---\n**bold** | *soft* | [local](safe.md#part) | `code`\n\n# Next');
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.blocks.map(block => block.type)).toEqual(['paragraph', 'table', 'heading']);
+    expect(parsed.blocks[1]).toMatchObject({
+      alignments: ['left', 'center', 'right', null],
+      header: [[{ type: 'text', text: 'Left' }], [{ type: 'text', text: 'Middle' }], [{ type: 'text', text: 'Right' }], [{ type: 'text', text: 'Default' }]],
+      rows: [[[{ type: 'strong' }], [{ type: 'emphasis' }], [{ type: 'reference', disposition: 'local' }], [{ type: 'code', text: 'code' }]]],
+    });
+    expect(parsed.targets).toEqual([{ href: 'safe.md#part', relativePath: 'safe.md', anchor: 'part', label: 'local', kind: 'link' }]);
+    expect(parseSafeMarkdown('| One |\n| --- |').blocks).toMatchObject([{ type: 'table', rows: [] }]);
+  });
+  it('keeps escaped pipes, exact code runs, wiki aliases and empty cells within their columns', () => {
+    const source = '| escaped \\| pipe | `one|two` | ``a`|`b`` | [[notes/design#제목|논의]] |\n| --- | --- | --- | --- |\n| | **value** | \\\\ | ![[image.png|그림]] |';
+    const parsed = parseSafeMarkdown(source);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.blocks[0]).toMatchObject({ type: 'table', header: [
+      [{ type: 'text', text: 'escaped | pipe' }], [{ type: 'code', text: 'one|two' }],
+      [{ type: 'code', text: 'a`|`b' }], [{ type: 'reference', label: '논의' }],
+    ], rows: [[[], [{ type: 'strong' }], [{ type: 'text', text: '\\' }], [{ type: 'reference', kind: 'image' }]]] });
+    expect(parsed.targets.map(target => target.href)).toEqual(['[[notes/design#제목|논의]]', '[[image.png|그림]]']);
+    for (const target of parsed.targets) expect(parseEvidenceTarget(target.href)).toMatchObject({ relativePath: target.relativePath, anchor: target.anchor });
+  });
+  it('does not treat escaped or unmatched backticks as cell protection, and excludes code links', () => {
+    const parsed = parseSafeMarkdown('| \\`literal | ``unmatched | `[hidden](code.md)|x` |\n| --- | --- | --- |');
+    expect(parsed.issues).toEqual([]); expect(parsed.targets).toEqual([]);
+    expect(parsed.blocks[0]).toMatchObject({ type: 'table', header: [
+      [{ type: 'text', text: '`literal' }], [{ type: 'text', text: '``unmatched' }], [{ type: 'code', text: '[hidden](code.md)|x' }],
+    ] });
+  });
+  it.each(['javascript:alert(1)', 'https://example.invalid/a', 'data:text/html,x', 'file:///private.md', '../private.md', '%2e%2e/private.md'])('blocks hostile table destination %s', href => {
+    const parsed = parseSafeMarkdown(`| [bad](${href}) | Image |\n| --- | --- |\n| [local](safe.md) | ![bad](${href}) |`);
+    expect(parsed.blocks[0].type).toBe('table'); expect(parsed.unsupportedCount).toBe(2);
+    expect(parsed.targets.map(target => target.href)).toEqual(['safe.md']);
+    expect(references(parsed.blocks).filter(item => item.disposition === 'blocked')).toHaveLength(2);
+  });
+  it.each([
+    '| A | B |\n| --- |', '| A | B |\n| -- | --- |', '| A | B |\n| --- | invalid |',
+    '| A | B |\n| --- | --- |\n| missing |', '| A | B |\n| --- | --- |\n| extra | cell | preserved |',
+  ])('preserves malformed table text without dropping or relocating cells: %s', source => {
+    const parsed = parseSafeMarkdown(source);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.blocks).toEqual([{ type: 'paragraph', children: [{ type: 'text', text: source }] }]);
+  });
+  it('never registers links in a malformed body table and resumes after a blank line', () => {
+    const malformed = '| [header](header.md) | B |\n| --- | --- |\n| [body](body.md) |';
+    const parsed = parseSafeMarkdown(`${malformed}\n\n[after](after.md)`);
+    expect(parsed.blocks[0]).toEqual({ type: 'paragraph', children: [{ type: 'text', text: malformed }] });
+    expect(parsed.targets.map(target => target.href)).toEqual(['after.md']);
+  });
+  it('accepts the exact row/column limits and fails closed immediately beyond either', () => {
+    const header = (count: number) => `| ${Array(count).fill('Header').join(' | ')} |\n| ${Array(count).fill('---').join(' | ')} |`;
+    expect(parseSafeMarkdown(header(MARKDOWN_LIMITS.tableColumns)).issues).toEqual([]);
+    const rows = `| Header |\n| --- |\n${Array(MARKDOWN_LIMITS.tableRows).fill('| body |').join('\n')}`;
+    expect(parseSafeMarkdown(rows).issues).toEqual([]);
+    for (const source of [header(MARKDOWN_LIMITS.tableColumns + 1), `${rows}\n| too many |`]) {
+      expect(parseSafeMarkdown(source)).toEqual({ blocks: [{ type: 'code', text: source, language: null }], targets: [], unsupportedCount: 0, issues: ['table-limit'], limited: true });
+    }
+  });
+  it('counts every table cell and row toward the shared node limit', () => {
+    const row = `| ${Array(32).fill('cell').join(' | ')} |`;
+    const source = `| ${Array(32).fill('[header](safe.md)').join(' | ')} |\n| ${Array(32).fill('---').join(' | ')} |\n${Array(64).fill(row).join('\n')}`;
+    expect(parseSafeMarkdown(source)).toMatchObject({ blocks: [{ type: 'code', text: source }], issues: ['node-limit'], targets: [], unsupportedCount: 0 });
+    const emptyCells = `${'|'.repeat(33)}\n| ${Array(32).fill('---').join(' | ')} |\n${Array(124).fill('|'.repeat(33)).join('\n')}`;
+    expect(parseSafeMarkdown(emptyCells).issues).toEqual(['node-limit']);
+  });
+  it('parses mixed ordered/unordered nesting, multi-digit starts and indented continuation', () => {
+    const parsed = parseSafeMarkdown('- Parent\n  continuation\n  12. Child\n      - Grandchild [local](nested.md)\n  13. Next child\n- Sibling\n\nAfter');
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.blocks).toMatchObject([{ type: 'list', ordered: false, items: [
+      { children: [{ type: 'paragraph', children: [{ text: 'Parent\ncontinuation' }] }, { type: 'list', ordered: true, start: 12, items: [
+        { children: [{ type: 'paragraph' }, { type: 'list', ordered: false, items: [{ children: [{ type: 'paragraph' }] }] }] },
+        { children: [{ type: 'paragraph', children: [{ text: 'Next child' }] }] },
+      ] }] },
+      { children: [{ type: 'paragraph', children: [{ text: 'Sibling' }] }] },
+    ] }, { type: 'paragraph', children: [{ text: 'After' }] }]);
+    expect(parsed.targets.map(target => target.href)).toEqual(['nested.md']);
+  });
+  it('handles tab indentation and preserves inconsistent under-indentation without inventing nesting', () => {
+    expect(parseSafeMarkdown('- Parent\n\t- Child\n\t\t- Grandchild').blocks).toMatchObject([{ type: 'list', items: [{ children: [
+      { type: 'paragraph' }, { type: 'list', items: [{ children: [{ type: 'paragraph' }, { type: 'list' }] }] },
+    ] }] }]);
+    const parsed = parseSafeMarkdown('12. Parent\n  - Not aligned to the content column\n12. Next');
+    expect(parsed.blocks.map(block => block.type)).toEqual(['list', 'list', 'list']);
+    expect(parsed.issues).toEqual([]);
+  });
+  it('uses the same bounded block parser for tables, quotes and fenced code inside list items', () => {
+    const parsed = parseSafeMarkdown('- Parent\n\n  | A | B |\n  | --- | --- |\n  | [local](table.md) | > text |\n\n  > - Quoted child\n\n  ```md\n  [hidden](code.md)\n  ```');
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.blocks).toMatchObject([{ type: 'list', items: [{ children: [
+      { type: 'paragraph' }, { type: 'table' }, { type: 'quote', children: [{ type: 'list' }] }, { type: 'code' },
+    ] }] }]);
+    expect(parsed.targets.map(target => target.href)).toEqual(['table.md']);
+  });
+  it('allows the exact nested-list depth and preserves over-depth source as inert text', () => {
+    const nested = (count: number) => Array.from({ length: count }, (_, level) => `${'  '.repeat(level)}- level ${level + 1}${level >= MARKDOWN_LIMITS.listDepth ? ' [hidden](too-deep.md)' : ''}`).join('\n');
+    expect(parseSafeMarkdown(nested(MARKDOWN_LIMITS.listDepth)).issues).toEqual([]);
+    const parsed = parseSafeMarkdown(nested(MARKDOWN_LIMITS.listDepth + 4));
+    expect(parsed.issues).toEqual(['depth-limit']); expect(parsed.targets).toEqual([]);
+    let current = parsed.blocks[0], levels = 0;
+    while (current.type === 'list') { levels++; current = current.items[0].children.at(-1)!; }
+    expect(levels).toBe(MARKDOWN_LIMITS.listDepth);
+    expect(current).toMatchObject({ type: 'paragraph', children: [{ type: 'text', text: expect.stringContaining('- level 10 [hidden](too-deep.md)') }] });
+  });
+  it('enforces node limits for nested list containers and shares scan-work limits with table cells', () => {
+    const list = '[registered](safe.md)\n\n' + '- root\n  - child\n'.repeat(700);
+    const table = `| ${'['.repeat(MARKDOWN_LIMITS.inlineChars)} |\n| --- |`;
+    for (const [source, issue] of [[list, 'node-limit'], [table, 'work-limit']]) {
+      const parsed = parseSafeMarkdown(source);
+      expect(parsed.issues).toEqual([issue]); expect(parsed.targets).toEqual([]);
+      expect(parsed.blocks).toEqual([{ type: 'code', text: source, language: null }]);
+    }
+  });
+  it('does not reset accumulated depth when list and quote blocks alternate', () => {
+    let source = '- tail';
+    for (let level = 0; level < 20; level++) source = `- parent\n  > ${source.replace(/\n/gu, '\n  > ')}`;
+    const parsed = parseSafeMarkdown(source);
+    expect(parsed.issues).toContain('depth-limit');
+    const visit = (blocks: MarkdownBlock[], lists = 0, quotes = 0) => {
+      expect(lists).toBeLessThanOrEqual(MARKDOWN_LIMITS.listDepth); expect(quotes).toBeLessThanOrEqual(MARKDOWN_LIMITS.quoteDepth);
+      for (const block of blocks) {
+        if (block.type === 'quote') visit(block.children, lists, quotes + 1);
+        if (block.type === 'list') block.items.forEach(item => visit(item.children, lists + 1, quotes));
+      }
+    };
+    visit(parsed.blocks);
+  });
+});
+
 describe('safe Vue Markdown rendering', () => {
+  it('renders semantic table cells and nested lists while escaping cell HTML and disabling unsafe links', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    try {
+      const text = '| <img src=x onerror=alert(1)> | Right |\n| :---: | ---: |\n| [<svg/onload=alert(2)>](javascript:alert(3)) | ![tracking](https://example.invalid/image.png) |\n\n- <script>alert(4)</script>\n  3. **Child**\n     - [local](safe.md)';
+      const html = await renderToString(createSSRApp(SafeMarkdown, { text }));
+      expect(html).toContain('<table>'); expect(html).toContain('<thead>'); expect(html).toContain('<tbody>'); expect(html).toContain('scope="col"');
+      expect(html).toContain('markdown-align-center'); expect(html).toContain('markdown-align-right');
+      expect(html).toMatch(/<ul[^>]*>.*<li[^>]*>.*<ol[^>]*start="3"[^>]*>.*<ul/su);
+      expect(html).toContain('<strong>Child</strong>'); expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+      expect(html).toContain('&lt;svg/onload=alert(2)&gt;'); expect(html).toContain('&lt;script&gt;alert(4)&lt;/script&gt;');
+      expect(html.match(/<button\b[^>]*\bdisabled/gu)).toHaveLength(2);
+      expect(html).not.toMatch(/<(?:script|img|svg|iframe|a)\b/iu); expect(html).not.toMatch(/<[a-z][^>]*\s(?:href|src|srcdoc|onerror|onload)=/iu);
+      expect(fetch).not.toHaveBeenCalled();
+    } finally { fetch.mockRestore(); }
+  });
   it('renders structure while escaping hostile HTML, SVG, template text, labels and fence language', async () => {
     const html = await renderToString(createSSRApp(SafeMarkdown, { text: '# Heading\n\n<script>alert(1)</script> <img src=x onerror=alert(2)> <svg/onload=alert(3)> {{danger}}\n\n**strong** and *emphasis*\n\n[<img src=x>](safe.md)\n\n```"><img src=x>\n</code><iframe src="x">\n```' }));
     expect(html).toContain('<h1'); expect(html).toContain('<strong>strong</strong>'); expect(html).toContain('<em>emphasis</em>');
@@ -172,6 +318,20 @@ function mount(text: string, anchor: string | null = null) {
   return { app, root, component, state, all, onReference };
 }
 describe('local-only Markdown interactions', () => {
+  it('keeps table and nested-list links on the same local-only event and anchor API', async () => {
+    const mounted = mount('# Title\n\n| Reference |\n| --- |\n| [table](table.md#part) |\n| [anchor](#title) |\n| [blocked](javascript:alert(1)) |\n\n- Parent\n  - ![image](nested.png)');
+    await nextTick();
+    for (const button of mounted.all().filter(node => node.type === 'button')) (button.props.onClick as () => void)();
+    expect(mounted.onReference.mock.calls).toEqual([
+      [{ href: 'table.md#part', relativePath: 'table.md', anchor: 'part', label: 'table', kind: 'link' }],
+      [{ href: 'nested.png', relativePath: 'nested.png', anchor: null, label: 'image', kind: 'image' }],
+    ]);
+    expect(mounted.all().find(node => node.type === 'h1')!.scrollIntoView).toHaveBeenCalledTimes(1);
+    mounted.state.disabled = true; await nextTick();
+    for (const button of mounted.all().filter(node => node.type === 'button')) (button.props.onClick as () => void)();
+    expect(mounted.onReference).toHaveBeenCalledTimes(2);
+    mounted.app.unmount();
+  });
   it('emits declarations only for local link/image buttons and never activates blocked links', async () => {
     const mounted = mount('[local](doc.md#anchor) ![image](a.png) [external](https://example.invalid)');
     await nextTick();

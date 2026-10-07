@@ -54,7 +54,7 @@ Phase ID·제목·순번·태스크 소속은 같은 hash 검증 snapshot을 같
 
 ## 4. 안전한 rich Markdown과 이미지
 
-[상세 Markdown 계약](phase2-markdown.md)을 따른다. 제목·문단·강조·코드·목록·인용·로컬 링크·앵커를 Vue의 escaped 노드로 그린다. HTML/v-html, 스크립트, 외부 fetch/URL 이동은 없다. 전체 CommonMark·표·중첩목록은 지원한다고 주장하지 않으며 해당 구문은 일반 텍스트로 남긴다. 원문 보기와 앵커 미일치 안내를 제공한다.
+[상세 Markdown 계약](phase2-markdown.md)을 따른다. 제목·문단·강조·코드·표·중첩 목록·인용·로컬 링크·앵커를 Vue의 escaped 노드로 그린다. HTML/v-html, 스크립트, 외부 fetch/URL 이동은 없다. 전체 CommonMark를 지원한다고 주장하지는 않는다. 표는32열/256행, 목록은6단계로 제한하며 잘못된 표·초과 깊이는 명시된 원문 fallback으로 보존한다. 원문 보기와 앵커 미일치 안내를 제공한다.
 
 근거는 등록 프로젝트 연결 또는 선택 태스크의 명시 설계/논의 연결뿐이다. renderer는 파일경로·URL 대신 main이 발행한 불투명 ID를 전달한다. root/realpath·일반 파일·symlink/hardlink·크기·MIME·hash·identity·권한을 검사한다. PNG/JPEG/GIF/WebP는 제한된 구조/크기 검사를 거치고 native decode 실패를 별도로 표시한다. 이미지 fit/원본/확대/scroll과 Escape 닫기를 제공한다. 파일/이미지의 존재는 검증 통과 판정이 아니다.
 
@@ -64,7 +64,7 @@ Phase ID·제목·순번·태스크 소속은 같은 hash 검증 snapshot을 같
 
 [CodeBurn 수집 계약](phase2-repository-usage.md)은 공식v0.9.25 소스로 검증했다. 신뢰된 기존 executable에 `spend --format branch-json --period today|month --provider all`만 전달한다. shell/renderer 경로/임의 인수는 없다. 출력·시간·동시성·자식 프로세스 정리를 제한한다. 공식 reporting 명령이어도 CodeBurn 자체의 가격/세션 cache 갱신까지 파일 쓰기0이라고 보증하지 않는다. 앱이 credentials/private cache를 직접 읽지는 않는다.
 
-오늘/월 관측은 foreground 최소60초, background 최소300초, 명시 새로고침 시 재조회한다. 실패하면 같은 기간의 last-good만 stale로 보존한다. 출처 기간·관측/마지막 성공/시도·조회 비용·오류·coverage를 표시한다. 현재 관측된 각 checkout의 원래 repo identity를 사용하며, 같은 호스트의 정확한 경로 대응만 인정한다. 합쳐진 프로젝트의 대표 repo를 다른 checkout에 복사하지 않는다. remote 이름·originKey만으로 합치거나 외부 폴더를 탐색하지 않는다.
+오늘/월 관측은 foreground 최소60초, background 최소300초, 명시 새로고침 시 재조회한다. 실패하면 같은 기간의 last-good만 stale로 보존한다. 출처 기간·관측/마지막 성공/시도·조회 비용·오류·coverage를 표시한다. 현재 관측된 각 checkout의 원래 repo identity를 사용하며, 같은 호스트의 정확한 경로 대응만 인정한다. 합쳐진 프로젝트의 대표 repo를 다른 checkout에 복사하지 않는다. remote 이름·originKey만으로 합치거나 외부 폴더를 탐색하지 않는다. 정확한 경로 대응도 과거 경로 재사용/소유권까지 증명하지 않으므로 실제 자료 대조가 필요하다.
 
 등록 프로젝트 / 저장소 확인·프로젝트 미등록 / 저장소 연결 미확인을 구분한다. DAG task 연결은 별개다. branch 정보 없는 세션의 비용은 보존하지만 토큰/cwd는 unknown이다. 기록 추정 비용은 실제 청구액·계정 quota·전체자료 포함을 보증하지 않는다. 오늘/월을 합산하지 않고 stale/unknown은 그래프의0점으로 바꾸지 않는다.
 
@@ -92,7 +92,7 @@ Phase ID·제목·순번·태스크 소속은 같은 hash 검증 snapshot을 같
 | T039 | 7상태와 검색/타입/Phase/접두사/feature | 미선언 feature는 만들어 내지 않음 | 실제 대규모 필터 수용 |
 | T040 | readonly SVG·상태/제목·진단/탐색/배율/focus | 강제 성능 목표 미설정 | 실제459구조·합의한 성능 기준 |
 | T041 | 상세 이유/수행/수용/파일/의존/검증·헤더 동선 | 실제 PR 리뷰 source 없는 범위는 미확인 | 사용자 읽기 수용 |
-| T042 | bounded rich Markdown·앵커·등록 링크·이미지·권한 체인 | 전체 CommonMark·표/중첩목록은 일반 텍스트 fallback | Mac 파일권한·실제 근거 문서/이미지 |
+| T042 | bounded rich Markdown·앵커·등록 링크·이미지·권한 체인 | 전체 CommonMark는 제외, 잘못된 표·한도 초과는 명시 fallback | Mac 파일권한·실제 근거 문서/이미지 |
 | T043 | 공식 branch-json collector·repo/session tokens/cost·그래프/표·오류/범위 | 전체자료 coverage/계정 귀속은 원천이 제공하지 않음 | 설치 CodeBurn 버전·실자료 정확도 |
 | T044 | Linux/Mac 명시 PID adapter, 실제 앱 전용 메모리 UI | Orca의 PID/정밀수명/worktree source capability 부재로 프로젝트 귀속 차단 | Mac adapter 실측·수집 비용, OS pressure/swap source |
 | T045 | 근거 기반 권고·확인, 실행 제어 없음 | 미관측 자원이 판단을 제한 | 실제 동시4작업 시 권고 수용 |
