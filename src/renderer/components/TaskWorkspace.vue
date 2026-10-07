@@ -18,6 +18,7 @@ const rows=computed(()=>interpretTasks(tasks.value,{projectId:props.workstream.i
 const options=computed(()=>taskFilterOptions(rows.value));
 const visible=computed(()=>filterTasks(rows.value,{status:props.state.status as TaskStatusFilter,search:props.state.search,type:props.state.type==='all'?undefined:props.state.type.slice(5),phase:props.state.phase==='all'?undefined:props.state.phase,prefix:props.state.prefix==='all'?undefined:props.state.prefix.slice(7)}).filter(row=>props.state.feature==='all'||row.task.rawFeature===props.state.feature.slice(8)));
 const features=computed(()=>[...new Set(tasks.value.flatMap(t=>t.rawFeature?[t.rawFeature]:[]))].sort());
+const omittedDependencies=computed(()=>tasks.value.reduce((n,t)=>n+t.displayOmissions.dependencies,0));
 const selected=computed(()=>rows.value.find(r=>r.task.id===props.state.selected));
 const graph=computed(()=>layoutTaskGraph(tasks.value,visible.value.map(r=>r.task.id)));
 const list=ref<HTMLElement|null>(null),detail=ref<HTMLElement|null>(null),summaryOpen=ref(false),selectionBusy=ref(false),summaryError=ref('');
@@ -44,6 +45,7 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
    <label>기능<Select v-model="state.feature" :options="[{value:'all',label:features.length?'모든 기능':'기능 선언 없음'},...features.map(t=>({value:'feature:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 기능" :disabled="!features.length"/></label>
   </div>
   <div class="section-heading"><p role="status" data-testid="task-count">{{visible.length}}개 표시 · 수집된 {{tasks.length}}개 · 필터로 숨김 {{tasks.length-visible.length}}개<span v-if="(dag?.workspaceTaskCount??dag?.taskCount??0)>tasks.length"> · 표시 상한 밖 {{(dag?.workspaceTaskCount??dag?.taskCount??0)-tasks.length}}개</span></p><div class="filter-group"><button :aria-pressed="state.view==='list'" @click="state.view='list'">목록</button><button :aria-pressed="state.view==='dag'" data-testid="task-dag-toggle" @click="state.view='dag'">읽기 전용 DAG</button></div></div>
+  <p v-if="omittedDependencies" class="notice warning">의존 참조 {{omittedDependencies}}개가 표시 상한으로 생략됐습니다. 현재 그래프가 전체 연결을 보여 준다고 판단하지 않습니다.</p>
   <p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 검토 대기는 명시된 태스크 완료 리뷰와 실제 관측한 PR 리뷰를 포함합니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p>
   <div class="task-split" :class="{'task-selected':!!selected}">
    <div ref="list" class="task-list-scroll" @scroll="state.scroll=($event.target as HTMLElement).scrollTop">
@@ -58,7 +60,7 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
     <h4>수용 기준 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.acceptanceCriteria??[]" :key="i">{{value}}</li></ul><p v-if="!selected.task.details?.acceptanceCriteria.length">기록 미확인</p>
     <h4>변경 대상 파일 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.targetFiles??[]" :key="i">{{value}}</li></ul><p>실제 파일 변경·커밋·검증 통과를 확인한 목록이 아닙니다.</p>
     <h4>의존성</h4><ul><li v-for="dep in selected.task.dependencies" :key="dep.id">{{dep.id}} · {{dep.scope==='external'?'외부·미확인':'DAG 내부'}}<span v-if="!visible.some(r=>r.task.id===dep.id)"> · 현재 목록 밖</span></li></ul>
-    <h4>검증·리뷰</h4><p>E2E {{selected.task.e2e.coverage}} · {{selected.task.e2e.coveredBy?.join(', ')||'참조 미확인'}}</p><p>커밋 {{selected.task.commitReferences.join(', ')||'참조 미확인'}} · 실제 실행 검증 미수행</p><p v-if="selected.task.details?.omissions">지원하지 않는 상세 필드 {{selected.task.details.omissions}}개 생략</p>
+    <p v-if="selected.task.displayOmissions.dependencies">추가 의존 참조 {{selected.task.displayOmissions.dependencies}}개 표시 생략</p><h4>검증·리뷰</h4><p>E2E {{selected.task.e2e.coverage}} · {{selected.task.e2e.coveredBy?.join(', ')||'참조 미확인'}}</p><p>커밋 {{selected.task.commitReferences.join(', ')||'참조 미확인'}} · 실제 실행 검증 미수행</p><p v-if="selected.task.displayOmissions.commitReferences||selected.task.displayOmissions.e2eReferences">표시 생략: 커밋 {{selected.task.displayOmissions.commitReferences}}개 · E2E {{selected.task.displayOmissions.e2eReferences}}개</p><p v-if="selected.task.details?.omissions">지원하지 않는 상세 필드 {{selected.task.details.omissions}}개 생략</p>
     <EvidenceViewer :key="selected.task.id" :workstream-id="workstream.id" :task-id="selected.task.id" :source-hash="dag?.sourceHash??null" :current="current"/>
     <details><summary>해석·출처 근거</summary><pre>{{JSON.stringify({reasons:selected.reasons,policy:selected.policy,provenance:selected.provenance},null,2)}}</pre></details>
    </aside>
