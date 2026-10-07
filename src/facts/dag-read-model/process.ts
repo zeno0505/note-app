@@ -36,6 +36,27 @@ for mode, args in [('index', ['--index', '--fields', 'id,title,status,depends_on
     namespace['main']()
     if len(emitted) != 1: raise RuntimeError('unsupported query emission')
     result[mode] = emitted[0]
+# Version 2 adds fixed allowlisted modes. The original pinned loader owns YAML parsing.
+emitted = []
+namespace['emit'] = emitted.append
+sys.argv = [script, str(snapshot), '--index', '--fields', 'id,type,description,acceptance_criteria,target_files,discussion,design']
+namespace['main']()
+if len(emitted) != 1: raise RuntimeError('unsupported detail emission')
+result['details'] = emitted[0]
+emitted = []
+namespace['emit'] = emitted.append
+sys.argv = [script, str(snapshot), '--policy', '--all']
+namespace['main']()
+if len(emitted) != 1: raise RuntimeError('unsupported policy emission')
+result['policies'] = emitted[0]
+_, document, _ = namespace['load'](snapshot)
+phases = document.get('phases')
+if not isinstance(phases, list): raise RuntimeError('unsupported phase shape')
+result['phases'] = []
+for number, phase in enumerate(phases):
+    if not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list): raise RuntimeError('unsupported phase shape')
+    result['phases'].append({'index': number, 'id': phase.get('id'), 'title': phase.get('title', phase.get('name')), 'taskIds': [task.get('id') for task in phase['tasks']]})
+result['readContractVersion'] = 2
 print(json.dumps(result, ensure_ascii=True, allow_nan=False))
 `;
 export type ProcessResult = { ok: true; data: unknown } | { ok: false; kind: DagFailureKind };

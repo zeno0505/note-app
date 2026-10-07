@@ -1,6 +1,9 @@
 export type DagFailureKind = 'invalid_request' | 'busy' | 'cancelled' | 'timeout' | 'source_unavailable' | 'source_changed' | 'source_limit' | 'command_failed' | 'output_limit' | 'invalid_schema' | 'document_shape_invalid' | 'cleanup_unverified';
 export interface DagError { kind: DagFailureKind; message: string }
 export interface DagTask {
+  rawType?: string | null;
+  phase?: {id:string|null;title:string|null;index:number}|null;
+  details?: {description:string|null;acceptanceCriteria:string[];targetFiles:string[];discussion:string[];design:string[];omissions:number};
   id: string; title: string | null;
   /** Declared vocabulary, not inferred agent/runtime state. */
   status: string | null;
@@ -17,6 +20,7 @@ export interface DagCoverage {
   uncoveredDone: string[]; uncoveredOpen: string[]; malformed: string[];
 }
 export interface DagReadModel {
+  readContractVersion?: 2; policies?: Record<string,unknown>[];
   dagId: string; sourceHash: string; sourceMtimeMs: number; observedAt: string;
   doneStatus: string; tasks: DagTask[]; statusCounts: { status: string | null; count: number }[];
   coverage: DagCoverage; verifiedFacts: never[];
