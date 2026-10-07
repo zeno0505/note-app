@@ -114,6 +114,8 @@ export function createLiveRuntime(options: {
   const prefixSummaries=new Map<string,import('../shared/reading-summary').ReadingSummary>();
   function readPrefixSummary(w:LiveWorkstreamView,d:LiveDagView){const next=prefixReading(w,d),key=JSON.stringify([w.id,d.dagId,d.summaryScope!.selected]),prior=prefixSummaries.get(key);const result=prior?.fingerprint===next.fingerprint?{...prior,checkedAt:next.checkedAt,changed:w.readingSummary?.changed??false}:{...next,revision:(prior?.revision??0)+1};if(prefixSummaries.size>=256&&!prefixSummaries.has(key))prefixSummaries.delete(prefixSummaries.keys().next().value!);prefixSummaries.set(key,result);return structuredClone(result);}
   const summaryPrefixes=new Map<string,string>();
+  const summaryTaskIds=new Map<string,string[]>();
+  const selectedTasks=(id:string)=>registry?.records().find(p=>p.dagId===id)?.summaryTaskIds??summaryTaskIds.get(id);
   const selectedPrefix=(id:string)=>registry?.records().find(p=>p.dagId===id)?.summaryPrefix??summaryPrefixes.get(id)??'T';
   const dagSessions = new Map<string, DagSession>();
   const excerptReaders = new Map<string, { identity: string; reader: ReturnType<typeof createRegisteredExcerptReader>; retired: boolean }>();
@@ -535,7 +537,7 @@ export function createLiveRuntime(options: {
         view.project=lifecycleView(p,view,present);if(p.status==='completed')view.project.sourceState='not-checked';else if(!observedView||!retainedAllowed(p)||!connected||snapshot.freshness!=='current'||registryError)view.project.sourceState='not-checked';
       }
     }
-    for(let i=0;i<dags.length;i++){const model=dagSessions.get(dags[i].dagId)?.model;if(model)dags[i]=scopedDagView(dags[i],model,selectedPrefix(dags[i].dagId));}
+    for(let i=0;i<dags.length;i++){const model=dagSessions.get(dags[i].dagId)?.model;if(model)dags[i]=scopedDagView(dags[i],model,selectedPrefix(dags[i].dagId),200,selectedTasks(dags[i].dagId));}
     for(const w of value?.workstreams??[]){const dag=dags.find(d=>d.dagId===w.noteMapping.dagId);if(dag?.summaryScope)w.readingSummary=readPrefixSummary(w,dag);else if(w.readingSummary)w.readingSummary={...w.readingSummary,summaryPrefix:'T',...explainReading({workstream:w},{state:'unconfigured'})};}
     for (const dag of dags) {
       const sourceUnavailable = dag.state !== 'ready' || dag.summary.state === 'error';
@@ -563,10 +565,12 @@ export function createLiveRuntime(options: {
   return {
     getState,
     async setSummaryPrefix(request:unknown){
-      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='prefix,workstreamId')throw Error('접두사 선택 요청 오류');
-      const r=request as {prefix:string;workstreamId:string};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
+      if(!request||typeof request!=='object'||Array.isArray(request)||!['prefix,workstreamId','prefix,taskIds,workstreamId'].includes(Object.keys(request).sort().join(',')))throw Error('접두사 선택 요청 오류');
+      const r=request as {prefix:string;workstreamId:string;taskIds?:string[]};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
       if(disposed||!connected||snapshot.refreshing||!id||!model||snapshot.value?.dags.find(d=>d.dagId===id)?.state!=='ready'||!prefixSelection(model).scope.available.some(p=>p.prefix===r.prefix))throw Error('현재 DAG의 실제 접두사를 선택해야 합니다.');
-      if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix);summaryPrefixes.set(id,r.prefix);publish();return getState();
+      if(r.taskIds!==undefined&&(!Array.isArray(r.taskIds)||!r.taskIds.length||r.taskIds.length>20||new Set(r.taskIds).size!==r.taskIds.length||r.taskIds.some(taskId=>typeof taskId!=='string'||taskId.length>128||!prefixSelection(model,r.prefix).tasks.some(t=>t.id===taskId))))throw Error('현재 접두사 작업을 1~20개 선택해 주세요.');
+      const ids=r.taskIds?[...r.taskIds].sort():undefined;
+      if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix,ids);summaryPrefixes.set(id,r.prefix);if(ids)summaryTaskIds.set(id,ids);else summaryTaskIds.delete(id);publish();return getState();
     },
     /** Main-only authority resolution. These raw paths/models never cross the live view IPC. */
     // A running manual request may outlive the display freshness window. Only
@@ -602,16 +606,16 @@ export function createLiveRuntime(options: {
     },
     async resolveProjectModelSource(workstreamId:string,signal:AbortSignal,revalidate=false){
       const w=this.getState().workstreams.find(w=>w.id===workstreamId),id=w?.noteMapping.dagId;
-      if(!id)throw new ModelDiagnosticError('current_dag_unavailable');const prefix=selectedPrefix(id);
+      if(!id)throw new ModelDiagnosticError('current_dag_unavailable');const prefix=selectedPrefix(id),selection=selectedTasks(id),selectionKey=JSON.stringify(selection);
       const source=await this.resolveSummarySource(workstreamId,signal,revalidate);
-      if(prefix!==selectedPrefix(id))throw new ModelDiagnosticError('source_changed');
-      const {tasks,scope}=prefixSelection(source.dag,prefix);if(!tasks.length)throw new ModelDiagnosticError('current_dag_unavailable');
+      if(prefix!==selectedPrefix(id)||selectionKey!==JSON.stringify(selectedTasks(id)))throw new ModelDiagnosticError('source_changed');
+      const {tasks,scope}=prefixSelection(source.dag,prefix,selection);if(!tasks.length||scope.taskSelection.missingIds.length)throw new ModelDiagnosticError('current_dag_unavailable');
       const base=this.getState().dags.find(d=>d.dagId===id)!;
       const coverage={tasksTotal:tasks.length,declared:tasks.filter(t=>t.e2e.state==='declared').length,required:tasks.filter(t=>t.e2e.required).length,uncoveredDone:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status===source.dag.doneStatus).map(t=>t.id),uncoveredOpen:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status!==source.dag.doneStatus).map(t=>t.id),malformed:tasks.filter(t=>t.e2e.coverage==='malformed').map(t=>t.id)};
-      return {observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix]),codeburn:source.codeburn};
+      return {observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,taskSelection:scope.taskSelection,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix,200,selection)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix,200,selection).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix,selection]),codeburn:source.codeburn};
     },
-    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!))).fingerprint]):null;},
-    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'prefix-v1',selectedPrefix(w.noteMapping.dagId!)])).replace(/^sha256:/,''):null;},
+    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!),200,selectedTasks(w.noteMapping.dagId!))).fingerprint]):null;},
+    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'task-scope-v1',selectedPrefix(w.noteMapping.dagId!),selectedTasks(w.noteMapping.dagId!)??'representative'])).replace(/^sha256:/,''):null;},
     resolveReconnectWorktree(id:string){const snapshot=store.getState();if(disposed||!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)return null;const s=snapshot.value?.worktreeSources.find(w=>w.id===id);return s?.hostId===config.localHostId&&s.worktreePath&&s.present!==false?{worktreePath:s.worktreePath}:null;},
     reconnectedWorkstream(worktreePath:string){return store.getState().value?.worktreeSources.find(s=>s.worktreePath===worktreePath&&s.hostId===config?.localHostId&&s.present!==false)?.id;},
     async bindReconnectedNote(selection:{worktreePath:string;directory:string;dagRelativePath:string}){

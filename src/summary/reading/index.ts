@@ -31,7 +31,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
   } else {
     const doneStatus = dag.doneStatus ?? 'done';
     const done = dag.tasks.filter(t => t.status === doneStatus);
-    const running = dag.tasks.filter(t => t.status === 'running');
+    const running = dag.tasks.filter(t => ['running','in_progress'].includes(t.status??''));
     const remaining = dag.tasks.filter(t => t.status !== doneStatus);
     implemented.push(done.length
       ? paragraph(`DAG는 ${names(done)}의 작업 완료를 선언합니다. 이 선언만으로 실제 구현 검수나 배포 완료를 확인할 수는 없습니다.`, 'declaration', sources)

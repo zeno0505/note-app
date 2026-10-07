@@ -1,3 +1,4 @@
+import {selectSummaryTasks,SUMMARY_SELECTION_POLICY} from '../summary/reading/task-selection';
 import {taskPrefix} from '../shared/summary-prefix';
 import {randomUUID} from 'node:crypto';
 import type {ModelRetryProposal,ModelRetryView} from '../shared/model-retry';
@@ -10,7 +11,7 @@ import type {createModelReadingStorage,LatestModelReadingView} from '../summary/
 import type {SummaryWorkflowSource} from '../summary/workflow';
 import type {DeepReadonly} from '../collector/snapshot/types';
 import type {ReadingSummary} from '../shared/reading-summary';
-export interface ProjectModelSource extends SummaryWorkflowSource {projectKey:string;summaryPrefix?:string;dependencyObservations?:import('../shared/summary-prefix').SummaryPrefixScope['dependencies'];readingSummary:DeepReadonly<ReadingSummary>}
+export interface ProjectModelSource extends SummaryWorkflowSource {projectKey:string;summaryPrefix?:string;taskSelection?:import('../shared/summary-prefix').SummaryTaskSelection;dependencyObservations?:import('../shared/summary-prefix').SummaryPrefixScope['dependencies'];readingSummary:DeepReadonly<ReadingSummary>}
 export interface ProjectModelView {state:'disabled'|'idle'|'running'|'failed'|'cancelled';message:string;latest:LatestModelReadingView;inputHash:string|null;diagnostics?:ModelDiagnosticView;retry?:ModelRetryView}
 
 const hash=(x:string)=>createHash('sha256').update(x).digest('hex');
@@ -20,6 +21,7 @@ export function assertSafeModelInput(text:string,filename=''){
 export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingPack {
   if(!/^project:[a-f0-9]{64}$/.test(source.projectKey))throw Error('Current bounded source unavailable');
   if(source.summaryPrefix&&(!source.dag.tasks.length||source.dag.tasks.some(t=>taskPrefix(t.id)!==source.summaryPrefix)||source.readingSummary.summaryPrefix!==source.summaryPrefix))throw Error('Current bounded source unavailable');
+  if(source.taskSelection&&(source.taskSelection.taskIds.length>20||source.taskSelection.missingIds.length||JSON.stringify(source.taskSelection.taskIds)!==JSON.stringify(source.readingSummary.summaryTaskIds)||source.taskSelection.taskIds.some(id=>!source.dag.tasks.some(t=>t.id===id))))throw Error('Current bounded source unavailable');
   // 선별 전에 검사하여 생략된 원문의 명백한 민감정보도 전송을 중단합니다.
   assertSafeModelInput(JSON.stringify({dag:source.dag,summary:source.readingSummary}));
   for(const section of source.readingSummary.sections)for(const p of section.paragraphs)for(const s of p.sources)if(s.document)assertSafeModelInput('',s.document.relativePath);
@@ -43,14 +45,12 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
     for(const p of selected){if(p.text.length>1050)throw Error('Paragraph requires bounded selection');const document=p.sources.some(s=>s.kind==='document'),text=(document?'등록 문서 기록(현재 미대조): ':'')+p.text;facts.push({id:'F'+facts.length,section:id,state:/조회를 완료하지 못했습니다|조회 실패/.test(p.text)?'query-failed':p.basis==='unknown'?'unrecorded':'known',text,sourceIds:[sourceId],anchors:document?['등록 문서','현재 미대조']:[]});}
     if(!selected.length)facts.push({id:'F'+facts.length,section:id,state:'unrecorded',text:'이 섹션의 근거가 기록되지 않았습니다.',sourceIds:[sourceId],anchors:['기록되지']});
   }
-  const taskRank=(t:typeof source.dag.tasks[number])=>['running','in_progress'].includes(t.status??'')?0:t.status==='blocked'?1:t.status==='in_review'?2:t.status===source.dag.doneStatus?5:t.dependencies.every(d=>d.scope==='internal'&&(source.dag.tasks.some(other=>other.id===d.id&&other.status===source.dag.doneStatus)||source.dependencyObservations?.some(other=>other.scope==='internal'&&other.id===d.id&&other.status===source.dag.doneStatus)))?3:4;
-
-  const ordered=[...source.dag.tasks].sort((a,b)=>taskRank(a)-taskRank(b)||a.id.localeCompare(b.id));
-  const tasks=ordered.slice(0,20);
-  const dagText=JSON.stringify({tasks,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:'진행 → 차단 → 검토 → 의존성 완료 선언 → 그 밖의 미완료 → 완료; 같은 상태는 ID 문자열 순서; 최신 순서 아님',coverage:source.dag.coverage,omitted:source.dag.tasks.length-tasks.length});
+  const selection=source.taskSelection??selectSummaryTasks(source.dag.tasks,source.dag.tasks,source.dag.doneStatus);
+  const tasks=selection.taskIds.map(id=>source.dag.tasks.find(t=>t.id===id)!);
+  const dagText=JSON.stringify({tasks,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
   if(Buffer.byteLength(dagText)>12000)throw Error('DAG selection exceeds limit');
   const dagSource=add('dag/task-state.json',dagText);
-  facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'작업은 상태 우선순위와 같은 상태의 ID 문자열 순서로 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+(source.dag.tasks.length-tasks.length)+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.',sourceIds:[dagSource],anchors:['DAG','선언','생략']});
+  facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'규칙 설명과 같은 작업 범위에서 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+selection.omittedCount+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.',sourceIds:[dagSource],anchors:['DAG','선언','생략']});
   const focus=tasks.filter(t=>['running','in_progress','blocked','in_review'].includes(t.status??'')).slice(0,3);
   if(focus.length)facts.push({id:'F'+facts.length,section:'implemented',state:'known',text:'현재 DAG의 우선 확인 작업은 '+focus.map(t=>t.id+' '+(t.title??'제목 미기재')+' ('+t.status+')').join(', ')+'입니다. 검토·진행 상태는 구현 완료 인증이 아닙니다.',sourceIds:[dagSource],anchors:[...focus.map(t=>t.id),'완료 인증이 아닙니다']});
   for(const e of (source.registeredExcerpts?.excerpts??[]).slice(0,4)){
