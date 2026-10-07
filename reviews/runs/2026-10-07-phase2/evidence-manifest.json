@@ -1,0 +1,82 @@
+{
+  "testedSource": "93ed46d47dfd09f16d383dfcc869131210900426",
+  "prefixTestedSource": "a6d9f30b0a32ba23e0d395fd1226dc5491aec0dc",
+  "productBuildIdentical": true,
+  "images": [
+    {
+      "path": "images/task-detail.png",
+      "sha256": "f46de96de6bce193dedcf52073778fd9b9805be1a1be17b8c19bd449bc27d999",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/rich-markdown.png",
+      "sha256": "94ef6366874bca26e0c0e3409631308874d332a552c2df0595f53b2dda92f84c",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/evidence-image.png",
+      "sha256": "2242d903c67be68a98fdc0cbac629b593df5b49b866068d6778caa85e45b0dfc",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/repository-usage.png",
+      "sha256": "424ca9e7005a28e6c19a66f7b02d0d72f2c808081b8b4cde69928186b260b225",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/usage-capabilities.png",
+      "sha256": "4a3f32b77510efef0aaa800f2c660085b6883212e3c4fd97f5c5afcbd75008ba",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/tasks-light.png",
+      "sha256": "fc380d76fe2fa93526a5e8ccf08eab1658feb9519e0a862c27452ceae4cfc32a",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/tasks-dark.png",
+      "sha256": "7bb46e4841c29027edf041810bd218c202b7f80d09b932f2cbec6c05b5b523b0",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "images/tasks-narrow.png",
+      "sha256": "ccb6e0955b299fc4015434d63de54cc75b86944eb18a399aadda37b03c2d18ab",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/light-select.png",
+      "sha256": "347783d17af1dea4cf7c2bd2481307b00aae9c30087a38541d75414e21794328",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/dark-select.png",
+      "sha256": "cd1082b631f8ed3e2b1604d07370983b2fed58e8c07cc7ea0849fe58bcd2956d",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/task-dialog-20.png",
+      "sha256": "e50cffe0e2679ca00ee2b8e15bcbe7b1f40b4636764eba960779c3426893d11f",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/task-dialog-empty.png",
+      "sha256": "5bde034d395ace57959d4c4bb70713da90aff998892c4c277f8e1af861bb30fe",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/light-task-dialog.png",
+      "sha256": "375b0061abebb5950c57929e63ec9420126bbadc0d51f31e649c512189e34f5c",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/dark-task-dialog.png",
+      "sha256": "ed4374d2c17ad42037fd6cda89d5b654061d2e910e1e06cfba61b5039b721278",
+      "source": "synthetic-fixture-actual-electron"
+    },
+    {
+      "path": "prefix-images/task-dialog-over-limit.png",
+      "sha256": "ce50a6ecff8cde9bdfad912a3caa5b4fbf71e8f1b32bf2fc7deeb7527b564976",
+      "source": "synthetic-fixture-actual-electron"
+    }
+  ]
+}

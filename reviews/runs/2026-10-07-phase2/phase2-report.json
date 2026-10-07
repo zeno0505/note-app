@@ -1,0 +1,88 @@
+{
+  "status": "passed",
+  "source": "500 fictional tasks, actual Linux Electron production host/preload/renderer; no real models or accounts",
+  "modelCalls": 0,
+  "checks": [
+    "hidden deep link retains URL identity, displays actionable notice and restores the same project through explicit filter recovery",
+    "pinned v2 loader with 500 tasks, phase/type/details/policy; summary prefix remains separate",
+    "exact seven status options; done and verification overlap; unrelated policy ignored safely",
+    "unknown raw lifecycle retained; right detail shows declarations without completion inference",
+    "rich Markdown heading/emphasis/table/nested-list/code and local anchor; source-bound local document navigation/back; HTML inert; local raster fit/original/zoom; external image blocked",
+    "released evidence session cannot be reused through IPC",
+    "task header opens exact single-task consent workflow without model call",
+    "fixed official branch-json CLI fixture, today/month periods, exact checkout attribution, known/unregistered/unknown tiers, missing tokens unknown; actual app-only Electron memory kept separate",
+    "internal tabs preserve task selection/search; usage separates quota and project; unsupported collection stays explicit",
+    "500-node readonly DAG with title/status, fit/zoom, keyboard selection and focus return; diagnostics collapsed; app-only process metrics",
+    "820px desktop viewport preserves reading order and avoids horizontal document overflow",
+    "process restart retains project tab/filter and exact model scope; no replay",
+    "authoritative fixture DAG unchanged by UI and IPC; all model calls zero"
+  ],
+  "performance": {
+    "launchAndInitialReadMs": 6363.5615099999995,
+    "show500ListMs": 119.60832500000015,
+    "filter500Ms": 41.4442369999997,
+    "layoutAndShow500Ms": 151.97164699999848,
+    "appMetrics": [
+      {
+        "type": "Browser",
+        "cpu": {
+          "cumulativeCPUUsage": 4.46,
+          "percentCPUUsage": 5.839145107448091,
+          "idleWakeupsPerSecond": 790
+        },
+        "memory": {
+          "workingSetSize": 329492,
+          "peakWorkingSetSize": 341160
+        }
+      },
+      {
+        "type": "GPU",
+        "cpu": {
+          "cumulativeCPUUsage": 0.95,
+          "percentCPUUsage": 0.6255669200212693,
+          "idleWakeupsPerSecond": 6
+        },
+        "memory": {
+          "workingSetSize": 147564,
+          "peakWorkingSetSize": 160820
+        }
+      },
+      {
+        "type": "Utility",
+        "cpu": {
+          "cumulativeCPUUsage": 0.04,
+          "percentCPUUsage": 0,
+          "idleWakeupsPerSecond": 0
+        },
+        "memory": {
+          "workingSetSize": 85188,
+          "peakWorkingSetSize": 85220
+        }
+      },
+      {
+        "type": "Tab",
+        "cpu": {
+          "cumulativeCPUUsage": 3.28,
+          "percentCPUUsage": 6.35982293418876,
+          "idleWakeupsPerSecond": 159
+        },
+        "memory": {
+          "workingSetSize": 306980,
+          "peakWorkingSetSize": 316276
+        }
+      }
+    ]
+  },
+  "screenshots": [
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/task-detail.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/rich-markdown.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/evidence-image.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/repository-usage.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/usage-capabilities.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/tasks-light.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/tasks-dark.png",
+    "/workspace/scratch/5a42b5329b35/prefix-validation-20261007/phase2-evidence/tasks-narrow.png"
+  ],
+  "branchQueries": 10,
+  "dagHash": "6ceb2f910992a6e2f253ae778e443874ad7b4e68f8dfff4a340c9a58403c8586"
+}
