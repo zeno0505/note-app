@@ -118,7 +118,7 @@ export async function openProjectDocument(workstreamId:string,linkId:string){try
 export async function setSummaryPrefix(workstreamId:string,prefix:string,taskIds?:string[]){
   if(liveBusy.value||mode.value==='demo')return;
   const generation=++liveGeneration,observed=observedGeneration;liveBusy.value=true;bridgeError.value=null;
-  try{const state=await window.noteApp.setSummaryPrefix({workstreamId,prefix,...(taskIds?{taskIds}:{})});if(generation===liveGeneration&&observed===observedGeneration){liveState.value=state;return true;}return false;}
+  try{const state=await window.noteApp.setSummaryPrefix({workstreamId,prefix,...(taskIds?{taskIds}:{})});if(generation!==liveGeneration)return false;if(observed===observedGeneration)liveState.value=state;return true;}
   catch{if(generation===liveGeneration)bridgeError.value='요약 범위를 저장하지 못했습니다. 현재 접두사에 속한 실제 ID를 중복 없이 1~20개 선택해 주세요.';}
   finally{if(generation===liveGeneration)liveBusy.value=false;}
 }

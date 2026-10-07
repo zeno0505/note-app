@@ -26,3 +26,7 @@ it('rejects a missing deep link and does not interpret an array query as an iden
   const absent=await setup({project:'missing'});await vi.waitFor(()=>expect(absent.router.currentRoute.value.query.project).toBeUndefined());expect(absent.selection.selected.value).toBeNull();
   const array=await setup({project:['one','two']});expect(array.selection.selected.value).toBeNull();
 });
+it('clears the filtered-out warning when that project becomes visible again without auto-selecting it',async()=>{
+ const {rows,selection,router}=await setup({project:'one'});rows.value=[row('two')];await nextTick();await vi.waitFor(()=>expect(router.currentRoute.value.query.project).toBeUndefined());expect(selection.notice.value).toContain('현재 표시 범위');
+ rows.value=[row('one'),row('two')];await nextTick();expect(selection.notice.value).toBe('');expect(selection.selected.value).toBeNull();
+});

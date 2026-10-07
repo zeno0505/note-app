@@ -33,3 +33,7 @@ Run `npm run build`, then `npm run test:electron:prefix` with the isolated Pytho
 - Actual Electron smoke passed with Chromium sandbox enabled and zero model calls: representative prefix behavior, explicit task beyond display position 200, empty-selection disabled, exact rules task scope, transfer-consent reset, cancelled draft unchanged, reconnect and process restart persistence, return to representatives, missing-prefix fail-closed, unchanged source-link inode/target
 - The shell executor could not access the display socket even after approved escalation. The same unchanged fixture succeeded through the available cloud desktop terminal; no sandbox-disable flag was used
 - Independent UX review is a separate pending gate. The build retains the existing Vite large-chunk warning; this is not a build failure
+
+### Same-review remediation
+
+The independent UI/UX review found a polling-related dialog loss, stale list warning, explicit-mode copy mismatch and outdated prefix documentation. All were corrected, together with a deterministically reproduced publish-before-response acknowledgement race. Human-speed Electron regression and long-label screenshot QA were added. See [remediation and verification scope](../reviews/task-summary-ux-followup.md). Final aggregate gate: 53 test files, 1,037 passed, 5 skipped, typecheck/build passed.

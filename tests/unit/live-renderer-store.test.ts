@@ -214,3 +214,9 @@ describe('live renderer disclosure and escaping',()=>{
     expect(bridge.connectLive).not.toHaveBeenCalled();expect(bridge.refreshLive).not.toHaveBeenCalled();expect(bridge.runSummary).not.toHaveBeenCalled();
   });
 });
+
+it('acknowledges saved task selection when publish arrives before its response without replacing the newer snapshot',async()=>{
+ await store.initialize();const pending=deferred<LiveWorkspaceView>();vi.mocked(bridge.setSummaryPrefix).mockReturnValue(pending.promise);
+ const saving=store.setSummaryPrefix('one','T',['T-2']);const published=state({connection:'connected',lastError:'newer published observation'});listener!(published);pending.resolve(state({connection:'connected',lastError:'older response'}));
+ expect(await saving).toBe(true);expect(store.liveState.value?.lastError).toBe('newer published observation');expect(store.bridgeError.value).toBeNull();
+});
