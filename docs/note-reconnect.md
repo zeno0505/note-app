@@ -59,3 +59,9 @@ Claude 생성 최대1회, 형식 수정0회이며 진단 응답을 기존 성공
 격리 Electron 검증은 `node tests/electron/model-retry-smoke.mjs`로 실행한다.
 live fixture와 동일한 절대 경로 Python·DAG query 환경을 사용하고,
 임시 synthetic Claude executable만 호출한다. 사용자 모델 호출은 없다.
+
+기존 등록 프로젝트의 모델 입력 재검증은 그 프로젝트의 저장된 scope와 DAG 선택을
+사용한다. 다른 worktree에서 발견한 빈 상위 note 범위가 기존 프로젝트 범위와 겹쳐도
+기존 연결을 새로 추측하지 않는다. 현재 허용 범위에 해당 scope가 있어야 하며,
+실제 docs/note 링크와 DAG ID·canonical 경로가 기존 프로젝트와 일치해야 한다.
+권한 철회나 링크 대상 변경은 모델 호출 전에 차단한다.

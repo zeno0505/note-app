@@ -568,8 +568,14 @@ export function createLiveRuntime(options: {
       if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind?'dag_other_failure':'current_dag_unavailable');}
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new ModelDiagnosticError('project_mapping_unavailable');
+      // Revalidate the existing project binding, rather than asking an unrelated
+      // newly discovered ancestor scope to choose its identity again. The mapper
+      // still checks the current grant/link and the exact DAG below.
+      const project=registry?.records().find(p=>p.id===workstreamId);
+      const selected=project&&project.hostId===source.hostId&&project.dagId===mapping.dagId&&project.canonicalDagPath===session.canonicalPath
+        ?{selectedScopeId:project.scopeId,selectedDagRelativePath:path.relative(project.canonicalNotePath,project.canonicalDagPath)}:{};
       const verified=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
-        worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath}],signal});
+        worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath,...selected}],signal});
       const currentMapping=verified.mappings[0];
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new ModelDiagnosticError('read_permission_or_mapping_changed');
       const currentDag=await session.reader.read(mapping.dagId!,{signal});

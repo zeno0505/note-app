@@ -1,4 +1,4 @@
-import {mkdtemp,realpath,mkdir,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,realpath,mkdir,writeFile,rm,symlink,unlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import path from 'node:path';
@@ -7,6 +7,7 @@ import { createLiveRuntime, type LiveRuntimeDependencies } from '../../src/main/
 import type { LoadedLiveConfiguration } from '../../src/main/live-config-types';
 import type { OrcaAdapter, OrcaObservation, OrcaResult } from '../../src/collector/orca';
 import type { NoteMappingRequest, NoteMappingResult } from '../../src/collector/notes';
+import {mapWorktreesToNotes} from '../../src/collector/notes';
 import type { DagReadModel, DagReadResult, DagTask } from '../../src/facts/dag-read-model';
 import { projectCodeBurn, type CodeBurnQuery, type CodeBurnResult } from '../../src/summary/budget/codeburn';
 import { ASPECTS, bindSummaryContext, createSummaryStore } from '../../src/summary/claims';
@@ -150,6 +151,28 @@ describe('connected-project rule reading integration',()=>{
 async function flush() { for(let i=0;i<50;i++)await Promise.resolve(); }
 
 describe('main-owned live read-only orchestration',()=>{
+  it('revalidates an existing project binding when discovery adds an empty ancestor, but rejects retargeting and revoked grants',async()=>{
+    const root=await realpath(await mkdtemp(path.join(tmpdir(),'note-binding-'))),vault=path.join(root,'vault'),parent=path.join(vault,'web'),note=path.join(parent,'ai'),tree=path.join(root,'tree'),other=path.join(note,'other');
+    try{
+      await mkdir(other,{recursive:true});await mkdir(path.join(tree,'docs'),{recursive:true});
+      for(const dir of [note,other])await writeFile(path.join(dir,'dag.yaml'),'synthetic: true\n');
+      await symlink(note,path.join(tree,'docs/note'));
+      const config=configuration();config.configuration!.noteScopes=[{scopeId:'existing-ai',hostId:'local-host',vaultRootPath:vault,scopePath:note,dagRelativePaths:['dag.yaml']}];config.configuration!.summarySelections=[];
+      let ancestor=false,allowed=true;
+      const scopes=()=>ancestor?[...config.configuration!.noteScopes,{scopeId:'new-empty-parent',hostId:'local-host',vaultRootPath:vault,scopePath:parent,dagRelativePaths:[]}]:config.configuration!.noteScopes;
+      const roots={scopesFor:async()=>allowed?scopes():[],filterScopes:async(s:readonly import('../../src/collector/notes').AllowedNoteScope[])=>allowed?[...s]:[]};
+      const mapNotes=vi.fn(mapWorktreesToNotes),registry=createProjectRegistry();const f=setup(config,true,{mapNotes},registry,roots);
+      f.collect.mockImplementation(async()=>{const value=observation(1);value.joined[0].worktree.path=tree;return {ok:true,value};});
+      const first=await f.runtime.connect(),id=first.workstreams[0].id;expect(first.workstreams[0].noteMapping.state).toBe('resolved');
+      ancestor=true;await f.runtime.refresh();mapNotes.mockClear();f.readDag.mockClear();
+      await expect(f.runtime.resolveSummarySource(id)).resolves.toMatchObject({dag:{sourceHash:'a'.repeat(64)}});
+      expect(mapNotes.mock.calls[0][0].worktrees[0]).toMatchObject({selectedScopeId:'existing-ai',selectedDagRelativePath:'dag.yaml'});
+      await unlink(path.join(tree,'docs/note'));await symlink(other,path.join(tree,'docs/note'));f.readDag.mockClear();
+      await expect(f.runtime.resolveSummarySource(id)).rejects.toThrow('read_permission_or_mapping_changed');expect(f.readDag).not.toHaveBeenCalled();
+      await unlink(path.join(tree,'docs/note'));await symlink(note,path.join(tree,'docs/note'));allowed=false;
+      await expect(f.runtime.resolveSummarySource(id)).rejects.toThrow('read_permission_or_mapping_changed');expect(f.readDag).not.toHaveBeenCalled();
+    }finally{await rm(root,{recursive:true,force:true});}
+  });
   it('requires fresh starts but revalidates the same background snapshot after time-only ageing',async()=>{
     const x=setup();const view=await x.runtime.connect();const id=view.workstreams[0].id,revision=x.runtime.modelSourceRevision(id);
     x.runtime.setActivity({visible:false,active:false});await vi.advanceTimersByTimeAsync(41000);
