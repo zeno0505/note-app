@@ -62,7 +62,7 @@ export function createClaudePublicAdapter(executable:string,cwd:string,env:NodeJ
         if(result?.is_error)return reject(new ModelProcessFailure('model_result_rejected',info));
         if(result?.type!=='result'||result?.subtype!=='success'||!result?.structured_output)return reject(new ModelProcessFailure('model_result_incomplete',info));
         const usage=Object.fromEntries(['usage','modelUsage','duration_ms','duration_api_ms','num_turns','total_cost_usd'].filter(k=>result[k]!==undefined).map(k=>[k,result[k]]));
-        resolve({answer:result.structured_output,usage,runtimeMs:Date.now()-started,provider:'claude-subscription-cli'});
+        resolve({answer:result.structured_output,usage,runtimeMs:Date.now()-started,provider:'claude-subscription-cli',process:info});
       })().catch(()=>{cleanupUnverified=true;reject(Error('Owned model cleanup unverified; no further calls'));});});child.stdin.on('error',()=>{});child.stdin.end(publicModelPrompt(request));
     });try{return await completed;}finally{await observed;}
   }};

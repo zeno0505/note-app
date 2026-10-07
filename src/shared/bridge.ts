@@ -1,3 +1,4 @@
+import type {ModelRetryBridge} from './model-retry';
 import type {NoteReconnectBridge} from './note-reconnect';
 import type { WorkspaceSnapshot } from '../domain';
 import type { LiveWorkspaceView } from './live';
@@ -16,7 +17,7 @@ export interface AppEnvironment {
   summaryBackend: 'unconfigured';
   capabilities: {realOrca:boolean; noteWrites:boolean; remoteSummary:false};
 }
-export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge {
+export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge {
   getProjectModelState(request:{workstreamId:string}):Promise<import('../main/project-model').ProjectModelView>;
   summarizeProjectModel(request:{workstreamId:string;transferConfirmed:true}):Promise<import('../main/project-model').ProjectModelView>;
   cancelProjectModel(request:{workstreamId:string}):Promise<import('../main/project-model').ProjectModelView>;

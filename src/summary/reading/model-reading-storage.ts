@@ -57,6 +57,8 @@ export function createModelReadingStorage(directory:string,now=()=>new Date().to
       const stale=(currentInputHash!==undefined&&currentInputHash!==latest.payload.inputHash)||!!request&&(request.inputHash!==latest.payload.inputHash||['fallback','cancelled','blocked-capacity'].includes(request.status));
       return {state:stale?'stale':'ready',message:stale?'이전 정상 모델 요약입니다. 입력 변경·실패·취소 후 현재 근거로 재확인되지 않았습니다.':'프로젝트별 최신 성공 모델 요약입니다. 지정된 입력 범위의 저장 결과입니다.',latest:latest.payload};
     }catch{return {state:'unavailable',message:'모델 요약 저장소를 확인하지 못했습니다. 기존 파일과 이력을 변경하지 않습니다.'};}},
+    lockModelSlot:lock,
+    async failedReservation(project:string,inputHash?:string){const {record}=await readLedger(false);const r=record?.payload.runs.filter(r=>r.project===project&&r.status==='fallback'&&(!inputHash||r.inputHash===inputHash)).at(-1);return r?{inputHash:r.inputHash,runId:r.runId,attempts:r.attempts}:null;},
     ledger(pack:ReadingModelPack):HarnessLedger {
       const inputHash=readingInputHash(pack);return {lock,
         async get(key):Promise<HarnessRecord|undefined>{if(key!==inputHash)throw Error('Reading ledger input mismatch');const {record}=await readLedger(),run=record?.payload.runs.find(r=>r.inputHash===key);if(!run)return;

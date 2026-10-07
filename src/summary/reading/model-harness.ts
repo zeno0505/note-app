@@ -18,7 +18,7 @@ export interface ModelBinding {runId:string;project:string;inputHash:string;vers
 export interface ModelAnswer extends ModelBinding {
   sections:{id:SectionId;text:string;facts:{id:string;state:FactState}[];sourceIds:string[]}[];
 }
-export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string}
+export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string;process?:import('./model-process-failure').ModelProcessInfo}
 export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[]},signal:AbortSignal,observe?:(event:'authentication'|'launch-requested'|'started')=>Promise<void>):Promise<ModelReceipt>}
 export interface HarnessRecord {inputHash:string;runId?:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
 export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord,signal?:AbortSignal):Promise<void>;lock():Promise<()=>Promise<void>>}
@@ -70,16 +70,16 @@ export function modelOutputSchema(binding:ModelBinding){
   return {type:'object',additionalProperties:false,required:['runId','project','inputHash','version','attempt','sections'],properties:{...Object.fromEntries(Object.entries(binding).map(([k,v])=>[k,{const:v,type:typeof v==='number'?'integer':'string'}])),sections:{type:'array',minItems:4,maxItems:4,items:{type:'object',additionalProperties:false,required:['id','text','facts','sourceIds'],properties:{id:{type:'string',enum:SECTION_IDS},text:{type:'string',minLength:8,maxLength:1800},facts:{type:'array',maxItems:24,items:{type:'object',additionalProperties:false,required:['id','state'],properties:{id:{type:'string'},state:{type:'string',enum:['known','none','unrecorded','query-failed']}}}},sourceIds:{type:'array',maxItems:12,items:{type:'string'}}}}}}};
 }
 const fallback=(pack:ReadingModelPack)=>({kind:'rules-only' as const,sections:SECTION_IDS.map(id=>({id,text:pack.facts.filter(f=>f.section===id).map(f=>f.text).join(' ')}))});
-let globalFlight:Promise<HarnessRecord>|undefined,globalHash:string|undefined,globalProject:string|undefined,globalRetire:(()=>void)|undefined,quarantined=false;
+let globalFlight:Promise<HarnessRecord>|undefined,globalHash:string|undefined,globalProject:string|undefined,globalRetire:(()=>void)|undefined,quarantined=false,globalDiagnostic=false;
 /** No provider racing. A durable ledger reserves each attempt before the paid call. */
-export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLedger,timeoutMs=120000){
+export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLedger,timeoutMs=120000,policy?:{diagnosticRetry:true}){
   let generation=0,controller:AbortController|undefined;
   return {
     cancel(){generation++;controller?.abort();},
     async summarize(pack:ReadingModelPack):Promise<HarnessRecord>{
       const inputHash=readingInputHash(pack);
       if(quarantined)throw Error('Unsettled model adapter quarantined; no further calls');
-      if(globalFlight){if(globalHash===inputHash)return globalFlight;if(globalProject===pack.project)globalRetire?.();throw Error('Global model slot busy; prior input retired only for same project');}
+      if(globalFlight){if(globalDiagnostic||policy?.diagnosticRetry)throw Error('Global model slot busy; diagnostic retry cannot join');if(globalHash===inputHash)return globalFlight;if(globalProject===pack.project)globalRetire?.();throw Error('Global model slot busy; prior input retired only for same project');}
       const ownGeneration=++generation;controller=new AbortController();const signal=controller.signal;
       const flight=(async():Promise<HarnessRecord>=>{
         const unlock=await ledger.lock();let release=true;try{
@@ -90,7 +90,7 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
           }
           const runId=randomUUID();
           const record:HarnessRecord={inputHash,runId,attempts:0,status:'running',errors:[],receipts:[]};
-          for(const attempt of [1,2] as const){
+          for(const attempt of (policy?.diagnosticRetry?[1] as const:[1,2] as const)){
             if(signal.aborted||generation!==ownGeneration){record.status='cancelled';break;}
             record.attempts=attempt;await ledger.put(record);
             const binding:ModelBinding={runId,project:pack.project,inputHash,version:packVersion(pack),attempt};
@@ -113,8 +113,8 @@ export function createPublicReadingHarness(adapter:ModelAdapter,ledger:HarnessLe
           if(signal.aborted&&record.status==='model'||generation!==ownGeneration){record.status='cancelled';delete record.answer;}
           if(record.status==='running')record.status='fallback';if(record.status==='fallback')record.fallback=fallback(pack);await ledger.put(record,record.status==='model'?signal:undefined);return record;
         }finally{if(release)await unlock();}
-      })();globalFlight=flight;globalHash=inputHash;globalProject=pack.project;globalRetire=()=>{generation++;controller?.abort();};
-      try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalHash=undefined;globalProject=undefined;globalRetire=undefined;}}
+      })();globalFlight=flight;globalDiagnostic=!!policy?.diagnosticRetry;globalHash=inputHash;globalProject=pack.project;globalRetire=()=>{generation++;controller?.abort();};
+      try{return await flight;}finally{if(globalFlight===flight){globalFlight=undefined;globalDiagnostic=false;globalHash=undefined;globalProject=undefined;globalRetire=undefined;}}
     },
   };
 }

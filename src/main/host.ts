@@ -1,3 +1,4 @@
+import {createModelRetryStorage} from '../summary/reading/model-retry-storage';
 import {createNoteReconnect} from './note-reconnect';
 import {createReadRoots,readRootsCodec} from './read-roots';
 import {readInstallation,verificationProfile,allowInstallation,canonicalTargetVerified} from './install-identity';
@@ -132,7 +133,8 @@ app.whenReady().then(async()=>{
   await readRoots.load();
   liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry,readRoots});
   const modelDiagnostics=createModelDiagnostics(join(userData,'model-diagnostics'),buildSha);
-  projectModel=createProjectModelController({diagnostics:modelDiagnostics,storage:modelReading,adapter:publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined,identify:id=>liveRuntime.identifyModelProject(id),revision:id=>liveRuntime.modelSourceRevision(id),resolve:async(id,signal,phase)=>{const source=await liveRuntime.resolveSummarySource(id,signal,phase==='revalidate');if(!source.readingSummary||liveRuntime.getState().dags.find(d=>d.dagId===source.dag.dagId)?.sourceHash!==source.dag.sourceHash)throw Error('Current reading source unavailable');return {...source,readingSummary:source.readingSummary};}});
+  const modelRetryStorage=createModelRetryStorage(join(userData,'model-diagnostic-retries'),modelReading.lockModelSlot,async(project,inputHash,runId)=>{const failed=await modelReading.failedReservation(project,inputHash);return failed?.runId===runId;});
+  projectModel=createProjectModelController({retryStorage:modelRetryStorage,diagnostics:modelDiagnostics,storage:modelReading,adapter:publicClaude?createClaudePublicAdapter(publicClaude,publicCwd,process.env):undefined,identify:id=>liveRuntime.identifyModelProject(id),revision:id=>liveRuntime.modelSourceRevision(id),resolve:async(id,signal,phase)=>{const source=await liveRuntime.resolveSummarySource(id,signal,phase==='revalidate');if(!source.readingSummary||liveRuntime.getState().dags.find(d=>d.dagId===source.dag.dagId)?.sourceHash!==source.dag.sourceHash)throw Error('Current reading source unavailable');return {...source,readingSummary:source.readingSummary};}});
   function makeSummaryWorkflow(){const workflow=(options.summaryFactory??createSummaryWorkflow)({cacheRoot,resolveSource:async(workstreamId:string,signal:AbortSignal)=>{
     if(signal.aborted||!cacheLocation.available)throw new Error('App-owned cache unavailable or request cancelled');return liveRuntime.resolveSummarySource(workstreamId,signal);
   }});workflow.subscribe(view=>{if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:summary-changed',view);});return workflow;}
@@ -194,6 +196,9 @@ app.whenReady().then(async()=>{
     if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).sort().join(',')!==(channel==='note-app:project-model-run'?'transferConfirmed,workstreamId':'workstreamId')||(channel==='note-app:project-model-run'&&args[0].transferConfirmed!==true)||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256)throw Error('Invalid project model selection');
     return tracked(action(args[0].workstreamId));
   });
+  ipcMain.handle('note-app:model-retry-prepare',async(event,...args)=>{checkReadSender(event);if(args.length!==1||!args[0]||typeof args[0]!=='object'||Array.isArray(args[0])||Object.keys(args[0]).join(',')!=='workstreamId'||typeof args[0].workstreamId!=='string'||args[0].workstreamId.length>256||changingReadRoots||reconnectBusy)throw Error('진단 프로젝트 선택 오류');await liveRuntime.refresh();return projectModel!.prepareRetry(args[0].workstreamId);});
+  ipcMain.handle('note-app:model-retry-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('진단 취소 요청 오류');return projectModel!.cancelRetry(args[0]);});
+  ipcMain.handle('note-app:model-retry-run',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('진단 재시도 요청 오류');return tracked(projectModel!.runRetry(args[0]));});
   ipcMain.handle('note-app:project-document-open',async(event,...args)=>{
     if(!mainWindow||quitting)throw new Error('App window unavailable');assertTrustedSender(event,mainWindow.webContents,entryUrl);if(args.length!==1)throw new Error('Expected one document selection');const uri=await liveRuntime.resolveDocumentLink(args[0]);await shell.openExternal(uri);
   });
