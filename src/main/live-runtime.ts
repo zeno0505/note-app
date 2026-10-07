@@ -1,9 +1,11 @@
+import {createEvidenceReader,parseEvidenceTarget,type EvidenceRegistration} from '../phase2/evidence';
+import type {EvidenceList,EvidenceReadView} from '../shared/evidence';
 import {prefixSelection,scopedDagView,prefixReading} from '../summary/reading/prefix';
 import {ModelDiagnosticError} from './model-diagnostics';
 import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
-import { createHash } from 'node:crypto';
+import { createHash,randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createOrcaAdapter, type OrcaObservation } from '../collector/orca';
 import { mapWorktreesToNotes, type NoteMapping, type NoteWorktree, type ResolvedNoteMapping } from '../collector/notes';
@@ -29,7 +31,7 @@ import type { LoadedLiveConfiguration } from './live-config-types';
 const INTERVAL_MS = 20_000;
 const STALE_MS = 40_000;
 const MAX_DAGS = 8;
-const MAX_DISPLAY_TASKS = 200;
+const MAX_DISPLAY_TASKS = 1000;
 const MAX_DISPLAY_STATUSES = 12;
 const MAX_DISPLAY_REFERENCES = 8;
 const CONTEXT_LIMITS = { maxBytes: 32_768, maxApproxTokens: 32_768, maxRecords: 64 };
@@ -90,6 +92,30 @@ export function createLiveRuntime(options: {
   const now = deps.clock?.now ?? Date.now;
   const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
   const documentLinks=new Map<string,{workstreamId:string;wikilink:string;canonicalNotePath:string;vaultRootPath:string}>();
+  const evidenceSessions=new Map<string,{reader:Awaited<ReturnType<typeof createEvidenceReader>>;root:string;registrations:EvidenceRegistration[];authorize:()=>Promise<boolean>;controller:AbortController}>();
+  let evidencePending=0,evidenceEpoch=0,evidencePermissionPending=0;
+  let evidenceLifetime=new AbortController();
+  async function boundedEvidencePermission(operation:()=>Promise<boolean>,signal:AbortSignal):Promise<boolean>{
+    if(signal.aborted||evidencePermissionPending>=4)return false;
+    evidencePermissionPending++;
+    const work=operation().then(value=>value,()=>false).finally(()=>{evidencePermissionPending--;});
+    let timer:ReturnType<typeof setTimeout>|undefined,onAbort:()=>void=()=>{};
+    const stopped=new Promise<boolean>(resolve=>{onAbort=()=>resolve(false);signal.addEventListener('abort',onAbort,{once:true});timer=setTimeout(onAbort,5000);});
+    try{return await Promise.race([work,stopped]);}finally{if(timer)clearTimeout(timer);signal.removeEventListener('abort',onAbort);}
+  }
+  function clearEvidence(){evidenceEpoch++;evidenceLifetime.abort();evidenceLifetime=new AbortController();for(const session of evidenceSessions.values()){session.controller.abort();session.reader.retire();}evidenceSessions.clear();}
+  async function registerEvidence(root:string,registrations:EvidenceRegistration[],authorize:()=>Promise<boolean>,unsupportedCount=0):Promise<EvidenceList>{
+    if(evidencePending>=4)throw Error('근거 읽기 요청 처리 중입니다.');evidencePending++;
+    try {
+    if(!await authorize())throw Error('근거 읽기 범위가 변경되었습니다.');
+    if(evidenceSessions.size>=16){const oldest=evidenceSessions.keys().next().value!;evidenceSessions.get(oldest)?.controller.abort();evidenceSessions.get(oldest)?.reader.retire();evidenceSessions.delete(oldest);}
+    const sessionId=randomUUID(),reader=await createEvidenceReader({scopeId:sessionId,canonicalRootPath:root,registrations,authorize,now});
+    if(!await authorize()){reader.retire();throw Error('근거 읽기 범위가 변경되었습니다.');}
+    if(evidenceSessions.size>=16){const oldest=evidenceSessions.keys().next().value!;evidenceSessions.get(oldest)?.controller.abort();evidenceSessions.get(oldest)?.reader.retire();evidenceSessions.delete(oldest);}
+    evidenceSessions.set(sessionId,{reader,root,registrations,authorize,controller:new AbortController()});return {sessionId,items:reader.list(),unsupportedCount};
+    }finally{evidencePending--;}
+  }
+
   const connectionConfirmations=new Set<AbortController>();
   const publicSelections=new Map<string,{dagId:string;branch:string;worktreePath:string}>();
   const publicObservers=new Map<string,PullObservationAdapter>();
@@ -444,7 +470,7 @@ export function createLiveRuntime(options: {
       } else if (!reason) reason = 'DAG reader could not be initialized.';
       if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
-      dags.push({ readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
+      dags.push({ ...(model?.readContractVersion?{readContractVersion:model.readContractVersion,policies:model.policies??[]} : {}), readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
         tasks: model?.tasks.slice(0, MAX_DISPLAY_TASKS).map(task => ({ ...task,
           dependencies: task.dependencies.slice(0, MAX_DISPLAY_REFERENCES),
@@ -612,7 +638,7 @@ export function createLiveRuntime(options: {
       const {tasks,scope}=prefixSelection(source.dag,prefix,selection);if(!tasks.length||scope.taskSelection.missingIds.length)throw new ModelDiagnosticError('current_dag_unavailable');
       const base=this.getState().dags.find(d=>d.dagId===id)!;
       const coverage={tasksTotal:tasks.length,declared:tasks.filter(t=>t.e2e.state==='declared').length,required:tasks.filter(t=>t.e2e.required).length,uncoveredDone:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status===source.dag.doneStatus).map(t=>t.id),uncoveredOpen:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status!==source.dag.doneStatus).map(t=>t.id),malformed:tasks.filter(t=>t.e2e.coverage==='malformed').map(t=>t.id)};
-      return {observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,taskSelection:scope.taskSelection,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix,200,selection)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix,200,selection).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix,selection]),codeburn:source.codeburn};
+      return {policyProjectId:workstreamId,observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,taskSelection:scope.taskSelection,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix,200,selection)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix,200,selection).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix,selection]),codeburn:source.codeburn};
     },
     modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!),200,selectedTasks(w.noteMapping.dagId!))).fingerprint]):null;},
     identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'task-scope-v1',selectedPrefix(w.noteMapping.dagId!),selectedTasks(w.noteMapping.dagId!)??'representative'])).replace(/^sha256:/,''):null;},
@@ -653,12 +679,47 @@ export function createLiveRuntime(options: {
       return getState();
     },
     async disconnect(): Promise<LiveWorkspaceView> {
-      connected = false;
+      connected = false;clearEvidence();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel();
       store.stop();
       publish();
       return getState();
+    },
+    releaseTaskEvidence(request:unknown):void{
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).join(',')!=='sessionId'||typeof (request as {sessionId:unknown}).sessionId!=='string')throw Error('근거 세션 취소 요청 오류');
+      const id=(request as {sessionId:string}).sessionId,session=evidenceSessions.get(id);session?.controller.abort();session?.reader.retire();evidenceSessions.delete(id);
+    },
+    async prepareTaskEvidence(request:unknown):Promise<EvidenceList>{
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='sourceHash,taskId,workstreamId')throw Error('근거 선택 오류');
+      const r=request as {workstreamId:string;taskId:string;sourceHash:string};
+      if([r.workstreamId,r.taskId,r.sourceHash].some(v=>typeof v!=='string'||!v||v.length>1024))throw Error('근거 식별자 오류');
+      const workstream=getState().workstreams.find(w=>w.id===r.workstreamId),dagId=workstream?.noteMapping.dagId,root=workstream?.noteMapping.context?.noteRootPath;
+      const model=dagId?dagSessions.get(dagId)?.model:null,task=model?.tasks.find(t=>t.id===r.taskId);
+      if(!root||!dagId||!task||model?.sourceHash!==r.sourceHash||workstream?.noteMapping.context?.state!=='verified')throw Error('등록된 태스크 근거를 확인해 주세요.');
+      const epoch=evidenceEpoch,lifetime=evidenceLifetime.signal;
+      const authorize=()=>boundedEvidencePermission(async()=>{const allowed=!options.readRoots||(await options.readRoots.filterScopes(noteScopes)).some(s=>root===s.scopePath||root.startsWith(s.scopePath+path.sep));const view=getState(),current=view.workstreams.find(w=>w.id===r.workstreamId);return epoch===evidenceEpoch&&allowed&&!disposed&&connected&&!view.refreshing&&view.freshness==='current'&&current?.noteMapping.dagId===dagId&&current.noteMapping.context?.noteRootPath===root&&current.noteMapping.context.state==='verified'&&dagSessions.get(dagId)?.model?.sourceHash===r.sourceHash;},lifetime);
+      const references=[...documentLinks.values()].filter(l=>l.workstreamId===r.workstreamId).map(l=>l.wikilink).concat(task.details?.design??[],task.details?.discussion??[]);
+      const registrations:EvidenceRegistration[]=[],seen=new Set<string>();let unsupportedCount=0;
+      for(const reference of references){try{const target=parseEvidenceTarget(reference),key=JSON.stringify([target.relativePath,target.anchor]);if(seen.has(key))continue;seen.add(key);if(registrations.length>=64){unsupportedCount++;continue;}registrations.push({id:String(registrations.length),...target});}catch{unsupportedCount++;}}
+      return registerEvidence(root,registrations,authorize,unsupportedCount);
+    },
+    async readTaskEvidence(request:unknown):Promise<EvidenceReadView>{
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='evidenceId,expectedSourceHash,sessionId')throw Error('근거 읽기 요청 오류');
+      const r=request as {sessionId:string;evidenceId:string;expectedSourceHash:string|null};
+      if(typeof r.sessionId!=='string'||r.sessionId.length>128)throw Error('근거 세션 오류');
+      const session=evidenceSessions.get(r.sessionId);if(!session)throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
+      const liveSession=async()=>{const allowed=await session.authorize();return allowed&&evidenceSessions.get(r.sessionId)===session&&!session.controller.signal.aborted;};
+      if(!await liveSession())throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
+      const result=await session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:r.expectedSourceHash},session.controller.signal);
+      if(!await liveSession())throw Error('근거 읽기가 취소되거나 변경되었습니다.');
+      let images:EvidenceList|undefined;
+      if(result.ok&&result.content.kind==='text'&&result.content.imageReferences.targets.length){
+        const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),registration=session.registrations.find(v=>v.id===descriptor?.registrationId);
+        if(registration){const registrations=result.content.imageReferences.targets.map((t,i)=>({...t,id:String(i),relativePath:path.posix.join(path.posix.dirname(registration.relativePath),t.relativePath)}));const authorizeImage=async()=>{if(!await liveSession())return false;const check=await session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:result.sourceHash},session.controller.signal);return check.ok&&evidenceSessions.get(r.sessionId)===session&&!session.controller.signal.aborted;};images=await registerEvidence(session.root,registrations,authorizeImage,result.content.imageReferences.unsupportedCount);}
+      }
+      if(!await liveSession()){if(images){evidenceSessions.get(images.sessionId)?.controller.abort();evidenceSessions.get(images.sessionId)?.reader.retire();evidenceSessions.delete(images.sessionId);}throw Error('근거 읽기가 취소되거나 변경되었습니다.');}
+      return {result,...(images?{images}:{})};
     },
     async resolveDocumentLink(request:unknown):Promise<string>{
       if(disposed||!connected||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='linkId,workstreamId')throw new Error('문서 열기 요청 오류');
@@ -700,7 +761,7 @@ export function createLiveRuntime(options: {
     },
     dispose(): void {
       if (disposed) return;
-      connected = false; disposed = true;
+      connected = false; disposed = true;clearEvidence();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();

@@ -1,3 +1,4 @@
+import {interpretTasks} from '../phase2/tasks';
 import {selectSummaryTasks,SUMMARY_SELECTION_POLICY} from '../summary/reading/task-selection';
 import {taskPrefix} from '../shared/summary-prefix';
 import {randomUUID} from 'node:crypto';
@@ -11,7 +12,7 @@ import type {createModelReadingStorage,LatestModelReadingView} from '../summary/
 import type {SummaryWorkflowSource} from '../summary/workflow';
 import type {DeepReadonly} from '../collector/snapshot/types';
 import type {ReadingSummary} from '../shared/reading-summary';
-export interface ProjectModelSource extends SummaryWorkflowSource {projectKey:string;summaryPrefix?:string;taskSelection?:import('../shared/summary-prefix').SummaryTaskSelection;dependencyObservations?:import('../shared/summary-prefix').SummaryPrefixScope['dependencies'];readingSummary:DeepReadonly<ReadingSummary>}
+export interface ProjectModelSource extends SummaryWorkflowSource {projectKey:string;policyProjectId?:string;summaryPrefix?:string;taskSelection?:import('../shared/summary-prefix').SummaryTaskSelection;dependencyObservations?:import('../shared/summary-prefix').SummaryPrefixScope['dependencies'];readingSummary:DeepReadonly<ReadingSummary>}
 export interface ProjectModelView {state:'disabled'|'idle'|'running'|'failed'|'cancelled';message:string;latest:LatestModelReadingView;inputHash:string|null;diagnostics?:ModelDiagnosticView;retry?:ModelRetryView}
 
 const hash=(x:string)=>createHash('sha256').update(x).digest('hex');
@@ -47,7 +48,8 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   }
   const selection=source.taskSelection??selectSummaryTasks(source.dag.tasks,source.dag.tasks,source.dag.doneStatus);
   const tasks=selection.taskIds.map(id=>source.dag.tasks.find(t=>t.id===id)!);
-  const dagText=JSON.stringify({tasks,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
+  const policyContext=source.dag.readContractVersion===2?interpretTasks(tasks,{projectId:source.policyProjectId??source.projectKey,dagId:source.dag.dagId,sourceHash:source.dag.sourceHash,observedAt:source.dag.observedAt,policies:source.dag.policies??[]}).map(row=>({id:row.task.id,lifecycle:row.lifecycle,discussion:row.discussion,verification:row.verification,verificationState:row.verificationState,policy:row.policy?{id:row.policy.id,revision:row.policy.revision,scope:row.policy.scope,mappingVersion:row.policy.mappingVersion}:null,interpretationVersion:row.provenance.interpretationVersion})):undefined;
+  const dagText=JSON.stringify({tasks,policyContext,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
   if(Buffer.byteLength(dagText)>12000)throw Error('DAG selection exceeds limit');
   const dagSource=add('dag/task-state.json',dagText);
   facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'규칙 설명과 같은 작업 범위에서 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+selection.omittedCount+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.',sourceIds:[dagSource],anchors:['DAG','선언','생략']});

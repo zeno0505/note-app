@@ -18,6 +18,9 @@ export interface AppEnvironment {
   capabilities: {realOrca:boolean; noteWrites:boolean; remoteSummary:false};
 }
 export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge {
+  releaseTaskEvidence(request:{sessionId:string}):Promise<void>;
+  prepareTaskEvidence(request:import('./evidence').EvidenceSelection):Promise<import('./evidence').EvidenceList>;
+  readTaskEvidence(request:{sessionId:string;evidenceId:string;expectedSourceHash:string|null}):Promise<import('./evidence').EvidenceReadView>;
   setSummaryPrefix(request:{workstreamId:string;prefix:string;taskIds?:string[]}):Promise<LiveWorkspaceView>;
   getProjectModelState(request:{workstreamId:string}):Promise<import('../main/project-model').ProjectModelView>;
   summarizeProjectModel(request:{workstreamId:string;transferConfirmed:true}):Promise<import('../main/project-model').ProjectModelView>;

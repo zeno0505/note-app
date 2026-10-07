@@ -30,7 +30,8 @@
     "test:electron:excerpts": "node scripts/build-phase1-test.mjs && node tests/electron/registered-excerpts-smoke.mjs",
     "package:mac:local": "node scripts/package-mac-local.mjs",
     "test:electron:theme": "node tests/electron/theme-smoke.mjs",
-    "test:electron:prefix": "node tests/electron/summary-prefix-smoke.mjs"
+    "test:electron:prefix": "node tests/electron/summary-prefix-smoke.mjs",
+    "test:electron:phase2": "node tests/electron/phase2-workspace-smoke.mjs"
   },
   "dependencies": {
     "@primeuix/themes": "3.0.1",

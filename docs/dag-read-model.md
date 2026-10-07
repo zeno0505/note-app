@@ -157,3 +157,7 @@ running during parsing. This is a limited unit/integration responsiveness check,
 **not** actual Electron E2E, a resource benchmark, real user DAG verification, or a
 Mac validation result. Without the private dependency environment variables the
 three actual-query tests are explicitly skipped; synthetic process tests still run.
+
+## Phase 2 explicit extension
+
+The v1 projection described above remains supported. The reviewed v2 transport adds fixed detail/policy modes and a bounded phase-membership projection through the **same pinned loader**. See `phase2-workspace.md` for fields, limits, policy opt-in, safety tests and gaps. V2 descriptions are intentionally exposed only under its explicit version marker; v1 retains its original no-prose boundary. The external script SHA and original authoritative coverage modes are unchanged.

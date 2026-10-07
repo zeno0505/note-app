@@ -27,6 +27,8 @@ export interface LiveDagTaskView extends DagTask {
   displayOmissions: { dependencies: number; commitReferences: number; e2eReferences: number };
 }
 export interface LiveDagView {
+  readContractVersion?:2; policies?:Record<string,unknown>[];
+  workspaceTasks?:LiveDagTaskView[]; workspaceTaskCount?:number|null;
   summaryScope?:import('./summary-prefix').SummaryPrefixScope;
   readerRecovery?:import('../facts/dag-read-model/types').DagReaderRecovery|null;
   dagId: string;
