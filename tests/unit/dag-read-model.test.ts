@@ -224,6 +224,19 @@ describe('bounded registered DAG reader (synthetic subprocess)', () => {
 const pythonPath = process.env.DAG_QUERY_PYTHON;
 const queryScriptPath = process.env.DAG_QUERY_SCRIPT;
 describe.skipIf(!pythonPath || !queryScriptPath)('actual external authoritative query (opt-in private dependency)', () => {
+  it('preserves rich Korean text within the unchanged byte limit and still rejects oversized UTF-8 output', async () => {
+    const t = await setup();
+    const text = '한글 근거 설명 '.repeat(160);
+    const tasks = Array.from({length:160},(_,i)=>({id:`T-${i}`,title:'검토할 작업',status:'pending',description:text}));
+    await writeFile(t.source,JSON.stringify({phases:[{tasks}]}));
+    const before=await readFile(t.source);
+    const options={...t.options,pythonPath:pythonPath!,queryScriptPath:queryScriptPath!,timeoutMs:10000,maxOutputBytes:900000};
+    const observed=await createDagReader(options).read('dag-test');
+    expect(observed).toMatchObject({ok:true,value:{readContractVersion:2,coverage:{tasksTotal:160}}});
+    if(observed.ok)expect(observed.value.tasks[0].details?.description).toBe(text);
+    expect(await readFile(t.source)).toEqual(before);
+    expect(await createDagReader({...options,maxOutputBytes:65536}).read('dag-test')).toMatchObject({ok:false,error:{kind:'output_limit'}});
+  },15000);
   it('executes pinned query over synthetic YAML, preserves source and matches declared coverage', async () => {
     const t = await setup();
     await writeFile(t.source, JSON.stringify({ phases: [{ tasks: wire().index }] })); // JSON is a YAML subset; fixture authored here.

@@ -124,7 +124,7 @@ describe('live renderer disclosure and escaping',()=>{
   it('shows independent verified note roots and separates rules refresh from manual AI',async()=>{
     const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');
     const base:LiveWorkstreamView={id:'shared',title:'Shared project',projectName:null,branch:null,archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'matched',noteMapping:{state:'resolved',reason:null,dagId:'shared-dag',context:{state:'verified',noteRootPath:'/allowed/team-shared-note',dagPath:'/allowed/team-shared-note/dag.yaml'}}};
-    const html=await render(Card,{workstream:base});expect(html).toContain('확인한 노트 맥락');expect(html).toContain('/allowed/team-shared-note');expect(html).toContain('독립된 읽기 맥락');expect(html).toContain('규칙 요약 갱신 · 전체 소스');expect(html).toContain('지금 요약 · Claude AI');expect(bridge.summarizeProjectModel).not.toHaveBeenCalled();
+    const html=await render(Card,{workstream:base});expect(html).toContain('확인한 노트 맥락');expect(html).toContain('/allowed/team-shared-note');expect(html).toContain('독립된 읽기 맥락');expect(html).toContain('규칙 요약 갱신 · 전체 소스');expect(html).toContain('AI 요약 실행 설정');expect(bridge.summarizeProjectModel).not.toHaveBeenCalled();
     base.noteMapping.context={state:'retained',noteRootPath:'/allowed/other-note',dagPath:'/allowed/other-note/dag.yaml'};const retained=await render(Card,{workstream:base});expect(retained).toContain('현재 접근 미확인');expect(retained).toContain('/allowed/other-note');expect(retained).not.toContain('/allowed/team-shared-note');
   });
   it('shows no aggregated records without implying zero actual Codex usage or a zero-cost graph',async()=>{
@@ -135,7 +135,7 @@ describe('live renderer disclosure and escaping',()=>{
   it('uses styled shared action buttons and discloses global source scope on a project summary',async()=>{
     const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');store.liveState.value=state({connection:'connected'});
     const workstream:LiveWorkstreamView={id:'one',title:'One',projectName:null,branch:null,archived:false,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:null,dagId:null},project:{status:'active',changedAt:'2026-10-06T00:00:00.000Z',sourceState:'not-checked',worktreeState:'present',history:[]}};
-    const html=await render(Card,{workstream});expect(html).toContain('p-button');expect(html).toContain('data-testid="project-status-button"');expect(html).toContain('data-testid="project-summary-button"');expect(html).toContain('설정된 전체 소스 조회');expect(html).toContain('프로젝트 완료');
+    const html=await render(Card,{workstream});expect(html).toContain('p-button');expect(html).toContain('data-testid="project-status-button"');expect(html).toContain('data-testid="project-summary-button"');expect(html).toContain('전체 소스 · 모델 호출 없음');expect(html).toContain('소스 갱신과 AI 요약의 차이');expect(html).toContain('프로젝트 완료');
     store.liveState.value=state({connection:'connected',refreshing:true});const loading=await render(Card,{workstream});expect(loading).toContain('전체 소스 요청 처리 중');expect(loading).toContain('disabled');
   });
   it('renders four sentence sections, old-evidence warning and escaped citations independently of approval',async()=>{
@@ -153,14 +153,14 @@ describe('live renderer disclosure and escaping',()=>{
   it('shows distinct source-refresh and now-summary buttons on the connected overview',async()=>{
     const {default:Overview}=await import('../../src/renderer/views/Overview.vue');
     store.liveState.value=state({connection:'connected'});const html=await render(Overview,{});
-    expect(html).toContain('data-testid="live-refresh"');expect(html).toContain('data-testid="reading-summary-now"');expect(html).toContain('규칙 요약 갱신 · 전체 소스');
+    expect(html).toContain('data-testid="live-refresh"');expect(html).not.toContain('data-testid="reading-summary-now"');expect(html).toContain('실제 소스 새로고침');
     store.liveState.value=state();const stopped=await render(Overview,{});expect(stopped).not.toContain('data-testid="reading-summary-now"');
   });
   it('renders the main-owned return countdown, background schedule and last-good failure without a UI timer',async()=>{
     const {default:Status}=await import('../../src/renderer/components/LiveStatus.vue');
     const next='2026-10-03T00:05:00.000Z',observed='2026-10-03T00:00:00.000Z';
     store.liveState.value=state({connection:'connected',observedAt:observed,polling:{activity:'foreground',nextRefreshAt:next,countdownSeconds:5}});
-    const countdown=await render(Status,{});expect(countdown).toContain('복귀 후 5초 뒤 새로고침');expect(countdown).toContain('다음 조회');expect(countdown).toContain('바로 조회');
+    const countdown=await render(Status,{});expect(countdown).toContain('복귀 후 5초 뒤 새로고침');expect(countdown).toContain('다음 조회');expect(countdown).toContain('자동 소스 조회 정책');
     store.liveState.value=state({connection:'connected',observedAt:observed,freshness:'stale',lastError:'failed',polling:{activity:'background',nextRefreshAt:next,countdownSeconds:0}});
     const failed=await render(Status,{});expect(failed).toContain('백그라운드 · 5분 간격 조회');expect(failed).toContain('갱신 실패 · 이전 관측 유지');expect(failed).toContain('마지막 관측');expect(failed).toContain('다음 조회');
     store.liveState.value=state();const stopped=await render(Status,{});expect(stopped).not.toContain('다음 조회');expect(stopped).not.toContain('5초');
@@ -174,7 +174,7 @@ describe('live renderer disclosure and escaping',()=>{
   it('labels missing project identity and unknown terminal values without inferring zeros',async()=>{
     const {default:Card}=await import('../../src/renderer/components/LiveWorkstreamCard.vue');
     const workstream={id:'one',title:'One',projectName:null,branch:null,archived:null,terminalConnected:null,terminalCount:null,agentState:'unknown',projectMapping:'missing-project-id',noteMapping:{state:'unresolved',reason:'note-missing',dagId:null}};
-    const html=await render(Card,{workstream});expect(html).toContain('프로젝트 ID 없음');expect(html).toContain('브랜치 없음 / 미확인');expect(html).toContain('터미널 연결 미확인');expect(html).toContain('에이전트 상태 미확인');expect(html).toContain('docs/note 없음');expect(html).not.toContain('0개');
+    const html=await render(Card,{workstream});expect(html).toContain('프로젝트 ID 없음');expect(html).toContain('브랜치 없음 / 미확인');expect(html).toContain('터미널 연결 미확인');expect(html).toContain('프로젝트 관측 상세');expect(html).toContain('docs/note 없음');expect(html).not.toContain('0개');
   });
   it('shows retained DAG tasks on failure and discloses bounded category/reference omissions',async()=>{
     const {default:Dag}=await import('../../src/renderer/components/LiveDag.vue');
@@ -188,7 +188,7 @@ describe('live renderer disclosure and escaping',()=>{
   });
   it('explains Claude transfer and sensitive-data limits before manual project AI or granting read roots',async()=>{
     const {default:Model}=await import('../../src/renderer/components/ProjectModelReview.vue');const {default:Roots}=await import('../../src/renderer/components/ReadRootsSettings.vue');
-    const html=await render(Model,{workstreamId:'work-one',current:true});const roots=await render(Roots,{});
+    const html=await render(Model,{inlineControls:true,workstreamId:'work-one',current:true});const roots=await render(Roots,{});
     for(const text of ['Claude(Anthropic)','비밀키','개인정보','자동 탐지를 보장하지','자동 호출은 없습니다']){expect(html).toContain(text);expect(roots).toContain(text);}
     expect(html).toContain('project-ai-confirm');expect(html).toContain('지금 요약 · Claude AI');expect(html.match(/<button[^>]*data-testid="project-ai-run"[^>]*>/i)?.[0]).toContain('disabled');
     expect(bridge.summarizeProjectModel).not.toHaveBeenCalled();expect(bridge.summarizePublicModel).not.toHaveBeenCalled();

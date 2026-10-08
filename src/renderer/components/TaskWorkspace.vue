@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {computed,ref,watch,nextTick,onMounted,onUnmounted} from 'vue';
 import Button from 'primevue/button';
+import InfoDialog from './InfoDialog.vue';
 import Select from 'primevue/select';
 import InputText from 'primevue/inputtext';
 import Dialog from 'primevue/dialog';
@@ -30,7 +31,7 @@ const list=ref<HTMLElement|null>(null),detail=ref<HTMLElement|null>(null),summar
 const sourceAtSelection=ref(props.dag?.sourceHash),stale=computed(()=>!!selected.value&&sourceAtSelection.value!==props.dag?.sourceHash);
 const current=computed(()=>liveState.value?.connection==='connected'&&liveState.value?.freshness==='current'&&props.dag?.state==='ready');
 async function choose(id:string){props.state.selected=id;props.state.detailScroll=0;sourceAtSelection.value=props.dag?.sourceHash;await nextTick();detail.value?.focus();}
-async function close(){const id=props.state.selected;props.state.selected='';summaryOpen.value=false;await nextTick();Array.from(list.value?.querySelectorAll<HTMLButtonElement>('[data-task-id]')??[]).find(el=>el.dataset.taskId===id)?.focus();}
+async function close(){const id=props.state.selected;props.state.selected='';summaryOpen.value=false;await nextTick();Array.from(list.value?.querySelectorAll<HTMLElement|SVGElement>('[data-task-id]')??[]).find(el=>el.dataset.taskId===id)?.focus();}
 async function summarize(){const task=selected.value?.task,prefix=task&&taskPrefix(task.id);if(!task||!prefix||selectionBusy.value)return;selectionBusy.value=true;summaryError.value='';try{await setSummaryPrefix(props.workstream.id,prefix,[task.id]);await nextTick();if(props.dag?.summaryScope?.taskSelection.taskIds.length===1&&props.dag.summaryScope.taskSelection.taskIds[0]===task.id)summaryOpen.value=true;else summaryError.value='선택 범위 반영을 확인한 뒤 다시 눌러 주세요.';}finally{selectionBusy.value=false;}}
 watch(()=>props.state.selected,()=>{summaryOpen.value=false;});
 onMounted(async()=>{await nextTick();if(list.value)list.value.scrollTop=props.state.scroll;if(detail.value)detail.value.scrollTop=props.state.detailScroll;});
@@ -51,7 +52,7 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
   </div>
   <div class="section-heading"><p role="status" data-testid="task-count">{{visible.length}}개 표시 · 수집된 {{tasks.length}}개 · 필터로 숨김 {{tasks.length-visible.length}}개<span v-if="(dag?.workspaceTaskCount??dag?.taskCount??0)>tasks.length"> · 표시 상한 밖 {{(dag?.workspaceTaskCount??dag?.taskCount??0)-tasks.length}}개</span></p><div class="filter-group"><button :aria-pressed="state.view==='list'" @click="state.view='list'">목록</button><button :aria-pressed="state.view==='dag'" data-testid="task-dag-toggle" @click="state.view='dag'">읽기 전용 DAG</button></div></div>
   <p v-if="omittedDependencies" class="notice warning">의존 참조 {{omittedDependencies}}개가 표시 상한으로 생략됐습니다. 현재 그래프가 전체 연결을 보여 준다고 판단하지 않습니다.</p>
-  <p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 검토 대기는 명시된 태스크 완료 리뷰와 실제 관측한 PR 리뷰를 포함합니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p>
+  <div class="compact-help"><span class="muted">원본 상태 · 정책 해석</span><InfoDialog label="태스크 상태와 건수 해석"><p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 검토 대기는 명시된 태스크 완료 리뷰와 실제 관측한 PR 리뷰를 포함합니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p></InfoDialog></div>
   <div class="task-split" :class="{'task-selected':!!selected}">
    <div ref="list" class="task-list-scroll" @scroll="state.scroll=($event.target as HTMLElement).scrollTop">
     <p v-if="!visible.length" class="empty-state">{{tasks.length?'현재 필터에 맞는 작업이 없습니다. 필터를 바꿔 주세요.':'표시할 작업 선언을 확인하지 못했습니다.'}}</p>
@@ -76,6 +77,6 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
     <details><summary>해석·출처 근거</summary><pre>{{JSON.stringify({reasons:selected.reasons,policy:selected.policy,provenance:selected.provenance},null,2)}}</pre></details>
    </aside>
   </div>
-  <Dialog v-model:visible="summaryOpen" modal header="선택 태스크 수동 AI 요약" :style="{width:'min(780px,94vw)'}"><p>현재 프로젝트의 요약 선택 범위를 {{selected?.task.id}} 하나로 지정했습니다. 실제 모델 호출은 아래 전송 확인 후에만 실행됩니다.</p><ProjectModelReview v-if="selected&&summaryOpen" :key="selected.task.id+':'+dag?.summaryScope?.sourceHash" :workstream-id="workstream.id" :workstream-title="workstream.title" :summary-prefix="dag?.summaryScope?.selected" :current="current&&dag?.summaryScope?.taskSelection.taskIds.length===1&&dag.summaryScope.taskSelection.taskIds[0]===selected.task.id"/></Dialog>
+  <Dialog v-model:visible="summaryOpen" modal header="선택 태스크 수동 AI 요약" :style="{width:'min(780px,94vw)'}"><p>현재 프로젝트의 요약 선택 범위를 {{selected?.task.id}} 하나로 지정했습니다. 실제 모델 호출은 아래 전송 확인 후에만 실행됩니다.</p><ProjectModelReview v-if="selected&&summaryOpen" :key="selected.task.id+':'+dag?.summaryScope?.sourceHash" :inline-controls="true" :workstream-id="workstream.id" :workstream-title="workstream.title" :summary-prefix="dag?.summaryScope?.selected" :current="current&&dag?.summaryScope?.taskSelection.taskIds.length===1&&dag.summaryScope.taskSelection.taskIds[0]===selected.task.id"/></Dialog>
  </section>
 </template>

@@ -57,7 +57,9 @@ for number, phase in enumerate(phases):
     if not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list): raise RuntimeError('unsupported phase shape')
     result['phases'].append({'index': number, 'id': phase.get('id'), 'title': phase.get('title', phase.get('name')), 'taskIds': [task.get('id') for task in phase['tasks']]})
 result['readContractVersion'] = 2
-print(json.dumps(result, ensure_ascii=True, allow_nan=False))
+# UTF-8 preserves the same fields without expanding Korean prose into six-byte escapes.
+# The parent still enforces the unchanged combined stdout/stderr byte limit.
+sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8') + bytes([10]))
 `;
 export type ProcessResult = { ok: true; data: unknown } | { ok: false; kind: DagFailureKind };
 /** Same-group cleanup is shared with Orca; query argv is independently fixed here. */
