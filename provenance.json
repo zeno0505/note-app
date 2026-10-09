@@ -1,0 +1,25 @@
+{
+  "artifact_type": "exact-history Git bundle for source delivery",
+  "repository": "zeno0505/note-app",
+  "source_commit": "b8324818aee41d3c8a34b3720c802125263c885d",
+  "source_tree": "1f2bd5add1d7b78074c1d39beef82fb6f34d2fb3",
+  "product_commit": "99384f15faba4a9a160781f3f482ec5971d3ba89",
+  "bundle_filename": "note-app-phase3-b8324818.bundle",
+  "bundle_sha256": "a88db27c2f7a69bd7dc8989904a6d93eacfd47c3c2b393428c897275fc30b1bc",
+  "bundle_size_bytes": 1040260,
+  "bundle_git_blob_sha": "68a6bcd8eaaa1fc19e33bcb417bacb6b603f3eaa",
+  "bundle_refs": {
+    "HEAD": "b8324818aee41d3c8a34b3720c802125263c885d"
+  },
+  "reachable_commit_count": 10,
+  "bundle_requires_prerequisites": false,
+  "restoration_verified": true,
+  "source_commit_notice": "The GitHub delivery-branch commit is an artifact transport commit, not the original source commit. Restore the bundled HEAD to obtain the original source commit and exact history. Do not build the delivery branch itself.",
+  "restore_commands": [
+    "git init note-app-phase3",
+    "git -C note-app-phase3 fetch /absolute/path/note-app-phase3-b8324818.bundle HEAD",
+    "git -C note-app-phase3 checkout --detach FETCH_HEAD",
+    "git -C note-app-phase3 rev-parse HEAD HEAD^{tree}"
+  ],
+  "safety_review": "Only approved note-app source, documentation, fixtures, and tests are reachable. Scanned all 10 commits and 444 blobs; no private runtime evidence or credential files. Credential-like matches are synthetic test fixtures."
+}
