@@ -1,47 +1,48 @@
 {
   "artifact_type": "prerequisite-bounded Git bundle for isolated Phase4 source verification",
   "repository": "zeno0505/note-app",
-  "source_commit": "cc93b2afe07cd59764ce4dae203c16764005d21a",
-  "source_tree": "577f4962aab4f06dbc238ac5d96d15e43fb598d6",
-  "bundle_filename": "note-app-phase4-cc93b2af.bundle",
-  "bundle_sha256": "a90e154879c58244c8742505c6a640152f61477317f72b15c21680f4d6549c48",
-  "bundle_size_bytes": 136834,
-  "bundle_git_blob_sha": "3372ff2bae2409ba5a3ab71b64e1417a1e59257a",
+  "source_commit": "db6abd885359396c4e5d037d321524734dd1f381",
+  "source_tree": "c62fb1b06bb73603371399ada1c225c55083240e",
+  "bundle_filename": "note-app-phase4-db6abd88.bundle",
+  "bundle_sha256": "5443af6d7afcb1c4f30dd5c086e4ccecd851f218b442836070ca26de999daf23",
+  "bundle_size_bytes": 11538,
+  "bundle_git_blob_sha": "9c3a7ad9b370f9d1f5fa04d2ef8e2a8ebcc5c727",
   "bundle_refs": {
-    "HEAD": "cc93b2afe07cd59764ce4dae203c16764005d21a"
+    "HEAD": "db6abd885359396c4e5d037d321524734dd1f381"
   },
   "included_commits": [
-    "cc93b2afe07cd59764ce4dae203c16764005d21a"
+    "534b4350f6e0cd938adbc85ea301c75f8f8cdf7c",
+    "db6abd885359396c4e5d037d321524734dd1f381"
   ],
   "new_reachable_object_counts": {
-    "commit": 1,
-    "tree": 15,
-    "blob": 51
+    "commit": 2,
+    "tree": 13,
+    "blob": 12
   },
   "bundle_requires_prerequisites": true,
-  "prerequisite_commit": "b8324818aee41d3c8a34b3720c802125263c885d",
-  "prerequisite_public_delivery_commit": "e25c86327b026bf73170c788e33a5bcf8d453f0b",
-  "prerequisite_bundle_filename": "note-app-phase3-b8324818.bundle",
-  "prerequisite_bundle_sha256": "a88db27c2f7a69bd7dc8989904a6d93eacfd47c3c2b393428c897275fc30b1bc",
-  "prerequisite_provenance_url": "https://raw.githubusercontent.com/zeno0505/note-app/e25c86327b026bf73170c788e33a5bcf8d453f0b/provenance.json",
+  "prerequisite_commit": "cc93b2afe07cd59764ce4dae203c16764005d21a",
+  "prerequisite_public_delivery_commit": "fb466da49b53a038bb5d861dd82c654748a867d1",
+  "prerequisite_bundle_filename": "note-app-phase4-cc93b2af.bundle",
+  "prerequisite_bundle_sha256": "a90e154879c58244c8742505c6a640152f61477317f72b15c21680f4d6549c48",
+  "prerequisite_provenance_url": "https://raw.githubusercontent.com/zeno0505/note-app/fb466da49b53a038bb5d861dd82c654748a867d1/provenance.json",
   "restoration_verified": true,
   "restoration_check": "Fresh empty repository seeded only from exact public baseline; bundle verified and restored to exact final commit/tree; every file SHA-256 verified; clean detached checkout. No dependencies or app executed.",
-  "source_commit_notice": "The GitHub delivery branch is artifact transport only. Do not build it. Import the prerequisite and Phase4 bundles in a fresh isolated repository and build the restored source commit.",
+  "source_commit_notice": "Artifact transport only. Import the prerequisite Phase3 and initial Phase4 bundles in a fresh isolated repository, then this corrective bundle. Build only the restored source commit.",
   "restore_commands": [
     "git init note-app-phase4-verification",
-    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase3-b8324818.bundle HEAD",
+    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-cc93b2af.bundle HEAD",
     "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
     "git -C note-app-phase4-verification rev-parse HEAD",
-    "git -C note-app-phase4-verification bundle verify /absolute/verified/note-app-phase4-cc93b2af.bundle",
-    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-cc93b2af.bundle HEAD",
+    "git -C note-app-phase4-verification bundle verify /absolute/verified/note-app-phase4-db6abd88.bundle",
+    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-db6abd88.bundle HEAD",
     "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
     "git -C note-app-phase4-verification rev-parse HEAD HEAD^{tree}",
     "git -C note-app-phase4-verification status --porcelain=v1"
   ],
   "safety_review": {
-    "final_source_files": 433,
-    "new_commits": 1,
-    "changed_paths": 51,
+    "final_source_files": 434,
+    "new_commits": 2,
+    "changed_paths": 12,
     "scope": "Regular UTF-8 product source, documentation, synthetic fixtures and tests only. No dependency/build/profile/screenshot/runtime/private credential files. All newly reachable blob paths and final file bodies scanned. New fixture documents explicitly synthetic.",
     "marker_review": [
       {
@@ -55,14 +56,20 @@
     ]
   },
   "verification_reported_by_coordinator": {
-    "configured_check": "typecheck; 102 unit suites / 2309 tests; 79 updater tests; production build passed",
-    "actual_electron_suites": 7,
-    "final_phase4_bounded_capture": "passed",
-    "independent_code_security_manifest_sha256": "a37c9156a7df9af4641d28ea9a0b0dcef68e15601b99798a92df4605071a2975",
-    "independent_code_security_manifest_entries": 422,
-    "native_targeted_F1_F4": "passed",
-    "production_build_hash": "b97020f4cdb26e69425263a4b3ae9ec5063bc30f0157bcba64443abbef2003f4",
-    "limitation": "Complete macOS Phase4 application verification remains pending. Existing native metadata-module probe is separate evidence."
+    "configured_check": "2333 unit tests, 79 updater checks, typecheck and production build passed at 534b435; only Electron test changes follow",
+    "actual_electron_passed": [
+      "phase4-document",
+      "phase2-workspace",
+      "project-creation",
+      "theme"
+    ],
+    "phase4_final_test_sha256": "d6c58850daf26b59d9e3c0507142b5e7aeac0d37eca5094e88b11858e33372c9",
+    "phase4_final_test": "Passed actual Electron; 1280px,760px,200% proposal layouts; zero model calls, zero HTTP requests, unchanged DAG and full tracked-process cleanup",
+    "independent_review": "534b435 fixtures and db6abd8 final UI test reviewed without blockers; no security weakening or new skips",
+    "supplementary_legacy_live_smoke": "Failed obsolete disconnected-at-start assertion. Separate partial startup repair then exposed obsolete worktree-level count (2 vs current grouped project count 1). That partial repair is excluded. Broader legacy harness migration remains pending.",
+    "mac_status": "Retest pending: all 23 original fixture failures and native grant layout require actual Mac confirmation; Linux success is not Mac acceptance",
+    "production_build_hash_before_test_helpers": "40dca413eeb4f2fb2d25cf902fd4c8820a04b6b933f3f265eb1717f224829b00",
+    "tested_build_hash_with_live_fixture_helpers": "72e6678fe653b96853590d3d818cc9a207a5a24c2da024994e81aa4ce40c3aa0"
   },
   "files": [
     {
@@ -117,9 +124,9 @@
     {
       "path": "docs/reviews/phase4-document-review-20261009.md",
       "mode": "100644",
-      "git_blob_sha": "bbcd22d8e6137d0ef75dc505e27e62536bd9a363",
-      "sha256": "0d5dfd31e2c6b2bf5fd699842cbbcbca67aa3910fb5e231c3e5702c9cf774759",
-      "size_bytes": 12918
+      "git_blob_sha": "2af7f9911220afd9cad3283378444e4d6e699ff7",
+      "sha256": "d960691b60c4f206306e523407c680ba6dc8b57a9cfb9346fdab5c2075c06d0a",
+      "size_bytes": 14798
     },
     {
       "path": "docs/source-release.md",
@@ -1153,9 +1160,9 @@
     {
       "path": "src/renderer/components/ProjectDocuments.vue",
       "mode": "100644",
-      "git_blob_sha": "efeedf960aa26bf70e19b52993f4392c89ea0d0b",
-      "sha256": "355dc5cabd5231bf162fb70fcffa57d50a63ceb0e3340ee36a4c81adf9260358",
-      "size_bytes": 27240
+      "git_blob_sha": "13c6d84b79df1612627d65e33b4614c1de8c35bd",
+      "sha256": "6c51b2d14acb0e0dd18e8311350e0cd2b92e1b56d08e6448052e19ee8b10c7b8",
+      "size_bytes": 28754
     },
     {
       "path": "src/renderer/components/ProjectListItem.vue",
@@ -1965,16 +1972,16 @@
     {
       "path": "tests/electron/live-fixture/setup.mjs",
       "mode": "100644",
-      "git_blob_sha": "4da96469cd571e5b023378317f41737da028104c",
-      "sha256": "2a3ce43bed0768f2d70b4ab066c543bd9bced41dd3c52f2bdce7291ee016cccf",
-      "size_bytes": 9570
+      "git_blob_sha": "d4a258e234567db1c8c63e9998716848431af3aa",
+      "sha256": "e74368ffc0dbf103cfb2c1afab06d38d5726076976d45b11ae91764b94751ca4",
+      "size_bytes": 10259
     },
     {
       "path": "tests/electron/live-smoke.mjs",
       "mode": "100644",
-      "git_blob_sha": "c414243c914d6589f155f9f930eb45f2b9d86250",
-      "sha256": "fe826001c1a29573ebfb185bc3fbf5fbce1be77235702b3a3412a1028ce84c24",
-      "size_bytes": 22691
+      "git_blob_sha": "7a4aa643e22a3faed0afbcddb5a6f400cb8f8baf",
+      "sha256": "7121916c92177a015ba23613d799da9b018ce5903c2d7eeaf191f0254585f1ac",
+      "size_bytes": 22770
     },
     {
       "path": "tests/electron/mac-native-project-creation-smoke.mjs",
@@ -2063,9 +2070,9 @@
     {
       "path": "tests/electron/phase4-document-smoke.mjs",
       "mode": "100644",
-      "git_blob_sha": "bca08805882fde7eae7c4159d90d3828bf157a99",
-      "sha256": "0e1061e6437023be64ff22fd8afdc580589483fa34fb6a122644d4f48b225f85",
-      "size_bytes": 22582
+      "git_blob_sha": "f6e946301ad395b2bad0e53e0452a35c33a52c60",
+      "sha256": "d6c58850daf26b59d9e3c0507142b5e7aeac0d37eca5094e88b11858e33372c9",
+      "size_bytes": 24693
     },
     {
       "path": "tests/electron/phase4-fixture/setup.mjs",
@@ -2474,6 +2481,13 @@
       "size_bytes": 3031
     },
     {
+      "path": "tests/unit/live-fixture-python.test.mjs",
+      "mode": "100644",
+      "git_blob_sha": "69edb821d2019167fa30b69528b4350357fe24ae",
+      "sha256": "95492d8a8f1e735abb33ef63f1cfe624121e3f6a970d7d8a6a02647ebd18a4a2",
+      "size_bytes": 4115
+    },
+    {
       "path": "tests/unit/live-renderer-store.test.ts",
       "mode": "100644",
       "git_blob_sha": "dfef152cff8afea6dc85c61dac808b5e322402ca",
@@ -2630,9 +2644,9 @@
     {
       "path": "tests/unit/phase2-expanded-boundary.test.ts",
       "mode": "100644",
-      "git_blob_sha": "14e3f2f9bebac3f266e4cc1a5c11005af12a62cd",
-      "sha256": "b761f203977e9c5ba2d2fed1453d9d4b09f008824a4832742cf1c96f45c8bde9",
-      "size_bytes": 16495
+      "git_blob_sha": "c403567c0962993e22e5a60d8c939e880f6562f6",
+      "sha256": "f952c07b8d461d71ea2a3643dedcdff51346365ff09efa4bf96de2f0e059fb94",
+      "size_bytes": 17239
     },
     {
       "path": "tests/unit/phase2-markdown.test.ts",
@@ -2763,16 +2777,16 @@
     {
       "path": "tests/unit/phase4-catalog.test.ts",
       "mode": "100644",
-      "git_blob_sha": "2e9a4cb1ce88563ac6b72c527b9a9c0a4192f303",
-      "sha256": "533b8fa38b6a99c966b3ad94ac28a37c6fa48e7cd8d958a04cfc348c66f523d5",
-      "size_bytes": 12017
+      "git_blob_sha": "9e300f23289d45ea1d6a0c013770b210cb766e7d",
+      "sha256": "d752c307ff931920a9f978da8b838e9aca51f950d7c0f345df9cb4c2c170abae",
+      "size_bytes": 13710
     },
     {
       "path": "tests/unit/phase4-descriptor-metadata.test.ts",
       "mode": "100644",
-      "git_blob_sha": "5e6f7ee9f57913b74d409fe5049ffb4f92065dfb",
-      "sha256": "45704eaa8a1f4b5f5abac8603e40f9d93b0bb886725c75afcfa4e761db77a8bb",
-      "size_bytes": 16345
+      "git_blob_sha": "89fbd6ebc8cb8617ff39f57da9bea22f2945639f",
+      "sha256": "0cebc91d2d634ecaed0bb1f138a527cdf0807b6667a06ef12f9ce12d5dbc760b",
+      "size_bytes": 16526
     },
     {
       "path": "tests/unit/phase4-document-root-picker.test.ts",
@@ -2784,23 +2798,23 @@
     {
       "path": "tests/unit/phase4-document-workspace.test.ts",
       "mode": "100644",
-      "git_blob_sha": "da700e3114d91094e29dea375bca93870ad8ade5",
-      "sha256": "eeeb8f52a1835552836b5b4f6e691bca4e90811514214b8eb6e9e3cf1b8a9bcd",
-      "size_bytes": 13500
+      "git_blob_sha": "30334585624cdef131ffb86e6b34b003a7737df8",
+      "sha256": "2509de604da70a4b06fb9247305c8e718db0eef47dfd51799022ab21efa672c8",
+      "size_bytes": 19536
     },
     {
       "path": "tests/unit/phase4-documents-runtime.test.ts",
       "mode": "100644",
-      "git_blob_sha": "31e6f7a91f671d13c08cc549e4af47cb0d609367",
-      "sha256": "28cec54f4e09e8c6fae01f4d5667ea966abb790072c8936dd94087aaa31cfd04",
-      "size_bytes": 15500
+      "git_blob_sha": "486245a6e6ba4f6939ff174a3da2204bbee0260a",
+      "sha256": "d230592ee59eeb91d2b961d597f719a7bc5fcd740f125a4e5c17da7ac02d9210",
+      "size_bytes": 16442
     },
     {
       "path": "tests/unit/phase4-safe-documents.test.ts",
       "mode": "100644",
-      "git_blob_sha": "2b33d251352ca8d100c76ab51a4f470ae6c60855",
-      "sha256": "1dcbc09b35fd53fa5b886b44217eb084ed521537e094a51f8942a37392e7c143",
-      "size_bytes": 17178
+      "git_blob_sha": "087a395bf1eb04d968acdc63b1509882687c9733",
+      "sha256": "9bfd10ac8f569032859a30256d2484f6aa05c27033e293653ce9f82cf12b4ae6",
+      "size_bytes": 17216
     },
     {
       "path": "tests/unit/project-document-roots.test.ts",
