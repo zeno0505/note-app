@@ -30,6 +30,8 @@
   "source_commit_notice": "Artifact transport only. Import the prerequisite Phase3 and initial Phase4 bundles in a fresh isolated repository, then this corrective bundle. Build only the restored source commit.",
   "restore_commands": [
     "git init note-app-phase4-verification",
+    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase3-b8324818.bundle HEAD",
+    "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
     "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-cc93b2af.bundle HEAD",
     "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
     "git -C note-app-phase4-verification rev-parse HEAD",
