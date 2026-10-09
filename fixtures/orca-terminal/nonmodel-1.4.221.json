@@ -1,0 +1,329 @@
+{
+  "version": "1.4.221",
+  "provenance": "Observed owned Node/shell fixture envelopes; UUIDs and path-containing shell lines replaced. No AI response fields.",
+  "cases": [
+    {
+      "operation": "read",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "ok": true,
+        "result": {
+          "terminal": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "status": "running",
+            "tail": [
+              "FICTIONAL SHELL STARTUP/RETURN LINE",
+              "FICTIONAL SHELL STARTUP/RETURN LINE",
+              "{\"fixture\":\"note-app-terminal-contract-v1\",\"state\":\"ready\"}"
+            ],
+            "truncated": false,
+            "limited": false,
+            "oldestCursor": "0",
+            "nextCursor": "7",
+            "latestCursor": "7",
+            "returnedLineCount": 3,
+            "source": "stream"
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "send",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "ok": true,
+        "result": {
+          "send": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "accepted": true,
+            "bytesWritten": 13,
+            "prompt": {
+              "requestId": "00000000-0000-4000-8000-000000000005",
+              "stages": [
+                "input_accepted"
+              ],
+              "provider": "unsupported",
+              "observation": "unsupported",
+              "processIncarnation": "00000000-0000-4000-8000-000000000006",
+              "generation": 4,
+              "baselineWorkingSequence": 0
+            }
+          },
+          "mutation": {
+            "requestId": "00000000-0000-4000-8000-000000000005",
+            "replayed": false
+          },
+          "warnings": [
+            "input was accepted, but this provider cannot report delivery. Inspect the terminal before retrying."
+          ]
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "read",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000007",
+        "ok": true,
+        "result": {
+          "terminal": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "status": "running",
+            "tail": [
+              "fixture-echo",
+              "{\"fixture\":\"note-app-terminal-contract-v1\",\"request\":\"fixture-echo\",\"state\":\"complete\"}"
+            ],
+            "truncated": false,
+            "limited": false,
+            "oldestCursor": "0",
+            "nextCursor": "9",
+            "latestCursor": "9",
+            "returnedLineCount": 2,
+            "source": "stream"
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "read",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000008",
+        "ok": true,
+        "result": {
+          "terminal": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "status": "running",
+            "tail": [],
+            "truncated": false,
+            "limited": false,
+            "oldestCursor": "0",
+            "nextCursor": "9",
+            "latestCursor": "9",
+            "returnedLineCount": 0,
+            "source": "stream"
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "wait-exit",
+      "exitCode": 1,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000009",
+        "ok": false,
+        "error": {
+          "code": "timeout",
+          "message": "timeout"
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "send",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000010",
+        "ok": true,
+        "result": {
+          "send": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "accepted": true,
+            "bytesWritten": 13,
+            "prompt": {
+              "requestId": "00000000-0000-4000-8000-000000000011",
+              "stages": [
+                "input_accepted"
+              ],
+              "provider": "unsupported",
+              "observation": "unsupported",
+              "processIncarnation": "00000000-0000-4000-8000-000000000006",
+              "generation": 4,
+              "baselineWorkingSequence": 0
+            }
+          },
+          "mutation": {
+            "requestId": "00000000-0000-4000-8000-000000000011",
+            "replayed": false
+          },
+          "warnings": [
+            "input was accepted, but this provider cannot report delivery. Inspect the terminal before retrying."
+          ]
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "read",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000012",
+        "ok": true,
+        "result": {
+          "terminal": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "status": "running",
+            "tail": [
+              "fixture-wait",
+              "{\"fixture\":\"note-app-terminal-contract-v1\",\"request\":\"fixture-wait\",\"state\":\"waiting\"}"
+            ],
+            "truncated": false,
+            "limited": false,
+            "oldestCursor": "0",
+            "nextCursor": "11",
+            "latestCursor": "11",
+            "returnedLineCount": 2,
+            "source": "stream"
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "interrupt",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000013",
+        "ok": true,
+        "result": {
+          "send": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "accepted": true,
+            "bytesWritten": 1
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "read",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000014",
+        "ok": true,
+        "result": {
+          "terminal": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "status": "running",
+            "tail": [
+              "^C{\"fixture\":\"note-app-terminal-contract-v1\",\"state\":\"cancelled\"}",
+              "",
+              "",
+              "FICTIONAL SHELL STARTUP/RETURN LINE"
+            ],
+            "truncated": false,
+            "limited": false,
+            "oldestCursor": "0",
+            "nextCursor": "15",
+            "latestCursor": "15",
+            "returnedLineCount": 4,
+            "source": "stream"
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "send",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000015",
+        "ok": true,
+        "result": {
+          "send": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "accepted": true,
+            "bytesWritten": 5,
+            "prompt": {
+              "requestId": "00000000-0000-4000-8000-000000000016",
+              "stages": [
+                "input_accepted"
+              ],
+              "provider": "unsupported",
+              "observation": "unsupported",
+              "processIncarnation": "00000000-0000-4000-8000-000000000006",
+              "generation": 4,
+              "baselineWorkingSequence": 0
+            }
+          },
+          "mutation": {
+            "requestId": "00000000-0000-4000-8000-000000000016",
+            "replayed": false
+          },
+          "warnings": [
+            "input was accepted, but this provider cannot report delivery. Inspect the terminal before retrying."
+          ]
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "wait-exit",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000017",
+        "ok": true,
+        "result": {
+          "wait": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "condition": "exit",
+            "satisfied": true,
+            "status": "exited",
+            "exitCode": -1,
+            "exitCause": {
+              "kind": "unknown",
+              "reason": "stop_unverified"
+            }
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    },
+    {
+      "operation": "close",
+      "exitCode": 0,
+      "envelope": {
+        "id": "00000000-0000-4000-8000-000000000018",
+        "ok": true,
+        "result": {
+          "close": {
+            "handle": "term_00000000-0000-4000-8000-000000000002",
+            "tabId": "00000000-0000-4000-8000-000000000019",
+            "ptyKilled": true
+          }
+        },
+        "_meta": {
+          "runtimeId": "00000000-0000-4000-8000-000000000003"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+import {describe,it,expect} from 'vitest';
+import {mkdtemp,realpath,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {createWorkspaceStateStore,workspaceStateCodec,type WorkspaceStatePayload} from '../../src/main/workspace-state';
+import {defaultWorkspaceState,parseWorkspaceState} from '../../src/shared/workspace-state';
+import {createLocalSummaryCache} from '../../src/summary/storage';
+describe('app-owned Phase2 view persistence',()=>{
+ it('restores tabs/filter/selection/scroll through the private durable cache without browser persistence',async()=>{const root=await realpath(await mkdtemp(path.join(tmpdir(),'phase2-state-')));try{const persistence=createLocalSummaryCache({directory:root,codec:workspaceStateCodec}),store=createWorkspaceStateStore(persistence);const state={...defaultWorkspaceState(),tab:'tasks' as const,search:'T-499',selected:'T-499',scroll:140};await store.set('project',state);expect(await createWorkspaceStateStore(persistence).get('project')).toEqual(state);expect(await store.get('other')).toBeNull();}finally{await rm(root,{recursive:true,force:true});}});
+ it('coalesces overlapping writes while retaining the latest state and revision',async()=>{let saved:{revision:number;payload:WorkspaceStatePayload}|null=null;const store=createWorkspaceStateStore({read:async()=>saved,write:async(payload,revision)=>{await Promise.resolve();saved={revision:(revision??0)+1,payload:structuredClone(payload)};return saved;}});await Promise.all(Array.from({length:20},(_,i)=>store.set('project',{...defaultWorkspaceState(),search:String(i)})));expect(await store.get('project')).toMatchObject({search:'19'});expect(await createWorkspaceStateStore({read:async()=>saved,write:async()=>{throw Error('unused');}}).get('project')).toMatchObject({search:'19'});});
+ it('bounds retained projects to100 and never accepts opaque source paths as separate storage options',async()=>{let saved:{revision:number;payload:WorkspaceStatePayload}|null=null;const store=createWorkspaceStateStore({read:async()=>saved,write:async(payload,revision)=>saved={revision:(revision??0)+1,payload}});for(let i=0;i<101;i++)await store.set('project-'+i,defaultWorkspaceState());expect(saved!.payload.entries).toHaveLength(100);expect(await store.get('project-0')).toBeNull();});
+ it.each([{...defaultWorkspaceState(),tab:'unknown'},{...defaultWorkspaceState(),status:'unknown'},{...defaultWorkspaceState(),scroll:Infinity},{...defaultWorkspaceState(),search:'x'.repeat(513)},{...defaultWorkspaceState(),path:'/outside'}])('rejects malformed/unbounded state',state=>expect(()=>parseWorkspaceState(state)).toThrow());
+ it('reports unavailable storage instead of claiming restart persistence',async()=>{const store=createWorkspaceStateStore();expect(await store.get('project')).toBeNull();await expect(store.set('project',defaultWorkspaceState())).rejects.toThrow();});
+ it('fails closed on duplicate or malformed persisted identities',()=>{expect(()=>workspaceStateCodec.parse({entries:[{id:'one',state:defaultWorkspaceState()},{id:'one',state:defaultWorkspaceState()}]})).toThrow();});
+});

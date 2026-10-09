@@ -1,0 +1,17 @@
+{
+  "workstreamId": "synthetic-workstream",
+  "dagId": "synthetic-dag",
+  "repository": "example/synthetic-project",
+  "observedAt": "2026-10-06T00:00:00.000Z",
+  "coverage": "complete",
+  "pulls": [{
+    "number": 7,
+    "state": "merged",
+    "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "mergeSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "taskIds": ["T-1"],
+    "mapping": "verified",
+    "ci": [{"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "state": "success"}],
+    "reviews": [{"sha": "cccccccccccccccccccccccccccccccccccccccc", "state": "approved", "reviewer": "coderabbit"}]
+  }]
+}

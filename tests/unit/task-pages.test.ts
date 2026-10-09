@@ -1,0 +1,8 @@
+import {describe,it,expect} from 'vitest';
+import {taskPage,pageConnections} from '../../src/phase2/task-pages';
+import type {TaskGraph} from '../../src/phase2/graph';
+describe('task pages',()=>{
+ it('covers each source row once, including the last partial page',()=>{const items=Array.from({length:103},(_,i)=>({id:'T-'+i}));const pages=[1,2,3].map(n=>taskPage(items,n,50));expect(pages.flatMap(p=>p.items)).toEqual(items);expect(pages.map(p=>[p.start,p.end])).toEqual([[0,50],[50,100],[100,103]]);});
+ it('clamps refresh/filter shrink and invalid inputs without an empty phantom page',()=>{expect(taskPage([],900,50)).toMatchObject({page:1,count:1,start:0,end:0,items:[]});expect(taskPage([1,2],20,25).items).toEqual([1,2]);expect(taskPage([1],NaN,999)).toMatchObject({page:1,size:50});expect(taskPage(Array(101),-5,100)).toMatchObject({page:1,count:2});});
+ it('retains incoming, outgoing, hidden and external page references without fabricating nodes',()=>{const edges=[{id:'ab',from:'A',to:'B',kind:'internal',path:'M 0 0'},{id:'bc',from:'B',to:'C',kind:'internal',path:'M 1 1'},{id:'xb',from:'X',to:'B',kind:'external',path:null},{id:'hb',from:'H',to:'B',kind:'hidden',path:null},{id:'bb-external',from:'B',to:'B',kind:'external',path:null},{id:'cc',from:'C',to:'C',kind:'cycle',path:'M 2 2'}] as TaskGraph['edges'];const result=pageConnections({edges} as TaskGraph,new Set(['B']));expect(result.map(e=>[e.id,e.direction,e.kind])).toEqual([['ab','incoming','internal'],['bc','outgoing','internal'],['xb','incoming','external'],['hb','incoming','hidden'],['bb-external','incoming','external']]);expect(edges).toHaveLength(6);});
+});

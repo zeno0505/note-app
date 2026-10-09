@@ -1,0 +1,88 @@
+{
+  "project": "zeno0505/note-app",
+  "sourceSha": "0000000000000000000000000000000000000000",
+  "sources": [
+    {
+      "id": "S1",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 9,
+      "lineEnd": 9,
+      "sha256": "3119c837a84098f2bfa8d60e210a08db36ea15869511da49dfab288e9773c026",
+      "excerpt": "이 합성 예제는 공개 요약의 네 섹션 형식만 보여 줍니다. 실제 앱 구현 상태를 보고하지 않습니다."
+    },
+    {
+      "id": "S2",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 13,
+      "lineEnd": 13,
+      "sha256": "880db8e5f4535d4516531d6bd41658fa733d6d4710f4ca873dd2971e9b518b6d",
+      "excerpt": "이 합성 예제에는 실제 프로젝트의 다음 작업이 기록되어 있지 않습니다. 새 작업이나 약속을 만들지 않습니다."
+    },
+    {
+      "id": "S3",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 17,
+      "lineEnd": 17,
+      "sha256": "a63f04a4fec155873e65446c17b3cb5e5147d263a3695c6f560857873ec0bd59",
+      "excerpt": "이 합성 예제에는 실제 테스트, 모델 실행, 계정 사용량 또는 배포의 근거가 없습니다. 실행 결과를 주장하지 않습니다."
+    },
+    {
+      "id": "S4",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 21,
+      "lineEnd": 21,
+      "sha256": "13d19a48bb038ba51b305aabfa5db7d10942b449882f2cf12288186fe1d529bb",
+      "excerpt": "이 합성 예제에는 사용자의 결정이나 전송 승인이 기록되어 있지 않습니다. 다른 프로젝트의 권한을 부여하지 않습니다."
+    }
+  ],
+  "facts": [
+    {
+      "id": "F1",
+      "section": "implemented",
+      "state": "unrecorded",
+      "text": "이 합성 예제는 공개 요약의 네 섹션 형식만 보여 줍니다. 실제 앱 구현 상태를 보고하지 않습니다.",
+      "sourceIds": [
+        "S1"
+      ],
+      "anchors": [
+        "합성 예제"
+      ]
+    },
+    {
+      "id": "F2",
+      "section": "next",
+      "state": "unrecorded",
+      "text": "이 합성 예제에는 실제 프로젝트의 다음 작업이 기록되어 있지 않습니다. 새 작업이나 약속을 만들지 않습니다.",
+      "sourceIds": [
+        "S2"
+      ],
+      "anchors": [
+        "합성 예제"
+      ]
+    },
+    {
+      "id": "F3",
+      "section": "evidence",
+      "state": "unrecorded",
+      "text": "이 합성 예제에는 실제 테스트, 모델 실행, 계정 사용량 또는 배포의 근거가 없습니다. 실행 결과를 주장하지 않습니다.",
+      "sourceIds": [
+        "S3"
+      ],
+      "anchors": [
+        "합성 예제"
+      ]
+    },
+    {
+      "id": "F4",
+      "section": "decisions",
+      "state": "unrecorded",
+      "text": "이 합성 예제에는 사용자의 결정이나 전송 승인이 기록되어 있지 않습니다. 다른 프로젝트의 권한을 부여하지 않습니다.",
+      "sourceIds": [
+        "S4"
+      ],
+      "anchors": [
+        "합성 예제"
+      ]
+    }
+  ]
+}

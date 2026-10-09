@@ -1,0 +1,18 @@
+import {mkdir,lstat,realpath} from 'node:fs/promises';
+import {createLocalSummaryCache} from '../storage';
+import type {HarnessLedger,HarnessRecord} from './model-harness';
+interface Reservation {project:string;inputHash:string;originalRunId:string;runId:string;status:'reserved'|'succeeded'|'failed'|'cancelled';at:string}
+interface Payload {reservations:Reservation[]}
+const hash=(x:unknown)=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+const codec={parse(value:unknown):Payload{const x=value as Payload;if(!x||Object.keys(x).join(',')!=='reservations'||!Array.isArray(x.reservations)||x.reservations.length>128)throw Error('Invalid diagnostic reservation');const seen=new Set<string>();for(const r of x.reservations){if(Object.keys(r).sort().join(',')!=='at,inputHash,originalRunId,project,runId,status'||!/^project:[a-f0-9]{64}$/.test(r.project)||!hash(r.inputHash)||![r.originalRunId,r.runId].every(s=>typeof s==='string'&&/^[a-zA-Z0-9-]{1,128}$/.test(s))||!['reserved','succeeded','failed','cancelled'].includes(r.status)||!Number.isFinite(Date.parse(r.at)))throw Error('Invalid diagnostic reservation');const key=r.project+':'+r.inputHash;if(seen.has(key))throw Error('Duplicate diagnostic reservation');seen.add(key);}return structuredClone(x);}};
+/** Permanent one-shot reservations; never persist prompts, answers, usage or private errors. */
+export function createModelRetryStorage(directory:string,lock:HarnessLedger['lock'],eligible:(project:string,inputHash:string,runId:string)=>Promise<boolean>,now=()=>new Date().toISOString()){
+ const cache=createLocalSummaryCache({directory,codec});
+ async function ensure(create:boolean){if(create)await mkdir(directory,{mode:0o700}).catch(e=>{if(e.code!=='EEXIST')throw e;});const s=await lstat(directory);if(!s.isDirectory()||s.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((s.mode&0o077)!==0||s.uid!==process.geteuid?.())))throw Error('Unsafe diagnostic reservation');}
+ async function read(){try{await ensure(false);return await cache.read();}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return null;throw e;}}
+ async function used(project:string,inputHash:string){return !!(await read())?.payload.reservations.some(r=>r.project===project&&r.inputHash===inputHash);}
+ return {used,ledger(project:string,inputHash:string,originalRunId:string):HarnessLedger{return {lock,
+  async get(key){if(key!==inputHash||!await eligible(project,inputHash,originalRunId))throw Error('Original failed reservation changed');const old=(await read())?.payload.reservations.find(r=>r.project===project&&r.inputHash===inputHash);return old?{inputHash,runId:old.runId,attempts:1,status:'fallback',errors:['Diagnostic retry already reserved; no replay'],receipts:[]}:undefined;},
+  async put(value:HarnessRecord){if(value.inputHash!==inputHash||value.attempts!==1||!value.runId)throw Error('Diagnostic retry must be one attempt');await ensure(true);const previous=await cache.read(),rows=previous?.payload.reservations??[],old=rows.find(r=>r.project===project&&r.inputHash===inputHash);if(old&&(old.runId!==value.runId||old.status!=='reserved'))throw Error('Diagnostic retry already consumed');if(!old&&(value.status!=='running'||rows.length>=128||!await eligible(project,inputHash,originalRunId)))throw Error('Diagnostic retry reservation unavailable');const record:Reservation={project,inputHash,originalRunId,runId:value.runId,status:value.status==='running'?'reserved':value.status==='model'?'succeeded':value.status==='cancelled'?'cancelled':'failed',at:now()};await cache.write({reservations:[...rows.filter(r=>r.project!==project||r.inputHash!==inputHash),record]},previous?.revision??null);},
+ };}};
+}

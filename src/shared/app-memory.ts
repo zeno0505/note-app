@@ -1,0 +1,1 @@
+export interface AppMemoryView {scope:'note-app-only';source:'electron-app-metrics';platform:string;observedAt:string|null;state:'observed'|'unavailable';rows:{pid:number;creationTime:number|null;type:string;workingSetKB:number|null;peakWorkingSetKB:number|null}[];omitted:number;systemPressure:null;swap:null;reason:string}

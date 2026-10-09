@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {projectAppMemory} from '../../src/phase2/app-memory';
+it('keeps app-only KB rows and never returns project/physical-memory totals',()=>{const view=projectAppMemory([{pid:1,creationTime:100,type:'Browser',memory:{workingSetSize:42,peakWorkingSetSize:50}},{pid:2,creationTime:101,type:'Tab',memory:{workingSetSize:20,peakWorkingSetSize:21}}],'linux',200);expect(view).toMatchObject({scope:'note-app-only',rows:[{workingSetKB:42},{workingSetKB:20}],systemPressure:null,swap:null});expect('total'in view).toBe(false);});
+it('omits duplicate and invalid PIDs and keeps missing measurements unknown',()=>{const view=projectAppMemory([{pid:1,type:'Browser',memory:{}},{pid:1,memory:{workingSetSize:10}},{pid:-1}],'darwin',200);expect(view.rows).toHaveLength(1);expect(view.rows[0].workingSetKB).toBeNull();expect(view.rows[0].creationTime).toBeNull();expect(view.omitted).toBe(2);});
+it('does not turn unavailable metrics into zero',()=>{expect(projectAppMemory(null,'linux',200)).toMatchObject({state:'unavailable',rows:[],systemPressure:null});});

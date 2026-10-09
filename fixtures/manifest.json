@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "fixtureOnly": true,
+  "contractStatus": "provisional-internal-fixture-not-real-cli-schema",
+  "description": "Authored from scratch. No real snapshot, user content, prompts, previews, conversations, credentials or company paths were inspected or copied.",
+  "observedAt": "2026-10-02T09:00:00.000Z",
+  "scenarios": [
+    {
+      "id": "normal",
+      "path": "fixtures/normal.json",
+      "hash": "sha256:de921604457dcb2f564516f2ac3aec19343ab9d35c6cf9f272af223f73d690ab",
+      "covers": [
+        "connected-agent-done-dag-running",
+        "disconnected-agent-working",
+        "missing-note-mapping",
+        "same-canonical-dag-deduplicated",
+        "same-repository-separate-workstreams"
+      ]
+    },
+    {
+      "id": "refresh-failure",
+      "path": "fixtures/refresh-failure.json",
+      "hash": "sha256:398f8511e044b19e5043c41297083052fba4fd3ede7b9b108f7beeeb1046c5f7",
+      "covers": [
+        "last-good-retained",
+        "all-claims-stale",
+        "not-false-empty"
+      ]
+    },
+    {
+      "id": "empty",
+      "path": "fixtures/empty.json",
+      "hash": "sha256:7dfe08aace6ffa061ac769d5496bbc918312f4261713237b3f31c0f99d378327",
+      "covers": [
+        "successful-complete-empty"
+      ]
+    },
+    {
+      "id": "partial",
+      "path": "fixtures/partial.json",
+      "hash": "sha256:621d20657156962b2006169a6e2754752f0006f01ff55c47c50fff3f00cd8ee9",
+      "covers": [
+        "truncated",
+        "omitted-host",
+        "unknown-total-not-zero"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "path": "fixtures/sources/orca-public-response.json",
+      "hash": "sha256:1cc43f2d9613f045e0c38a88ab8c6559bb8b6a5f53a12787b66a566701f0f6ca"
+    },
+    {
+      "path": "fixtures/sources/atlas-dag.json",
+      "hash": "sha256:b16db7b60a435840865e1e737c9d4dc25f426120b9cf28bc423bee724091c52d"
+    },
+    {
+      "path": "fixtures/sources/beacon-dag.json",
+      "hash": "sha256:daf4ebb4e7f2c2a138cd74f425e36f639acdac7503bf33db168fb7a6d00af745"
+    },
+    {
+      "path": "fixtures/sources/manual-summaries.json",
+      "hash": "sha256:62774d4ac09a4a78eeeafe82bc762e08420b389bd7b52ed9703c2488db6d3b91"
+    }
+  ],
+  "forbiddenContent": [
+    "secrets",
+    "prompt",
+    "preview",
+    "conversationBody",
+    "real user or company paths"
+  ],
+  "notVerified": [
+    "real Orca CLI schema or availability",
+    "realpath or note symlink resolution",
+    "live polling",
+    "remote summarization",
+    "user readability approval"
+  ]
+}
