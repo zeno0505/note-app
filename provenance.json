@@ -1,77 +1,45 @@
 {
-  "artifact_type": "prerequisite-bounded Git bundle for isolated Phase4 source verification",
+  "artifact_type": "Prerequisite-bounded Git bundle for isolated Phase4 picker-focus verification",
   "repository": "zeno0505/note-app",
-  "source_commit": "db6abd885359396c4e5d037d321524734dd1f381",
-  "source_tree": "c62fb1b06bb73603371399ada1c225c55083240e",
-  "bundle_filename": "note-app-phase4-db6abd88.bundle",
-  "bundle_sha256": "5443af6d7afcb1c4f30dd5c086e4ccecd851f218b442836070ca26de999daf23",
-  "bundle_size_bytes": 11538,
-  "bundle_git_blob_sha": "9c3a7ad9b370f9d1f5fa04d2ef8e2a8ebcc5c727",
-  "bundle_refs": {
-    "HEAD": "db6abd885359396c4e5d037d321524734dd1f381"
-  },
+  "source_commit": "04c61a7f66ba56b698f433ae30b494eab77b933f",
+  "source_tree": "dd74106b509ebb1626122b55986f0eff2fcc2dc4",
+  "bundle_filename": "note-app-phase4-04c61a7f.bundle",
+  "bundle_sha256": "b740bd67021d13b26d5a18e4aa819bedf542ddef7b05df01a175468bba9405e8",
+  "bundle_size_bytes": 3730,
+  "bundle_git_blob_sha": "9d40e241ffd7248916c84fa2294136a792587036",
   "included_commits": [
-    "534b4350f6e0cd938adbc85ea301c75f8f8cdf7c",
-    "db6abd885359396c4e5d037d321524734dd1f381"
+    "04c61a7f66ba56b698f433ae30b494eab77b933f"
   ],
-  "new_reachable_object_counts": {
-    "commit": 2,
-    "tree": 13,
-    "blob": 12
-  },
-  "bundle_requires_prerequisites": true,
-  "prerequisite_commit": "cc93b2afe07cd59764ce4dae203c16764005d21a",
-  "prerequisite_public_delivery_commit": "fb466da49b53a038bb5d861dd82c654748a867d1",
-  "prerequisite_bundle_filename": "note-app-phase4-cc93b2af.bundle",
-  "prerequisite_bundle_sha256": "a90e154879c58244c8742505c6a640152f61477317f72b15c21680f4d6549c48",
-  "prerequisite_provenance_url": "https://raw.githubusercontent.com/zeno0505/note-app/fb466da49b53a038bb5d861dd82c654748a867d1/provenance.json",
+  "prerequisite_commit": "db6abd885359396c4e5d037d321524734dd1f381",
+  "prerequisite_bundle_url": "https://raw.githubusercontent.com/zeno0505/note-app/7ad8eded1deac09818a5e7b31ec2940cc913de28/note-app-phase4-db6abd88.bundle",
+  "prerequisite_bundle_sha256": "5443af6d7afcb1c4f30dd5c086e4ccecd851f218b442836070ca26de999daf23",
   "restoration_verified": true,
-  "restoration_check": "Fresh empty repository seeded only from exact public baseline; bundle verified and restored to exact final commit/tree; every file SHA-256 verified; clean detached checkout. No dependencies or app executed.",
-  "source_commit_notice": "Artifact transport only. Import the prerequisite Phase3 and initial Phase4 bundles in a fresh isolated repository, then this corrective bundle. Build only the restored source commit.",
+  "restoration_check": "Fresh repository seeded with exact public prerequisite; bundle verifies; restored commit/tree and every file hash match; clean detached checkout.",
+  "source_commit_notice": "Transport artifact only. Import the verified prerequisite chain to db6abd8 before this bundle. Build only the restored source commit; no installed-app change.",
   "restore_commands": [
-    "git init note-app-phase4-verification",
-    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase3-b8324818.bundle HEAD",
-    "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
-    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-cc93b2af.bundle HEAD",
-    "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
-    "git -C note-app-phase4-verification rev-parse HEAD",
-    "git -C note-app-phase4-verification bundle verify /absolute/verified/note-app-phase4-db6abd88.bundle",
-    "git -C note-app-phase4-verification fetch /absolute/verified/note-app-phase4-db6abd88.bundle HEAD",
-    "git -C note-app-phase4-verification checkout --detach FETCH_HEAD",
-    "git -C note-app-phase4-verification rev-parse HEAD HEAD^{tree}",
-    "git -C note-app-phase4-verification status --porcelain=v1"
+    "git bundle verify /absolute/verified/note-app-phase4-04c61a7f.bundle",
+    "git fetch /absolute/verified/note-app-phase4-04c61a7f.bundle HEAD",
+    "git checkout --detach FETCH_HEAD",
+    "git rev-parse HEAD HEAD^{tree}",
+    "git status --porcelain=v1"
   ],
   "safety_review": {
-    "final_source_files": 434,
-    "new_commits": 2,
-    "changed_paths": 12,
-    "scope": "Regular UTF-8 product source, documentation, synthetic fixtures and tests only. No dependency/build/profile/screenshot/runtime/private credential files. All newly reachable blob paths and final file bodies scanned. New fixture documents explicitly synthetic.",
-    "marker_review": [
-      {
-        "path": "tests/unit/install-identity.test.ts",
-        "explanation": "Synthetic /home/Applications path; no user home."
-      },
-      {
-        "path": "tests/unit/project-model.test.ts",
-        "explanation": "Standalone PRIVATE KEY header in a credential-denial unit test; no key body."
-      }
-    ]
+    "scope": "Four regular UTF-8 product/test/review files changed. Complete final tree and newly reachable objects scanned; no dependency/build/profile/private-source files. Only existing synthetic credential-header and /home/Applications test markers.",
+    "new_objects": {
+      "commit": 1,
+      "tree": 9,
+      "blob": 4
+    },
+    "final_source_files": 434
   },
-  "verification_reported_by_coordinator": {
-    "configured_check": "2333 unit tests, 79 updater checks, typecheck and production build passed at 534b435; only Electron test changes follow",
-    "actual_electron_passed": [
-      "phase4-document",
-      "phase2-workspace",
-      "project-creation",
-      "theme"
-    ],
-    "phase4_final_test_sha256": "d6c58850daf26b59d9e3c0507142b5e7aeac0d37eca5094e88b11858e33372c9",
-    "phase4_final_test": "Passed actual Electron; 1280px,760px,200% proposal layouts; zero model calls, zero HTTP requests, unchanged DAG and full tracked-process cleanup",
-    "independent_review": "534b435 fixtures and db6abd8 final UI test reviewed without blockers; no security weakening or new skips",
-    "supplementary_legacy_live_smoke": "Failed obsolete disconnected-at-start assertion. Separate partial startup repair then exposed obsolete worktree-level count (2 vs current grouped project count 1). That partial repair is excluded. Broader legacy harness migration remains pending.",
-    "mac_status": "Retest pending: all 23 original fixture failures and native grant layout require actual Mac confirmation; Linux success is not Mac acceptance",
-    "production_build_hash_before_test_helpers": "40dca413eeb4f2fb2d25cf902fd4c8820a04b6b933f3f265eb1717f224829b00",
-    "tested_build_hash_with_live_fixture_helpers": "72e6678fe653b96853590d3d818cc9a207a5a24c2da024994e81aa4ce40c3aa0"
+  "verification": {
+    "full_check": "2339 unit tests; 79 updater checks; typecheck and build passed",
+    "independent_review": "Focus guard and six regressions reviewed without blockers",
+    "electron": "Full Phase4 document suite passed, including actual button focus restoration, Enter reopening, repeated cancellation and unchanged grant state; picker response substituted. Zero model calls and HTTP requests.",
+    "mac_prior_candidate": "db6abd8 passed original 23 failures, 2305 unit tests plus 14 pre-existing Linux-only skips, updater/typecheck/build, 13 Electron scenarios; native grant layout and viewer Escape focus passed. Picker-cancel focus fix still requires native Mac retest.",
+    "count_reconciliation": "Original Linux 2333 minus 14 Linux descriptor-path catalog registrations equals Mac 2319 total; 14 pre-existing Linux procfs skips leaves 2305 passed. Six new focus cases increase expected totals by six.",
+    "resource_sensitive_test": "Initial default-parallel Mac writer startup timeout; isolated writer 27 cases and full two-worker Mac run passed.",
+    "known_supplementary_failure": "Legacy live-smoke still asserts obsolete disconnected startup/worktree count/bridge allowlist; migration tracked separately and excluded."
   },
   "files": [
     {
@@ -126,9 +94,9 @@
     {
       "path": "docs/reviews/phase4-document-review-20261009.md",
       "mode": "100644",
-      "git_blob_sha": "2af7f9911220afd9cad3283378444e4d6e699ff7",
-      "sha256": "d960691b60c4f206306e523407c680ba6dc8b57a9cfb9346fdab5c2075c06d0a",
-      "size_bytes": 14798
+      "git_blob_sha": "708658eee939ac45dccaab1359755f47ed3fce4e",
+      "sha256": "e5a41293b09c98f76d16094fabe629959de1e39930aaae1031a233852fe454b3",
+      "size_bytes": 16227
     },
     {
       "path": "docs/source-release.md",
@@ -1162,9 +1130,9 @@
     {
       "path": "src/renderer/components/ProjectDocuments.vue",
       "mode": "100644",
-      "git_blob_sha": "13c6d84b79df1612627d65e33b4614c1de8c35bd",
-      "sha256": "6c51b2d14acb0e0dd18e8311350e0cd2b92e1b56d08e6448052e19ee8b10c7b8",
-      "size_bytes": 28754
+      "git_blob_sha": "8ee63b884d3bb75563bb5d674be3e451ad0e5f43",
+      "sha256": "b97b1abb63a99f055f909bd89400c5ae74e6a3c090c803c06dde5169208b998d",
+      "size_bytes": 29436
     },
     {
       "path": "src/renderer/components/ProjectListItem.vue",
@@ -2072,9 +2040,9 @@
     {
       "path": "tests/electron/phase4-document-smoke.mjs",
       "mode": "100644",
-      "git_blob_sha": "f6e946301ad395b2bad0e53e0452a35c33a52c60",
-      "sha256": "d6c58850daf26b59d9e3c0507142b5e7aeac0d37eca5094e88b11858e33372c9",
-      "size_bytes": 24693
+      "git_blob_sha": "5f630b8c20470f64ae744b20925988e8ed54a00c",
+      "sha256": "0115f9def6c9b0a25a49dee49e06f929c3be290107edc354da29f4220e6cad0a",
+      "size_bytes": 26069
     },
     {
       "path": "tests/electron/phase4-fixture/setup.mjs",
@@ -2800,9 +2768,9 @@
     {
       "path": "tests/unit/phase4-document-workspace.test.ts",
       "mode": "100644",
-      "git_blob_sha": "30334585624cdef131ffb86e6b34b003a7737df8",
-      "sha256": "2509de604da70a4b06fb9247305c8e718db0eef47dfd51799022ab21efa672c8",
-      "size_bytes": 19536
+      "git_blob_sha": "0ed28c3ab7d530a85e6f14ba3d01c4c1adde1f0f",
+      "sha256": "2ff38a3b75146e946d98802dba9806c5a0947c1a0f36a8dad578bf36f69d8ac6",
+      "size_bytes": 21593
     },
     {
       "path": "tests/unit/phase4-documents-runtime.test.ts",
