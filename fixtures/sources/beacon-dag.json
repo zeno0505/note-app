@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "canonicalDagPath": "/synthetic/notes/beacon/dag.yaml",
+  "worktreeIds": [
+    "wt-beacon-build"
+  ],
+  "declaredState": "pending",
+  "tasks": [
+    {
+      "id": "beacon-01",
+      "declaredStatus": "pending",
+      "tested": "unknown",
+      "deployed": "unknown",
+      "depsReady": true,
+      "priority": null,
+      "executionApproval": "unknown"
+    },
+    {
+      "id": "beacon-02",
+      "declaredStatus": "pending",
+      "tested": "unknown",
+      "deployed": "unknown",
+      "depsReady": false,
+      "priority": null,
+      "executionApproval": "unknown"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+/* Application roles reuse the installed Aura palette; scheme values live here. */
+:root{
+ --app-background:var(--p-surface-50);--app-surface:var(--p-content-background);--app-surface-muted:var(--p-surface-100);--app-surface-hover:var(--p-content-hover-background);--app-selected:var(--p-primary-50);
+ --app-text:var(--p-text-color);--app-text-muted:var(--p-surface-600);--app-border:var(--p-content-border-color);--app-control-border:var(--p-surface-500);
+ --app-primary:var(--p-primary-color);--app-on-primary:var(--p-primary-contrast-color);--app-primary-hover:var(--p-primary-hover-color);--app-focus:var(--p-focus-ring-color);
+ --app-success-bg:var(--p-green-50);--app-success-text:var(--p-green-800);--app-success-border:var(--p-green-300);
+ --app-warning-bg:var(--p-amber-50);--app-warning-text:var(--p-amber-800);--app-warning-border:var(--p-amber-400);
+ --app-error-bg:var(--p-red-50);--app-error-text:var(--p-red-800);--app-error-border:var(--p-red-300);
+ --app-info-bg:var(--p-blue-50);--app-info-text:var(--p-blue-800);--app-info-border:var(--p-blue-300);
+ --app-chart-track:var(--p-surface-200);--app-chart-quota:var(--p-primary-600);--app-chart-cost:var(--p-blue-700);
+ --app-shadow-color:color-mix(in srgb,var(--p-surface-950) 12%,transparent);
+ --ink:var(--app-text);--muted:var(--app-text-muted);--green:var(--app-primary);--line:var(--app-border);
+}
+:root.note-app-dark{
+ --app-background:var(--p-surface-950);--app-surface-muted:var(--p-surface-800);--app-selected:var(--p-primary-950);--app-text-muted:var(--p-surface-300);
+ --app-success-bg:var(--p-green-950);--app-success-text:var(--p-green-300);--app-success-border:var(--p-green-700);
+ --app-warning-bg:var(--p-amber-950);--app-warning-text:var(--p-amber-300);--app-warning-border:var(--p-amber-700);
+ --app-error-bg:var(--p-red-950);--app-error-text:var(--p-red-300);--app-error-border:var(--p-red-700);
+ --app-info-bg:var(--p-blue-950);--app-info-text:var(--p-blue-300);--app-info-border:var(--p-blue-700);
+ --app-chart-track:var(--p-surface-700);--app-chart-quota:var(--p-primary-300);--app-chart-cost:var(--p-blue-300);
+ --app-shadow-color:color-mix(in srgb,var(--p-surface-950) 60%,transparent);
+}

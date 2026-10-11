@@ -1,0 +1,106 @@
+{
+  "kind": "synthetic-public-model-example",
+  "sourceSha": "0000000000000000000000000000000000000000",
+  "inputHash": "4534b67ab462fca6c558662b773f74f99d2143a89107635b607a2106b5330267",
+  "runId": "00000000-0000-4000-8000-000000000000",
+  "version": "public-reading-v1",
+  "provider": "synthetic-fixture",
+  "generationRequests": 1,
+  "repairRequests": 0,
+  "duplicateAdditionalRequests": 0,
+  "runtimeMs": 1,
+  "usage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 3,
+    "output_tokens": 4
+  },
+  "reportedTurns": 1,
+  "sections": [
+    {
+      "id": "implemented",
+      "text": "이 합성 예제는 공개 요약의 네 섹션 형식만 보여 줍니다. 실제 앱 구현 상태를 보고하지 않습니다.",
+      "facts": [
+        {
+          "id": "F1",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S1"
+      ]
+    },
+    {
+      "id": "next",
+      "text": "이 합성 예제에는 실제 프로젝트의 다음 작업이 기록되어 있지 않습니다. 새 작업이나 약속을 만들지 않습니다.",
+      "facts": [
+        {
+          "id": "F2",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S2"
+      ]
+    },
+    {
+      "id": "evidence",
+      "text": "이 합성 예제에는 실제 테스트, 모델 실행, 계정 사용량 또는 배포의 근거가 없습니다. 실행 결과를 주장하지 않습니다.",
+      "facts": [
+        {
+          "id": "F3",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S3"
+      ]
+    },
+    {
+      "id": "decisions",
+      "text": "이 합성 예제에는 사용자의 결정이나 전송 승인이 기록되어 있지 않습니다. 다른 프로젝트의 권한을 부여하지 않습니다.",
+      "facts": [
+        {
+          "id": "F4",
+          "state": "unrecorded"
+        }
+      ],
+      "sourceIds": [
+        "S4"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "id": "S1",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 9,
+      "lineEnd": 9,
+      "sha256": "3119c837a84098f2bfa8d60e210a08db36ea15869511da49dfab288e9773c026"
+    },
+    {
+      "id": "S2",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 13,
+      "lineEnd": 13,
+      "sha256": "880db8e5f4535d4516531d6bd41658fa733d6d4710f4ca873dd2971e9b518b6d"
+    },
+    {
+      "id": "S3",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 17,
+      "lineEnd": 17,
+      "sha256": "a63f04a4fec155873e65446c17b3cb5e5147d263a3695c6f560857873ec0bd59"
+    },
+    {
+      "id": "S4",
+      "path": "docs/synthetic-public-reading.md",
+      "lineStart": 21,
+      "lineEnd": 21,
+      "sha256": "13d19a48bb038ba51b305aabfa5db7d10942b449882f2cf12288186fe1d529bb"
+    }
+  ],
+  "manualReview": {
+    "result": "synthetic-example-only",
+    "note": "합성 예제입니다. 실제 모델 실행, 개인 계정, 사용자 승인 또는 제품 검증의 기록이 아닙니다."
+  }
+}

@@ -1,0 +1,12 @@
+import {describe,it,expect} from 'vitest';
+import {parseModelSelection,selectRecentTaskActivities,readTaskCommitActivities,type TaskActivity} from '../../src/summary/reading/recent-tasks';
+import type {DagTask} from '../../src/facts/dag-read-model/types';
+const tasks=Array.from({length:5},(_,i)=>({id:'T-'+i,title:'합성 작업',status:'done',dependencies:[],e2e:{state:'undeclared',required:null,coveredBy:null,coverage:'undeclared'},commitReferences:[],commitVerification:'not-performed'} as DagTask));
+const event=(taskId:string,at:string,kind:TaskActivity['kind']='code'):TaskActivity=>({taskId,at,kind,source:'git:fixture',sourceHash:'a'.repeat(64),timeBasis:'git-commit-time'});
+describe('last three explicit task activities',()=>{
+ it('does not invent recency from IDs/status/file timestamps or first observation',()=>{expect(selectRecentTaskActivities(tasks,[]).state).toBe('unknown');expect(selectRecentTaskActivities(tasks,[]).taskIds).toEqual([]);});
+ it('sorts actual records, deduplicates tasks, and keeps activity sources',()=>{const events=[event('T-1','2026-01-01T00:00:00Z'),event('T-2','2026-01-03T00:00:00Z','discussion'),event('T-3','2026-01-04T00:00:00Z','verification'),event('T-4','2026-01-02T00:00:00Z'),event('T-1','2026-01-05T00:00:00Z')];expect(selectRecentTaskActivities(tasks,events).taskIds).toEqual(['T-1','T-3','T-2']);});
+ it('rejects future, malformed and non-task events',()=>{expect(selectRecentTaskActivities(tasks,[event('T-0','invalid'),event('T-0','2026-02-30T00:00:00Z'),event('T-1','2099-01-01T00:00:00Z'),event('T-999','2026-01-01T00:00:00Z')],Date.parse('2026-10-09T00:00:00Z')).taskIds).toEqual([]);});
+ it('validates custom scope without prefix restriction or substitution',()=>{expect(parseModelSelection({purpose:'custom',taskIds:['R-1','T-2']})).toEqual({purpose:'custom',taskIds:['R-1','T-2']});expect(()=>parseModelSelection({purpose:'recent',taskIds:[]})).toThrow();expect(()=>parseModelSelection({purpose:'custom',taskIds:['T-1','T-1']})).toThrow();});
+ it('reads only exact declared commit references, never source bodies or filename guesses',async()=>{const sha='a'.repeat(40);const task={...tasks[0],commitReferences:[sha,'HEAD','../other']};const result=await readTaskCommitActivities([task],'/synthetic',new AbortController().signal,async refs=>{expect(refs).toEqual([sha]);return sha+'\0'+'2026-10-01T12:00:00+00:00\n';});expect(result.events).toHaveLength(1);expect(result.events[0].source).toBe('git:'+sha);expect(result.events[0].taskId).toBe(task.id);});
+});

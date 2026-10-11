@@ -1,0 +1,10 @@
+import {describe,it,expect} from 'vitest';
+import {matchProjectCreationWorkspace} from '../../src/main/project-creation-selection';
+import {createEmptyProjectDraftInput,type ProjectDraft} from '../../src/shared/project-draft';
+import type {ProjectWorkspaceOptions,ProjectWorkspaceOption} from '../../src/shared/project-workspaces';
+function fixture(branch:string|null){const option:ProjectWorkspaceOption={optionId:'opaque',fingerprint:'fingerprint',hostId:'local',worktreeId:'tree',path:'/fixture/tree',branch,repository:{key:'repo',id:'repo',hostId:'local',projectId:null,label:'repo'}};const input=createEmptyProjectDraftInput();input.repositories=[{name:'repo',path:option.path,workspace:{mode:'existing',worktreeId:option.worktreeId,path:option.path,branch:branch??''}}];const draft:ProjectDraft={id:'draft',revision:1,updatedAt:'2026-10-08',input};const view:ProjectWorkspaceOptions={state:'ready',reason:null,observedAt:'2026-10-08',omittedCount:0,options:[option]};return {draft,view,option};}
+describe('host creation current-workspace selection',()=>{
+ it.each([null,'main','refs/heads/main'])('matches saved representation for %s',branch=>{const f=fixture(branch);expect(matchProjectCreationWorkspace(f.draft,f.view)).toBe(f.option);});
+ it('rejects ambiguous, stale and foreign selections',()=>{const f=fixture(null);expect(matchProjectCreationWorkspace(f.draft,{...f.view,options:[f.option,{...f.option}]})).toBeNull();expect(matchProjectCreationWorkspace(f.draft,{...f.view,state:'unavailable',reason:'stale'})).toBeNull();f.draft.input.repositories[0].workspace.worktreeId='foreign';expect(matchProjectCreationWorkspace(f.draft,f.view)).toBeNull();});
+ it('does not flatten multiple repos or choose a new worktree plan',()=>{const f=fixture('main');f.draft.input.repositories.push(structuredClone(f.draft.input.repositories[0]));expect(matchProjectCreationWorkspace(f.draft,f.view)).toBeNull();f.draft.input.repositories.pop();f.draft.input.repositories[0].workspace.mode='new';expect(matchProjectCreationWorkspace(f.draft,f.view)).toBeNull();});
+});

@@ -1,0 +1,2 @@
+const {contextBridge,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('pollTest',Object.freeze({start:()=>ipcRenderer.invoke('poll-test:start'),stats:()=>ipcRenderer.invoke('poll-test:stats'),stall:()=>ipcRenderer.invoke('poll-test:stall'),cleanup:()=>ipcRenderer.invoke('poll-test:cleanup'),subscribe:callback=>{const listener=(_event,state)=>callback(state);ipcRenderer.on('poll-test:state',listener);return ()=>ipcRenderer.removeListener('poll-test:state',listener);}}));

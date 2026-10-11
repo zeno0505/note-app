@@ -1,0 +1,10 @@
+{
+  "kind": "synthetic-nonmodel-process-preview",
+  "fixtureOnly": true,
+  "description": "Authored synthetic bytes for the fixed fake-provider process tests; no historical project excerpts or personal data.",
+  "exactInput": "{\"kind\":\"synthetic-nonmodel-input\",\"instructions\":\"Only the authored fake-provider process receives these fictional bytes. Do not invoke a model or access external sources.\",\"records\":[{\"sourceId\":\"synthetic-task\",\"text\":\"합성 예제 작업입니다. 실제 사용자, 프로젝트, 계정, 승인 또는 실행 기록이 아닙니다.\",\"status\":\"unknown\"}]}",
+  "exactInputBytes": 360,
+  "exactInputSha256": "8cfdea3cd2a41f31b91ecb2c80fd7428cf32546c84a32c1f9dc938ffcb2d0ba7",
+  "modelRun": false,
+  "executionAuthorized": false
+}

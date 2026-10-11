@@ -1,0 +1,34 @@
+import {_electron as electron} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {buildIdentity,assertTrackedProcessesExit} from './evidence.mjs';
+const evidence=path.resolve('reviews/evidence');await mkdir(evidence,{recursive:true});
+let app;const checks=[];
+try{
+  app=await electron.launch({chromiumSandbox:true,args:[path.resolve('dist/electron-tests/collector-main.cjs')],env:{...process.env,NOTE_APP_TEST_NODE:process.execPath},timeout:30000});
+  const page=await app.firstWindow();await page.getByRole('heading',{name:'Read-only collection, verified'}).waitFor();
+  await page.getByRole('button',{name:'Run normal',exact:true}).click();await page.getByText('Read complete',{exact:true}).waitFor();
+  const result=JSON.parse(await page.locator('#result').textContent());
+  assert.equal(result.ok,true);assert.equal(result.canonicalDags,1);assert.equal(result.linkedWorktrees,2);assert.equal(result.privatePayloadDiscarded,true);assert.equal(result.existingLinkUnchanged,true);assert.equal(result.noteBytesUnchanged,true);assert.equal(result.projectCoverage,'unknown');
+  await page.screenshot({path:path.join(evidence,'T-008-009-normal.png')});checks.push('Real synthetic subprocess with fixed Orca argv; projected sensitive fields discarded; two temporary worktrees share one canonical DAG; project completeness stays unknown');
+  await page.getByRole('button',{name:'Missing note',exact:true}).click();await page.getByText('Read complete',{exact:true}).waitFor();
+  const missing=JSON.parse(await page.locator('#result').textContent());assert.equal(missing.mappingStatus,'partial');assert(missing.unresolved.includes('note-missing'));
+  await page.screenshot({path:path.join(evidence,'T-009-missing.png')});checks.push('Missing note remains unresolved while mapped worktree is retained');
+  await page.getByRole('button',{name:'Access denied',exact:true}).click();await page.getByText('Read failed: access_denied',{exact:true}).waitFor();
+  const denied=JSON.parse(await page.locator('#result').textContent());assert.equal(denied.ok,false);assert(!('worktrees'in denied));assert(!JSON.stringify(denied).includes('SYNTHETIC_ERROR_BODY'));
+  checks.push('Access denied stays explicit failure, not empty success; raw error body does not escape');
+  await assert.rejects(page.evaluate(()=>window.collectorTest.run('rm -rf /')),/Invalid collector scenario/);
+  await page.getByRole('button',{name:'Start slow read',exact:true}).click();await page.getByText('Reading',{exact:true}).waitFor();
+  const busy=await page.evaluate(()=>window.collectorTest.run('normal'));assert.equal(busy.kind,'busy');
+  await page.getByRole('button',{name:'Check responsiveness',exact:true}).click();await page.getByText('Main process responsive',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Cancel read',exact:true}).click();await page.getByText('Read failed: cancelled',{exact:true}).waitFor();
+  await page.screenshot({path:path.join(evidence,'T-008-cancel.png')});checks.push('Long-running subprocess does not block window interaction/IPC; overlap rejected; cancellation settles and cleans process');
+  await page.getByRole('button',{name:'Run normal',exact:true}).click();await page.getByText('Read complete',{exact:true}).waitFor();
+  const cleaned=await page.evaluate(()=>window.collectorTest.cleanup());assert.equal(cleaned.remainingRoots,0);
+  const pids=await app.evaluate(({app})=>app.getAppMetrics().map(metric=>metric.pid));
+  await app.close();app=undefined;await assertTrackedProcessesExit(pids);
+  checks.push('Retry succeeds; owned temporary filesystem fixtures cleaned; tracked Electron processes exit');
+  const report={status:'passed',observedAt:new Date().toISOString(),codeIdentity:await buildIdentity(),checks,normal:result,missing,denied,scope:'Actual Linux Electron integration harness with synthetic CLI and real temporary filesystem; not real Orca, user notes, product read-model UI, native macOS or packaged .app',visualReview:'Pending separate image opening'};
+  await writeFile(path.join(evidence,'T-008-009-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
+}finally{if(app)await app.close();}

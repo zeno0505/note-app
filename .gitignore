@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.electron-test-profile/
+playwright-report/
+test-results/
+/reviews/
+/recovery/
+/artifacts/
+/release-output/
+.env
+.env.*
+*.log
+.DS_Store

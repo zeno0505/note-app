@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 1,
+  "fixtureKind": "authored-fictional-korean-review-corpus",
+  "modelRun": false,
+  "generatedAt": "2026-10-05T09:00:00.000Z",
+  "scopeId": "fictional-quality-review",
+  "reviewRubric": {
+    "aspects": [
+      "goal",
+      "implemented",
+      "remaining",
+      "current",
+      "next",
+      "blockers"
+    ],
+    "criteria": [
+      "여섯 관점 누락 여부",
+      "포함된 근거가 실제로 문장을 뒷받침하는지",
+      "오래된 관찰을 현재 사실로 바꾸지 않았는지",
+      "done을 테스트·배포·인수로 승격하지 않았는지",
+      "터미널 연결을 실제 작업으로 단정하지 않았는지",
+      "다음 제안을 실행 승인으로 바꾸지 않았는지",
+      "불완전한 범위와 미확인을 드러내는지",
+      "불필요한 반복 없이 간결한지"
+    ],
+    "limitation": "expectedReview는 사람이 미리 정한 검토 기대값이며 자동 의미 검증 결과나 실제 모델 성능 점수가 아닙니다."
+  },
+  "records": [
+    {
+      "sourceId": "fictional-goal",
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "text": "가상 메모 앱의 목표는 선택한 프로젝트의 진행 상황을 근거와 함께 한 화면에서 검토하는 것입니다.",
+      "declaredStatus": "unknown"
+    },
+    {
+      "sourceId": "fictional-implemented",
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "text": "작업 A: 읽기 전용 프로젝트 목록 화면의 선언 상태는 done입니다. 테스트, 배포, 사용자 인수 기록은 첨부되지 않았습니다.",
+      "declaredStatus": "done"
+    },
+    {
+      "sourceId": "fictional-remaining",
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "text": "작업 B: 변경된 근거만 재검토하는 흐름의 선언 상태는 pending입니다. 실행 승인은 기록되지 않았습니다.",
+      "declaredStatus": "pending"
+    },
+    {
+      "sourceId": "fictional-current",
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "text": "10월 1일 작업 C의 선언 상태는 running입니다. 터미널 연결이 관찰됐지만 실제 에이전트 실행 여부는 확인되지 않았습니다.",
+      "declaredStatus": "running"
+    },
+    {
+      "sourceId": "fictional-blockers",
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "text": "작업 D의 선언 상태는 blocked입니다. 외부 검토 E의 결과가 제공되지 않아 의존성 충족 여부는 미확인입니다.",
+      "declaredStatus": "blocked"
+    }
+  ],
+  "referenceClaims": [
+    {
+      "aspect": "goal",
+      "kind": "fact",
+      "sourceId": "fictional-goal",
+      "text": "가상 메모 앱의 목표는 선택한 프로젝트의 진행 상황을 근거와 함께 한 화면에서 검토하는 것입니다."
+    },
+    {
+      "aspect": "implemented",
+      "kind": "inference",
+      "sourceId": "fictional-implemented",
+      "text": "목록 화면은 done으로 선언됐습니다. 테스트·배포·사용자 인수 완료 여부는 제공된 기록으로 확인할 수 없습니다."
+    },
+    {
+      "aspect": "remaining",
+      "kind": "inference",
+      "sourceId": "fictional-remaining",
+      "text": "변경된 근거만 재검토하는 흐름은 pending으로 남아 있습니다. 전체 프로젝트의 남은 범위는 이 자료만으로 확정할 수 없습니다."
+    },
+    {
+      "aspect": "current",
+      "kind": "inference",
+      "sourceId": "fictional-current",
+      "text": "10월 1일 기록에서 작업 C는 running으로 선언됐습니다. 10월 5일 현재 실제 실행 여부는 확인되지 않았습니다."
+    },
+    {
+      "aspect": "next",
+      "kind": "inference",
+      "sourceId": "fictional-remaining",
+      "text": "다음 단계 제안: 작업 B의 범위와 필요한 검토를 확인하세요. 실행 승인을 뜻하지 않습니다."
+    },
+    {
+      "aspect": "blockers",
+      "kind": "inference",
+      "sourceId": "fictional-blockers",
+      "text": "작업 D는 blocked로 선언됐고 외부 검토 E의 결과가 없습니다. 다른 차단 요인의 유무는 확인되지 않았습니다."
+    }
+  ],
+  "cases": [
+    {
+      "id": "reference-six-aspects",
+      "category": "reference",
+      "omitAspects": [],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "acceptable-reference",
+      "reviewReason": "여섯 관점을 간결하게 다루고 선언·추론·미확인과 제안을 구분한 사람이 작성한 참고 답안입니다. 실제 모델 품질 판정은 아닙니다."
+    },
+    {
+      "id": "omits-goal",
+      "category": "omission",
+      "omitAspects": [
+        "goal"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "goal 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "omits-implemented",
+      "category": "omission",
+      "omitAspects": [
+        "implemented"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "implemented 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "omits-remaining",
+      "category": "omission",
+      "omitAspects": [
+        "remaining"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "remaining 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "omits-current",
+      "category": "omission",
+      "omitAspects": [
+        "current"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "current 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "omits-next",
+      "category": "omission",
+      "omitAspects": [
+        "next"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "next 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "omits-blockers",
+      "category": "omission",
+      "omitAspects": [
+        "blockers"
+      ],
+      "edits": [],
+      "expectedParser": "accept",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "blockers 관점이 빠졌습니다. 초기 후보 저장 단계에서 여섯 관점의 완전성을 요구해야 합니다."
+    },
+    {
+      "id": "done-promoted-to-tested",
+      "category": "unsupported-wording",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "implemented",
+          "text": "목록 화면의 모든 테스트가 통과했고 품질 검증이 완료됐습니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "done 선언과 정확한 인용만으로 테스트 통과를 주장할 수 없습니다. 구조 검증은 이 잘못된 추론을 차단하지 못합니다."
+    },
+    {
+      "id": "done-promoted-to-deployed",
+      "category": "unsupported-wording",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "implemented",
+          "text": "목록 화면은 운영 환경에 배포됐고 사용자가 인수했습니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "배포 및 사용자 인수의 근거가 없습니다. 인용 형식이 올바르더라도 사람이 거절해야 합니다."
+    },
+    {
+      "id": "terminal-promoted-to-active",
+      "category": "unsupported-wording",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "current",
+          "text": "연결된 터미널에서 에이전트가 지금 작업 C를 구현하고 있습니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "터미널 연결은 현재 에이전트 작업의 증거가 아니며 관찰 시점도 오래됐습니다."
+    },
+    {
+      "id": "stale-source-hash",
+      "category": "stale-evidence",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "implemented",
+          "citationSourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expectedParser": "reject",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "현재 포함된 근거와 인용 해시가 달라 구조적 출처 검증에서 거절해야 합니다."
+    },
+    {
+      "id": "old-running-declared-current",
+      "category": "stale-evidence",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "current",
+          "text": "작업 C는 10월 5일 현재 진행 중입니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "10월 1일의 running 선언을 10월 5일 현재 사실로 승격했습니다. 기록 나이를 확인하는 의미 검토가 필요합니다."
+    },
+    {
+      "id": "proposal-promoted-in-structure",
+      "category": "proposal-promotion",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "next",
+          "intent": "informational"
+        }
+      ],
+      "expectedParser": "reject",
+      "expectedInitialStore": "reject",
+      "expectedReview": "reject",
+      "reviewReason": "다음 단계는 proposal이어야 합니다. 명시적 실행 승인으로 바꿀 수 없습니다."
+    },
+    {
+      "id": "proposal-promoted-in-wording",
+      "category": "proposal-promotion",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "next",
+          "text": "작업 B는 실행 승인됐으므로 즉시 구현을 시작합니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "proposal 필드를 유지해도 승인 및 실행을 주장하는 문장은 거절해야 합니다. 요약 승인은 실행 승인이 아닙니다."
+    },
+    {
+      "id": "verbose-repetition",
+      "category": "verbosity",
+      "omitAspects": [],
+      "edits": [
+        {
+          "aspect": "remaining",
+          "text": "작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다. 작업 B는 pending이며 범위 검토가 필요합니다. 같은 내용을 다시 설명하면, 작업 B는 아직 남아 있습니다."
+        }
+      ],
+      "expectedParser": "accept",
+      "expectedInitialStore": "accept",
+      "expectedReview": "reject",
+      "reviewReason": "허용 바이트 안에 있지만 같은 내용을 반복해 읽기 어렵습니다. 바이트 제한 준수는 간결함의 증명이 아닙니다."
+    }
+  ]
+}

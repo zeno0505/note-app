@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "canonicalDagPath": "/synthetic/notes/atlas/dag.yaml",
+  "worktreeIds": [
+    "wt-atlas-build",
+    "wt-atlas-review"
+  ],
+  "declaredState": "running",
+  "tasks": [
+    {
+      "id": "atlas-01",
+      "declaredStatus": "done",
+      "tested": "unknown",
+      "deployed": "unknown",
+      "depsReady": true,
+      "priority": null,
+      "executionApproval": "unknown"
+    },
+    {
+      "id": "atlas-02",
+      "declaredStatus": "running",
+      "tested": "unknown",
+      "deployed": "unknown",
+      "depsReady": true,
+      "priority": null,
+      "executionApproval": "unknown"
+    },
+    {
+      "id": "atlas-03",
+      "declaredStatus": "pending",
+      "tested": "unknown",
+      "deployed": "unknown",
+      "depsReady": false,
+      "priority": null,
+      "executionApproval": "unknown"
+    }
+  ]
+}
