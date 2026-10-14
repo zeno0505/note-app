@@ -21,11 +21,13 @@ export class Budget {
     if (this.signal?.aborted) throw new LinkError('cancelled', 'The operation was cancelled.');
     if (Date.now() >= this.deadline) throw new LinkError('timeout', 'The operation exceeded its deadline.');
   }
+  /** Optional owner hook retaining original IO/process cleanup beyond a bounded wait. */
+  trackOperation<T>(operation: Promise<T>): Promise<T> { return operation; }
   async run<T>(operation: () => Promise<T>, mutation = false): Promise<T> {
     this.check();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let abort: (() => void) | undefined;
-    const native = operation();
+    const native = this.trackOperation(operation());
     try {
       return await Promise.race([native, new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new LinkError('timeout', mutation ? 'A filesystem change is still pending after its deadline; inspect the reported paths before retrying.' : 'The operation exceeded its deadline.', mutation)), Math.max(1, this.deadline - Date.now()));
@@ -41,7 +43,7 @@ export class Budget {
 }
 /** Start descriptor cleanup, but never let an uninterruptible close hide an earlier deadline. */
 export async function closeBounded(handle: FileHandle, budget: Budget): Promise<boolean> {
-  const closing = handle.close().then(() => true, () => false);
+  const closing = budget.trackOperation(handle.close()).then(() => true, () => false);
   if (budget.signal?.aborted || Date.now() >= budget.deadline) { void closing; return false; }
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: (() => void) | undefined;

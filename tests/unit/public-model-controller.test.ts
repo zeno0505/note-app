@@ -11,7 +11,7 @@ const answer=(binding:ModelBinding,p:PublicReadingPack)=>({...binding,sections:S
 const receipt=(binding:ModelBinding,p:PublicReadingPack)=>({answer:answer(binding,p),provider:'test-only',runtimeMs:1,usage:{}});
 async function fixture(){const root=await realpath(await mkdtemp(path.join(os.tmpdir(),'public-controller-')));return {root,storage:createModelReadingStorage(path.join(root,'model-reading')),clean:()=>rm(root,{recursive:true,force:true})};}
 it('compiled input is bounded and excludes private sources; config enables only an absolute Claude executable',()=>{
-  expect(()=>validatePublicPack(compiled as PublicReadingPack)).not.toThrow();expect(compiled.sources.length).toBe(12);expect(compiled.facts.length).toBe(9);
+  expect(()=>validatePublicPack(compiled as PublicReadingPack)).not.toThrow();expect(compiled.sources.length).toBe(4);expect(compiled.facts.length).toBe(4);
   expect(compiled.sources.some(s=>s.path.includes('docs/note')||s.excerpt.includes('/Users/')||s.excerpt.includes('vaultRootPath'))).toBe(false);
   const p=pack();p.sources[0].path='reviews/private.md';expect(()=>publicInputHash(p)).toThrow();
   expect(parseLiveConfiguration({schemaVersion:1,orcaExecutablePath:'/bin/orca',publicModelClaudePath:'/bin/claude'}).publicModelClaudePath).toBe('/bin/claude');

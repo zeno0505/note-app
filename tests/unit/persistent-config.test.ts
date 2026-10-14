@@ -1,0 +1,10 @@
+import {describe,it,expect} from 'vitest';
+import {realpath,mkdtemp,mkdir,writeFile,readFile,rm,symlink} from 'node:fs/promises';
+import os from 'node:os';import path from 'node:path';
+import {persistentConfiguration} from '../../src/main/persistent-config';
+const config={schemaVersion:1,orcaExecutablePath:'/opt/bin/orca',noteScopes:[]};
+describe('external personal configuration',()=>{
+  it('copies validated exact bytes and retains legacy; existing settings win',async()=>{const root=await realpath(await mkdtemp(path.join(os.tmpdir(),'note-config-')));try{const userData=path.join(root,'profile'),legacy=path.join(root,'legacy.json');const bytes=JSON.stringify(config);await writeFile(legacy,bytes,{mode:0o600});const result=await persistentConfiguration({userData,legacy});expect(await readFile(result!,'utf8')).toBe(bytes);expect(await readFile(legacy,'utf8')).toBe(bytes);await writeFile(legacy,JSON.stringify({...config,orcaExecutablePath:'/other'}));expect(await persistentConfiguration({userData,legacy})).toBe(result);expect(await readFile(result!,'utf8')).toBe(bytes);}finally{await rm(root,{recursive:true,force:true});}});
+  it('rejects invalid existing data and symlink legacy without changing either',async()=>{const root=await realpath(await mkdtemp(path.join(os.tmpdir(),'note-config-')));try{const userData=path.join(root,'profile');await mkdir(userData,{mode:0o700});const existing=path.join(userData,'live-config.json');await writeFile(existing,'bad',{mode:0o600});await expect(persistentConfiguration({userData})).rejects.toThrow();expect(await readFile(existing,'utf8')).toBe('bad');await rm(existing);const source=path.join(root,'source');await writeFile(source,JSON.stringify(config),{mode:0o600});const legacy=path.join(root,'legacy');await symlink(source,legacy);await expect(persistentConfiguration({userData,legacy})).rejects.toThrow();}finally{await rm(root,{recursive:true,force:true});}});
+  it('explicit preexisting path remains explicit and is not copied',async()=>{expect(await persistentConfiguration({userData:'/not-used',explicit:'/explicit/config.json'})).toBe('/explicit/config.json');});
+});

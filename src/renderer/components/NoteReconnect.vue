@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref,onUnmounted} from 'vue';
+import {ref,nextTick,onMounted,onUnmounted,watch} from 'vue';
 import {useRoute,useRouter} from 'vue-router';
 import Button from 'primevue/button';
 import Dialog from 'primevue/dialog';
@@ -9,21 +9,30 @@ import Message from 'primevue/message';
 import type {DagCandidateExclusionReason,NoteReconnectProposal} from '../../shared/note-reconnect';
 const exclusionLabels:Record<DagCandidateExclusionReason,string>={document_shape_invalid:'DAG phases/tasks 구조 미지원',invalid_schema:'DAG 조회 결과 형식 미지원',source_limit:'파일 크기 상한 16MiB 초과',query_failed:'DAG 형식 검증 실행 실패',source_unavailable:'파일 접근 미확인',source_changed:'확인 중 파일 변경',output_limit:'조회 출력 상한 초과',unsafe_file:'일반 파일 또는 안전한 파일명 아님'};
 const props=defineProps<{workstreamId:string;disabled:boolean}>();
-const emit=defineEmits<{changed:[]}>();
+const trigger=ref<{ $el:HTMLButtonElement }|null>(null);
+function restoreFocus(){void nextTick(()=>{const element=trigger.value?.$el,active=element?.ownerDocument.activeElement;if(!disposed&&!visible.value&&element?.isConnected&&!element.disabled&&(!active||active===element.ownerDocument.body||active===element.ownerDocument.documentElement||active===element||active.closest('.note-reconnect-dialog')))element.focus({preventScroll:true});});}
+const emit=defineEmits<{changed:[];visibleChange:[value:boolean]}>();
 const router=useRouter(),route=useRoute();
 const readiness=ref<import('../../shared/reconnect-readiness').ReconnectReadiness|null>(null);
 const visible=ref(false),proposal=ref<NoteReconnectProposal|null>(null),candidateId=ref<string|null>(null),busy=ref(false),confirmed=ref(false),error=ref(''),result=ref('');let disposed=false,generation=0;
+let hideFlight:Promise<void>|null=null,finishHide:(()=>void)|null=null;
+function hide(){if(visible.value){hideFlight=new Promise(resolve=>finishHide=resolve);visible.value=false;}}
+function afterHide(){restoreFocus();finishHide?.();finishHide=null;hideFlight=null;}
 async function retire(){generation++;const p=proposal.value;proposal.value=null;candidateId.value=null;confirmed.value=false;if(p)await window.noteApp.cancelNoteReconnect({proposalId:p.proposalId}).catch(()=>{});}
-async function close(){visible.value=false;await retire();}
-async function open(){await retire();error.value='';result.value='';readiness.value=null;visible.value=true;}
+async function close(){hide();await retire();}
+function escape(event:KeyboardEvent){const target=event.target as HTMLElement|null;if(target?.closest('[data-testid="note-reconnect-dag"]')?.getAttribute('aria-expanded')==='true')return;event.stopPropagation();if(event.isComposing)return;event.preventDefault();if(!busy.value)void close();}
+function outsideEscape(event:KeyboardEvent){if(document.querySelector('.note-reconnect-dialog [data-testid="note-reconnect-dag"][aria-expanded="true"]'))return;if(visible.value&&event.key==='Escape'&&!(event.target as HTMLElement|null)?.closest('.note-reconnect-dialog')){event.stopImmediatePropagation();escape(event);}}
+async function open(){if(hideFlight)await hideFlight;if(disposed)return;await retire();error.value='';result.value='';readiness.value=null;visible.value=true;}
 async function choose(){if(busy.value)return;await retire();const own=++generation;busy.value=true;error.value='';try{const p=await window.noteApp.selectNoteReconnect({workstreamId:props.workstreamId});if(disposed||own!==generation){if(p)await window.noteApp.cancelNoteReconnect({proposalId:p.proposalId});return;}proposal.value=p;}catch(e){if(!disposed&&own===generation)error.value=e instanceof Error?e.message:'선택한 디렉토리를 확인하지 못했습니다.';}finally{busy.value=false;}}
-async function apply(){const p=proposal.value;if(!p||!confirmed.value||busy.value||(p.candidates.length&&!candidateId.value))return;busy.value=true;error.value='';try{const r=await window.noteApp.confirmNoteReconnect({proposalId:p.proposalId,candidateId:candidateId.value,linkChangeConfirmed:true});proposal.value=null;visible.value=false;readiness.value=r.readiness;result.value=r.backupPath?'노트 연결을 저장했습니다. 이전 링크는 백업으로 보존했습니다.':'노트 연결과 DAG 선택을 저장했습니다.';emit('changed');if(r.workstreamId&&r.workstreamId!==props.workstreamId)await router.replace(route.path.startsWith('/workstream/')?{path:'/workstream/'+encodeURIComponent(r.workstreamId)}:{path:'/',query:{...route.query,project:r.workstreamId}});}catch(e){error.value=e instanceof Error?e.message:'재연결을 완료하지 못했습니다. 기존 자료를 보존했습니다.';await retire();}finally{busy.value=false;confirmed.value=false;}}
-onUnmounted(()=>{disposed=true;void retire();});
+async function apply(){const p=proposal.value;if(!p||!confirmed.value||busy.value||(p.candidates.length&&!candidateId.value))return;busy.value=true;error.value='';try{const r=await window.noteApp.confirmNoteReconnect({proposalId:p.proposalId,candidateId:candidateId.value,linkChangeConfirmed:true});proposal.value=null;hide();readiness.value=r.readiness;result.value=r.backupPath?'노트 연결을 저장했습니다. 이전 링크는 백업으로 보존했습니다.':'노트 연결과 DAG 선택을 저장했습니다.';emit('changed');if(r.workstreamId&&r.workstreamId!==props.workstreamId)await router.replace(route.path.startsWith('/workstream/')?{path:'/workstream/'+encodeURIComponent(r.workstreamId)}:{path:'/',query:{...route.query,project:r.workstreamId}});}catch(e){error.value=e instanceof Error?e.message:'재연결을 완료하지 못했습니다. 기존 자료를 보존했습니다.';await retire();}finally{busy.value=false;confirmed.value=false;}}
+watch(visible,value=>emit('visibleChange',value));
+onMounted(()=>document.addEventListener('keydown',outsideEscape,true));
+onUnmounted(()=>{disposed=true;document.removeEventListener('keydown',outsideEscape,true);finishHide?.();emit('visibleChange',false);void retire();});
 </script>
 <template>
- <Button label="노트 재연결" outlined data-testid="note-reconnect" :disabled="disabled||busy" @click="open"/>
+ <Button ref="trigger" label="노트 재연결" size="small" outlined data-testid="note-reconnect" :disabled="disabled||busy" @click="open"/>
  <Message v-if="result" :severity="readiness?.state==='ready'?'success':'warn'" :closable="false" role="status">{{result}} {{readiness?.state==='ready'?'DAG 조회와 현재 요약 근거를 확인했습니다. 전송 안내 확인 후 AI 요약을 실행할 수 있습니다.':'요약 준비는 아직 확인하지 못했습니다. 아래 현재 소스 상태를 확인해 주세요.'}}<span v-if="readiness?.readerRecovery?.retired"> 조회 중단 원인: {{readiness.readerRecovery.cause}} · 정리 {{readiness.readerRecovery.cleanup}}. 정리가 확인되지 않은 조회는 다시 시작하지 않습니다.</span></Message>
- <Dialog :visible="visible" modal header="노트 재연결" class="note-reconnect-dialog" :style="{width:'640px',maxWidth:'calc(100vw - 32px)',maxHeight:'calc(100dvh - 32px)'}" :closable="!busy" :close-on-escape="!busy" @update:visible="value=>{if(!value&&!busy)close()}">
+ <Dialog :visible="visible" modal header="노트 재연결" class="note-reconnect-dialog" :style="{width:'640px',maxWidth:'calc(100vw - 32px)',maxHeight:'calc(100dvh - 32px)'}" @hide="restoreFocus" @after-hide="afterHide" :closable="!busy" :close-on-escape="false" @keydown.esc.capture="escape" @update:visible="value=>{if(!value&&!busy)close()}">
   <div class="reconnect-content">
    <p>이 프로젝트에 연결할 노트 폴더와 DAG를 선택해 주세요. 노트 원본은 수정하지 않습니다.</p>
    <section class="reconnect-step"><h3>노트 디렉토리</h3><p v-if="proposal" data-testid="note-reconnect-directory">{{proposal.directory}}</p><p v-else class="reconnect-muted">아직 선택하지 않았습니다.</p><Button :label="proposal?'디렉토리 다시 선택':'디렉토리 선택'" data-testid="note-reconnect-choose" outlined :loading="busy" :disabled="busy" @click="choose"/></section>

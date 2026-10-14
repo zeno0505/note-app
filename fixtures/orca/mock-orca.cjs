@@ -1,6 +1,11 @@
 // TEST FIXTURE ONLY. Tests prepend a trusted Node shebang in a temporary directory.
 const fs = require('node:fs');
 const path = require('node:path');
+let startup = {};
+try { startup = JSON.parse(fs.readFileSync(path.join(__dirname, 'startup.json'), 'utf8')); }
+catch (error) { if (error.code !== 'ENOENT') throw error; }
+if (startup.rootDelayMs) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, startup.rootDelayMs);
+const markReady = () => fs.writeFileSync(path.join(__dirname, 'ready'), String(process.pid));
 const commands = {
   '["status","--json"]': 'status',
   '["project","list","--json"]': 'projects',
@@ -21,24 +26,37 @@ if (typeof selectedMode === 'string' && selectedMode.startsWith('descendant-')) 
   const { spawn } = require('node:child_process');
   const inherited = selectedMode.includes('-inherited-');
   const child = spawn(process.execPath, ['-e',
-    "const fs=require('node:fs');process.on('SIGTERM',()=>{});fs.writeFileSync(process.argv[1],String(process.pid));setInterval(()=>{},1000);",
-    path.join(__dirname, 'descendant-pid')], { stdio: inherited ? ['ignore', 1, 2] : 'ignore' });
+    `const fs=require('node:fs');
+     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,${startup.descendantDelayMs || 0});
+     process.on('SIGTERM',()=>{});setInterval(()=>{},1000);
+     fs.writeFileSync(process.argv[1],String(process.pid));process.send('ready');process.disconnect();`,
+    path.join(__dirname, 'descendant-pid')], { stdio: inherited ? ['ignore', 1, 2, 'ipc'] : ['ignore', 'ignore', 'ignore', 'ipc'] });
   child.unref();
-  const readyDeadline = Date.now() + 1500;
-  const wait = setInterval(() => {
-    if (!fs.existsSync(path.join(__dirname, 'descendant-pid'))) {
-      if (Date.now() > readyDeadline) { clearInterval(wait); process.exitCode = 91; }
-      return;
+  child.once('error', error => { throw error; });
+  child.once('message', message => {
+    if (message !== 'ready') throw new Error('Unexpected synthetic descendant handshake.');
+    if (selectedMode.endsWith('-hang')) {
+      process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); markReady(); return;
     }
-    clearInterval(wait);
-    if (selectedMode.endsWith('-hang')) { process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); return; }
-    if (selectedMode.endsWith('-error')) { process.exitCode = 3; return; }
-    if (selectedMode.endsWith('-invalid')) { process.stdout.write('{invalid'); return; }
-    process.stdout.write(fs.readFileSync(path.join(__dirname, `${query}.json`)));
-  }, 5);
+    const finish = () => {
+      if (selectedMode.endsWith('-error')) { process.exitCode = 3; return; }
+      if (selectedMode.endsWith('-invalid')) { process.stdout.write('{invalid'); return; }
+      process.stdout.write(fs.readFileSync(path.join(__dirname, `${query}.json`)));
+    };
+    // Only lifecycle tests opt into a release handshake. Node/descendant startup
+    // is then separate from the real operation and process-group cleanup timers.
+    if (startup.waitForRelease) {
+      const wait = setInterval(() => {
+        if (!fs.existsSync(path.join(__dirname, 'release'))) return;
+        clearInterval(wait); finish();
+      }, 10);
+      markReady();
+    } else { markReady(); finish(); }
+  });
 } else if (selectedMode === 'hang' || selectedMode === 'ignore-term') {
   if (selectedMode === 'ignore-term') process.on('SIGTERM', () => {});
   setInterval(() => {}, 1000);
+  markReady();
 } else if (selectedMode === 'overflow' || selectedMode === 'stderr-overflow') {
   const stream = selectedMode === 'overflow' ? process.stdout : process.stderr;
   stream.write('SYNTHETIC_DISCARDED_OUTPUT'.repeat(10000));

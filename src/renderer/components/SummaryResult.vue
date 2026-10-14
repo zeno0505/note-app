@@ -1,0 +1,39 @@
+<script setup lang="ts">
+import {computed} from 'vue';
+import type {ProjectModelView} from '../../main/project-model';
+import type {RecentSummaryTasks} from '../../summary/reading/recent-tasks';
+import SummaryStatusIcon from './SummaryStatusIcon.vue';
+const props=defineProps<{model:ProjectModelView|null;running?:boolean;retryDisabled?:boolean;error?:string;recent?:RecentSummaryTasks;taskIds?:string[];oldSelection?:boolean;title?:string;showHeading?:boolean;readOnly?:boolean;synthetic?:boolean}>();
+const emit=defineEmits<{refresh:[];retry:[];settings:[];select:[];cancel:[]}>();
+const latest=computed(()=>props.model&&'latest' in props.model.latest?props.model.latest.latest:null);
+const status=computed(()=>props.running||props.model?.state==='running'?{kind:'info',label:'요약 중',shape:'progress'}:props.error||props.model?.state==='failed'?{kind:'error',label:'요약 실패',shape:'alert'}:props.oldSelection||props.model?.latest.state==='stale'?{kind:'warning',label:'이전 결과 · 현재 근거 확인 필요',shape:'clock'}:props.synthetic?{kind:'muted',label:'합성 예제 · 실제 AI 실행 아님',shape:'unknown'}:latest.value?{kind:'success',label:'저장된 AI 요약 · 내용 검수 필요',shape:'check'}:{kind:'muted',label:'요약 없음',shape:'unknown'});
+const titles={implemented:'구현',next:'다음 작업',evidence:'검증',decisions:'결정할 사항'};
+const time=(value:string)=>{const d=new Date(value);return Number.isNaN(d.getTime())?'시각 미확인':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});};
+const activityCoverage=computed(()=>props.recent?.activityCoverage);
+const coverageIncomplete=computed(()=>!!props.recent&&activityCoverage.value?.state!=='complete');
+const activityCounts=computed(()=>['code','discussion','verification'].map((kind,index)=>({label:['코드','논의','검수'][index],count:props.recent?.activities.filter(a=>a.kind===kind).length??0})));
+</script>
+<template>
+ <section class="summary-result" data-testid="summary-result">
+  <p class="summary-sr-only" role="status" aria-live="polite" aria-atomic="true">{{status.label}}</p>
+  <div v-if="showHeading" class="summary-result-heading"><h3>{{title??'요약'}}</h3><SummaryStatusIcon v-bind="status"/></div>
+  <p v-if="oldSelection" class="summary-inline-warning" data-testid="summary-old-selection">이전 선택 결과 · 현재 선택으로 다시 요약해 주세요</p>
+  <p v-if="latest&&(taskIds||showHeading)" class="summary-caption">{{taskIds?.join(' · ')}}<template v-if="taskIds?.length"> · </template>{{synthetic?'예제 시각 · ':''}}{{time(latest.generatedAt)}}</p>
+  <div v-if="recent" class="summary-activity-coverage" :class="{'summary-inline-warning':coverageIncomplete}" role="status" data-testid="summary-activity-coverage">
+   <p>{{coverageIncomplete?'확인된 기록 중 최근 '+recent.taskIds.length+'개':'선언된 기록 중 최근 '+recent.taskIds.length+'개'}} · 전체 작업 이력을 뜻하지 않습니다</p>
+   <p v-if="activityCoverage">참조 확인 {{activityCoverage.checked}} / {{activityCoverage.total}} · 해결 {{activityCoverage.resolved}} · 미해결 {{activityCoverage.unresolved}}<template v-if="activityCoverage.unsupported"> · 지원 밖 {{activityCoverage.unsupported}}</template><template v-if="activityCoverage.pending"> · 대기 {{activityCoverage.pending}}</template></p>
+   <p v-else>참조 확인 범위 미확인<template v-if="recent.omittedReferences"> · 범위 밖 참조 {{recent.omittedReferences}}개</template></p>
+   <button v-if="!readOnly&&activityCoverage?.state==='unavailable'" class="summary-text-button" data-testid="summary-coverage-settings" @click="emit('settings')">읽기 범위 설정</button>
+  </div>
+  <div v-if="running||model?.state==='running'" class="summary-state-message" role="status"><SummaryStatusIcon kind="info" label="근거 확인·요약 중" shape="progress"/><span>근거 확인·요약 중</span><button v-if="!readOnly" class="summary-button" data-testid="summary-cancel" @click="emit('cancel')">취소</button></div>
+  <div v-if="error||model?.state==='failed'" class="summary-state-message summary-error" role="alert" data-testid="summary-failure"><SummaryStatusIcon kind="error" label="요약 실패" shape="alert"/><div><p>{{error||model?.message}}</p><div v-if="!readOnly" class="summary-inline-actions"><button class="summary-text-button" @click="emit('refresh')">상태 다시 확인</button><button class="summary-text-button" @click="emit('settings')">요약 설정 확인</button><button v-if="model?.retry?.available" class="summary-text-button" data-testid="summary-retry" :disabled="retryDisabled" @click="emit('retry')">실패 진단 1회</button></div></div></div>
+  <div v-if="model?.latest.state==='stale'" class="summary-state-message summary-warning" role="status" data-testid="summary-stale"><SummaryStatusIcon kind="warning" label="이전 결과" shape="clock"/><p>이전 정상 결과입니다. 현재 근거로 업데이트해 주세요.</p></div>
+  <p v-if="model?.state==='cancelled'" class="summary-caption" role="status">요약을 취소했습니다. 이전 결과는 보존했습니다.</p>
+  <div v-if="!latest&&!running&&model?.state!=='running'" class="summary-empty"><p>{{model?.latest.state==='unavailable'?'저장된 요약을 읽을 수 없습니다. 상태를 다시 확인해 주세요.':recent&&recent.state!=='ready'?'최근 활동을 확인할 수 없습니다. 작업을 직접 선택해 주세요.':error?'저장 상태를 다시 확인해 주세요.':!model?(showHeading?'작업을 고른 뒤 요약해 주세요.':'요약 상태를 확인 중입니다.'):'저장된 요약이 없습니다.'}}</p><button v-if="!readOnly&&recent&&recent.state!=='ready'" class="summary-button" @click="emit('select')">작업 선택 요약</button></div>
+  <template v-if="latest"><section v-for="section in latest.answer.sections" :key="section.id" class="summary-paragraph"><h4>{{titles[section.id]}}</h4><p>{{section.text}}</p></section><p v-if="['connected-project-reading-v1','connected-project-reading-v2'].includes(latest.version)" class="summary-inline-warning">이전 입력 범위의 결과입니다. 업데이트가 필요합니다.</p></template>
+  <div class="summary-result-footer"><span v-if="recent?.state==='ready'" class="summary-caption">{{activityCounts.map(a=>a.label+' '+a.count).join(' · ')}}</span><span v-else-if="latest" class="summary-caption">출처 {{latest.sources.length}}개</span>
+   <details v-if="latest||recent" class="summary-sources" data-testid="summary-sources"><summary>출처 보기</summary><div><p v-if="recent">{{recent.message}}</p><ul v-if="recent?.activities.length"><li v-for="a in recent.activities" :key="a.taskId">{{a.taskId}} · {{a.kind==='code'?'코드':a.kind==='discussion'?'논의':'검증'}} · {{time(a.at)}}<br>{{a.timeBasis==='git-commit-time'?'Git 커밋 기록 시각':'문서 선언 시각 · 독립 실행 검증 아님'}}<br>{{a.source}}<template v-if="a.declaredReference"><br><span :title="'태스크에 선언된 참조: '+a.declaredReference">선언 참조 {{a.declaredReference}}</span></template><template v-if="a.fullSha"><br><span :title="'유일한 커밋으로 확인된 전체 ID: '+a.fullSha">확인된 커밋 {{a.fullSha}}</span></template></li></ul><p v-if="recent?.omittedReferences">범위 밖 참조 {{recent.omittedReferences}}개</p><template v-if="latest"><p>{{latest.validation.note}}</p><p>형식·필수 근거 검사 통과 · 문맥 검수 필요</p><p>문서의 논의·검증 기록은 작성자의 선언입니다. 커밋 시각은 Git 기록 기준이며 전체 작업 시간을 뜻하지 않습니다.</p><ul><li v-for="source in latest.sources" :key="source.id">{{source.id}} · {{source.path}} · {{source.lineStart}}–{{source.lineEnd}}행</li></ul><p>입력 해시 {{latest.inputHash}}</p><p>{{latest.provider}} · {{synthetic?'합성 호출 값':'호출'}} {{latest.attempts}}회</p><p>{{synthetic?'합성 값 · ':''}}입력 토큰 {{latest.usage.inputTokens??'미제공'}} · 출력 토큰 {{latest.usage.outputTokens??'미제공'}}</p></template></div></details>
+  </div>
+  <details v-if="model?.diagnostics" class="summary-diagnostics" data-testid="summary-diagnostics"><summary>진단 {{model.diagnostics.records.length}}건</summary><p v-if="!model.diagnostics.available">진단 저장소 확인이 필요합니다.</p><p v-if="!model.diagnostics.records.length">저장된 진단이 없습니다.</p><ul><li v-for="record in model.diagnostics.records" :key="record.correlationId+record.at+record.code">{{time(record.at)}} · {{record.stage}} · {{record.code}}<br>모델 {{record.modelCall}} · {{record.correlationId}}<span v-if="record.process"><br>종료 {{record.process.exitCode??'미확인'}} · {{record.process.signal}} · {{record.process.durationMs}}ms · 정리 {{record.process.cleanup}}</span></li></ul><p>{{model.diagnostics.location}} · 최대 {{model.diagnostics.retention.maxRecords}}건 / {{model.diagnostics.retention.days}}일</p></details>
+ </section>
+</template>

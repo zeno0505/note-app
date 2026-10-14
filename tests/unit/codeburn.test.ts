@@ -34,14 +34,6 @@ else process.stdout.write(JSON.stringify(process.argv[2] === 'quota' ? ${JSON.st
   await chmod(executablePath, 0o700);
   return { directory, executablePath };
 }
-async function waitForPid(directory: string) {
-  const deadline = Date.now() + 2000;
-  while (Date.now() < deadline) {
-    try { return Number(await readFile(join(directory, 'pid'), 'utf8')); }
-    catch { await new Promise(resolve => setTimeout(resolve, 10)); }
-  }
-  throw new Error('Synthetic process did not start');
-}
 afterEach(async () => { await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true }))); });
 
 describe('CodeBurn fact projection', () => {
@@ -166,15 +158,21 @@ describe('bounded CodeBurn read process', () => {
     expect(await createCodeBurnReader({ ...mock, timeoutMs: 20 }).read('quota')).toMatchObject({ ok: false, error: { kind: 'timeout' } });
     await expect(access(join(mock.directory, 'ready'))).rejects.toThrow();
   });
-  it('cancels, rejects overlap, and permits later reuse after verified cleanup', async () => {
+  it.each([0, 2200])('cancels, rejects overlap, and permits later reuse after verified cleanup (startup delay %i ms)', async startupDelay => {
     const mock = await fixture('hang'); const reader = createCodeBurnReader(mock); const controller = new AbortController();
-    const pending = reader.read('quota', { signal: controller.signal }); const pid = await waitForPid(mock.directory);
-    expect(await reader.read('claude-status')).toMatchObject({ ok: false, error: { kind: 'busy' } });
-    controller.abort(); expect(await pending).toMatchObject({ ok: false, error: { kind: 'cancelled' } });
-    expect(() => process.kill(pid, 0)).toThrow();
-    await writeFile(join(mock.directory, 'mode'), 'normal');
-    expect((await reader.read('quota')).ok).toBe(true);
-  });
+    await delayFixtureStartup(mock.executablePath, mock.directory, startupDelay);
+    const deadline = gateOperationDeadline(5000);
+    const pending = reader.read('quota', { signal: controller.signal });
+    try {
+      const pid = await waitForReadyPid(mock.directory);
+      deadline.start();
+      expect(await reader.read('claude-status')).toMatchObject({ ok: false, error: { kind: 'busy' } });
+      controller.abort(); expect(await pending).toMatchObject({ ok: false, error: { kind: 'cancelled' } });
+      expect(() => process.kill(pid, 0)).toThrow();
+      await writeFile(join(mock.directory, 'mode'), 'normal');
+      expect((await reader.read('quota')).ok).toBe(true);
+    } finally { deadline.dispose(); controller.abort(); await pending; }
+  }, 15_000);
   it('does not spawn when already cancelled', async () => {
     const mock = await fixture(); const controller = new AbortController(); controller.abort();
     expect(await createCodeBurnReader(mock).read('quota', { signal: controller.signal })).toMatchObject({ ok: false, error: { kind: 'cancelled' } });

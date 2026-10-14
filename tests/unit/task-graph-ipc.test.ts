@@ -1,0 +1,32 @@
+import {describe,it,expect,vi} from 'vitest';
+import type {NoteAppBridge} from '../../src/shared/bridge';
+import {registerTaskGraphIpc} from '../../src/main/task-graph-ipc';
+import {createTaskGraphService} from '../../src/main/task-graph';
+import {createTaskGraphClient} from '../../src/renderer/task-graph-client';
+import {projectDagQuery} from '../../src/facts/dag-read-model/projection';
+const electron=vi.hoisted(()=>({exposeInMainWorld:vi.fn(),invoke:vi.fn(),on:vi.fn(),removeListener:vi.fn()}));
+vi.mock('electron',()=>({contextBridge:{exposeInMainWorld:electron.exposeInMainWorld},ipcRenderer:electron}));
+import '../../src/preload/index';
+describe('registered production graph IPC and preload',()=>{
+  it('transports full source through actual preload and production handlers with trusted sender checks',async()=>{
+    const authority={projectId:'project',dagId:'dag',sessionKey:'generation'},handlers=new Map<string,(event:string,...args:unknown[])=>unknown>();
+    const rows=Array.from({length:1001},(_,i)=>({id:`T-${i}`,title:`Synthetic ${i}`,status:'pending',depends_on:i===1000?Array.from({length:12},(_,n)=>`T-${n}`):[],commits:i===1000?Array.from({length:14},(_,n)=>`synthetic-commit-${n}`):[],e2e:i===1000?{required:true,covered_by:Array.from({length:13},(_,n)=>`E2E-${n}`)}:null}));
+    const dag={...projectDagQuery({index:rows,coverage:{tasks_total:1001,declared:0,required:0,uncovered_done:[],uncovered_open:[],malformed:[]}}),dagId:'dag',sourceHash:'source',sourceMtimeMs:0,observedAt:new Date().toISOString(),doneStatus:'done',verifiedFacts:[] as never[]};
+    const service=createTaskGraphService({current:()=>authority,read:async()=>dag});let allowed=true;
+    const check=vi.fn((sender:string)=>{if(sender!=='trusted')throw Error('Untrusted sender');});
+    registerTaskGraphIpc({handle:(c,h)=>handlers.set(c,h)},{getTaskGraphSession:async()=>authority,readTaskGraph:service.read,readTaskGraphChunk:service.chunk,readTaskGraphDetail:service.detail,cancelTaskGraph:async r=>service.cancel(r)},check,()=>allowed,p=>p);
+    electron.invoke.mockImplementation(async(channel,...args)=>structuredClone(await handlers.get(channel)!('trusted',...structuredClone(args))));
+    const [,bridge]=electron.exposeInMainWorld.mock.calls[0] as [string,NoteAppBridge];
+    const graph=await createTaskGraphClient(bridge).read('project');expect(graph.nodes).toHaveLength(1001);expect(graph.edges).toHaveLength(12);expect(check).toHaveBeenCalled();
+    const detail=await bridge.readTaskGraphDetail({requestId:'selected-detail',identity:graph.metadata.identity,taskId:'T-1000'});
+    expect(detail.state).toBe('detail');if(detail.state!=='detail')throw Error('detail');expect(detail.task.dependencies).toHaveLength(12);expect(detail.task.commitReferences).toHaveLength(14);expect(detail.task.e2e.coveredBy).toHaveLength(13);
+    expect(()=>handlers.get('note-app:graph-detail')!('foreign',{})).toThrow('Untrusted');
+    expect(()=>handlers.get('note-app:graph-detail')!('trusted',{},{})).toThrow();
+    expect(await handlers.get('note-app:graph-detail')!('trusted',{requestId:'forged',identity:graph.metadata.identity,taskId:'T-1000',path:'/unknown'})).toMatchObject({reason:'invalid-request'});
+    expect(()=>handlers.get('note-app:graph-read')!('foreign',{})).toThrow('Untrusted');
+    expect(()=>handlers.get('note-app:graph-read')!('trusted',{},{})).toThrow();
+    allowed=false;expect(()=>handlers.get('note-app:graph-session')!('trusted',{projectId:'project'})).toThrow();
+    expect(()=>handlers.get('note-app:graph-detail')!('trusted',{requestId:'blocked',identity:graph.metadata.identity,taskId:'T-1000'})).toThrow();
+    expect(Object.isFrozen(bridge)).toBe(true);for(const forbidden of ['invoke','readFile','execute','fetch'])expect(bridge).not.toHaveProperty(forbidden);service.invalidate();
+  });
+});

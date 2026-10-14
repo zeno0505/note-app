@@ -7,6 +7,8 @@ import { Budget, LinkError, realDirectory, snapshot, type Snapshot } from './saf
 export const inside = (root: string, child: string): boolean => { const rel = path.relative(root, child); return rel !== '' && !rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel); };
 export const validPath = (p: unknown): p is string => typeof p === 'string' && p.length > 0 && p.length <= 4096 && path.isAbsolute(p) && !/[\x00-\x1f\x7f]/.test(p);
 export interface GitAuthority { gitDirectory: string; commonDirectory: string; exclude: string; snapshots: Snapshot[]; worktreePaths: string[] }
+/** Optional stricter caller policy, established before any Git subprocess reads config. */
+export type GitReadPreflight = (authority: Pick<GitAuthority, 'gitDirectory' | 'commonDirectory'>) => Promise<void>;
 
 export async function gitRead(executable: string, worktree: string, argv: string[], budget: Budget, fixedInput?: Buffer, allowNoMatch = false): Promise<Buffer> {
   budget.check();
@@ -17,6 +19,9 @@ export async function gitRead(executable: string, worktree: string, argv: string
   return await new Promise<Buffer>((resolve, reject) => {
     let done = false; let bytes = 0; const chunks: Buffer[] = [];
     const child = spawn(executable, ['--no-pager', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${process.platform === 'win32' ? 'NUL' : '/dev/null'}`, '-C', worktree, ...argv], { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: environment });
+    // A timeout/abort rejects the public read immediately, but an opting-in owner
+    // retains the actual process close before declaring shutdown/update safe.
+    void budget.trackOperation(new Promise<void>((settled) => child.once('close', () => settled()))).catch(() => {});
     const finish = (error?: LinkError, value?: Buffer) => {
       if (done) return; done = true; clearTimeout(timer); budget.signal?.removeEventListener('abort', abort);
       if (error) { child.kill('SIGKILL'); reject(error); } else resolve(value!);
@@ -46,7 +51,7 @@ async function metadataFile(p: string, budget: Budget): Promise<{ stamp: Snapsho
   if (result.snapshot.kind !== 'file' || !result.bytes) throw new LinkError('git-authority', 'Repository metadata must be a regular file without symlinks.');
   return { stamp: result.snapshot, text: result.bytes.toString('utf8') };
 }
-export async function inspectGit(executable: string, worktree: string, approvedCommonPaths: readonly string[], budget: Budget): Promise<GitAuthority> {
+export async function inspectGit(executable: string, worktree: string, approvedCommonPaths: readonly string[], budget: Budget, preflight?: GitReadPreflight): Promise<GitAuthority> {
   const snapshots: Snapshot[] = [];
   const executableCanonical = await budget.run(() => fs.realpath(executable));
   const executableStat = (await snapshot(executableCanonical, budget)).snapshot;
@@ -100,15 +105,21 @@ export async function inspectGit(executable: string, worktree: string, approvedC
     if (backPath !== dotGit) throw new LinkError('git-authority', 'The linked Git registration does not point back to this worktree.');
   } else throw new LinkError('git-authority', 'The selected worktree has no authorized ordinary or linked Git metadata.');
 
-  const top = onePath(await gitRead(executableCanonical, worktree, ['rev-parse', '--path-format=absolute', '--show-toplevel'], budget));
-  const common = onePath(await gitRead(executableCanonical, worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir'], budget));
-  const exclude = onePath(await gitRead(executableCanonical, worktree, ['rev-parse', '--path-format=absolute', '--git-path', 'info/exclude'], budget));
+  const read = async (argv: string[]): Promise<Buffer> => {
+    if (preflight) await preflight({ gitDirectory, commonDirectory });
+    const output = await gitRead(executableCanonical, worktree, argv, budget);
+    if (preflight) await preflight({ gitDirectory, commonDirectory });
+    return output;
+  };
+  const top = onePath(await read(['rev-parse', '--path-format=absolute', '--show-toplevel']));
+  const common = onePath(await read(['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const exclude = onePath(await read(['rev-parse', '--path-format=absolute', '--git-path', 'info/exclude']));
   if (top !== worktree || await realDirectory(common, budget) !== commonDirectory || common !== commonDirectory || exclude !== path.join(commonDirectory, 'info', 'exclude')) throw new LinkError('git-authority', 'Git reports relocated metadata outside the selected repository authority.');
   const info = path.dirname(exclude);
   const infoStat = (await snapshot(info, budget)).snapshot;
   if (infoStat.kind !== 'directory' || await realDirectory(info, budget) !== info) throw new LinkError('git-authority', 'The Git info directory must be an existing direct directory.');
   snapshots.push(infoStat);
-  const listed = await gitRead(executableCanonical, worktree, ['worktree', 'list', '--porcelain', '-z'], budget);
+  const listed = await read(['worktree', 'list', '--porcelain', '-z']);
   const worktreePaths: string[] = [];
   for (const field of listed.toString('utf8').split('\0')) {
     if (field.startsWith('worktree ')) {

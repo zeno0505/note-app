@@ -109,15 +109,26 @@ describe('bounded registered DAG reader (synthetic subprocess)', () => {
     expect(await createDagReader({ ...t.options, timeoutMs: 200 }).read('dag-test')).toMatchObject({ ok: false, error: { kind: 'timeout' } });
   });
   it('cancels, rejects overlap and removes its private snapshot directory', async () => {
-    const t = await setup('setInterval(()=>{},1000)'); await delayFixtureStartup(t.executable,t.directory,1100); const reader = createDagReader(t.options), controller = new AbortController();
+    const t = await setup('setInterval(()=>{},1000)'); await delayFixtureStartup(t.executable,t.directory,1100);
+    // This cancellation case needs room for the separate 5s readiness budget;
+    // the ungated hanging-process test above owns the real deadline assertion.
+    const reader = createDagReader({ ...t.options, timeoutMs: 10000 }), controller = new AbortController();
     const first = reader.read('dag-test', { signal: controller.signal });
-    expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'busy' } });
-    await waitForReadyPid(t.directory);
-    controller.abort(); expect(await first).toMatchObject({ ok: false, error: { kind: 'cancelled' } });
-    const call = JSON.parse((await readFile(join(t.directory, 'calls'), 'utf8')).trim());
-    expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'cleanup_unverified' } });
-    await vi.waitFor(async () => { await expect(stat(call.at(-1))).rejects.toThrow(); });
-  });
+    try {
+      expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'busy' } });
+      await waitForReadyPid(t.directory);
+      const call = JSON.parse((await readFile(join(t.directory, 'calls'), 'utf8')).trim());
+      const snapshotDirectory = call.at(-2); // The final argument is the document-shape flag.
+      expect((await stat(snapshotDirectory)).isDirectory()).toBe(true);
+      controller.abort(); expect(await first).toMatchObject({ ok: false, error: { kind: 'cancelled' } });
+      expect(await reader.read('dag-test')).toMatchObject({ ok: false, error: { kind: 'cleanup_unverified' } });
+      await vi.waitFor(async () => { await expect(stat(snapshotDirectory)).rejects.toMatchObject({ code: 'ENOENT' }); }, { timeout: 5000 });
+    } finally {
+      controller.abort(); await first;
+      // read() bounds the response before its owned subprocess/snapshot cleanup.
+      await vi.waitFor(() => expect(reader.recoveryState!()?.cleanup).toBe('verified'), { timeout: 5000 });
+    }
+  }, 10000);
   it('rejects a source changed while the subprocess was reading', async () => {
     const t = await setup();
     await writeFile(t.executable, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(t.source)},'raced change');process.stdout.write(${JSON.stringify(JSON.stringify(wire()))})`);
@@ -224,6 +235,19 @@ describe('bounded registered DAG reader (synthetic subprocess)', () => {
 const pythonPath = process.env.DAG_QUERY_PYTHON;
 const queryScriptPath = process.env.DAG_QUERY_SCRIPT;
 describe.skipIf(!pythonPath || !queryScriptPath)('actual external authoritative query (opt-in private dependency)', () => {
+  it('preserves rich Korean text within the unchanged byte limit and still rejects oversized UTF-8 output', async () => {
+    const t = await setup();
+    const text = '한글 근거 설명 '.repeat(160);
+    const tasks = Array.from({length:160},(_,i)=>({id:`T-${i}`,title:'검토할 작업',status:'pending',description:text}));
+    await writeFile(t.source,JSON.stringify({phases:[{tasks}]}));
+    const before=await readFile(t.source);
+    const options={...t.options,pythonPath:pythonPath!,queryScriptPath:queryScriptPath!,timeoutMs:10000,maxOutputBytes:900000};
+    const observed=await createDagReader(options).read('dag-test');
+    expect(observed).toMatchObject({ok:true,value:{readContractVersion:2,coverage:{tasksTotal:160}}});
+    if(observed.ok)expect(observed.value.tasks[0].details?.description).toBe(text);
+    expect(await readFile(t.source)).toEqual(before);
+    expect(await createDagReader({...options,maxOutputBytes:65536}).read('dag-test')).toMatchObject({ok:false,error:{kind:'output_limit'}});
+  },15000);
   it('executes pinned query over synthetic YAML, preserves source and matches declared coverage', async () => {
     const t = await setup();
     await writeFile(t.source, JSON.stringify({ phases: [{ tasks: wire().index }] })); // JSON is a YAML subset; fixture authored here.
@@ -255,19 +279,29 @@ describe.skipIf(!pythonPath || !queryScriptPath)('actual external authoritative 
   });
 });
 
-it('recovers a cancelled reader only after all owned work settles; repeated generations reject overlap',async()=>{
- const t=await setup('setInterval(()=>{},1000)');await delayFixtureStartup(t.executable,t.directory,1100);const reader=createDagReader(t.options);
+it('recovers a cancelled reader only after all owned work settles; each slow generation reaches fresh readiness',async()=>{
+ const t=await setup('setInterval(()=>{},1000)');await delayFixtureStartup(t.executable,t.directory,1100);
+ const reader=createDagReader({...t.options,timeoutMs:10000}); // Cancellation readiness has its own bounded 5s budget.
  for(let generation=0;generation<2;generation++){
+  // The prior generation deliberately leaves its ready marker behind. It must
+  // not satisfy the handshake before this generation installs its body.
+  await rm(join(t.directory,'ready'),{force:true});
   const controller=new AbortController(),pending=reader.read('dag-test',{signal:controller.signal});
-  expect(reader.recover!()).toBe(false);expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'busy'}});
-  await waitForReadyPid(t.directory);controller.abort();expect(await pending).toMatchObject({ok:false,error:{kind:'cancelled'}});
-  expect(reader.recoveryState!()).toMatchObject({cause:'cancelled',retired:true,generation});
-  await vi.waitFor(()=>expect(reader.recoveryState!()?.cleanup).toBe('verified'));
+  try{
+   expect(reader.recover!()).toBe(false);expect(await reader.read('dag-test')).toMatchObject({ok:false,error:{kind:'busy'}});
+   await waitForReadyPid(t.directory);
+   expect((await readFile(join(t.directory,'calls'),'utf8')).trim().split('\n')).toHaveLength(generation+1);
+   controller.abort();expect(await pending).toMatchObject({ok:false,error:{kind:'cancelled'}});
+   expect(reader.recoveryState!()).toMatchObject({cause:'cancelled',retired:true,generation});
+  }finally{
+   controller.abort();await pending;
+   await vi.waitFor(()=>expect(reader.recoveryState!()?.cleanup).toBe('verified'),{timeout:5000});
+  }
   expect(reader.recover!()).toBe(true);expect(reader.recover!()).toBe(false);
  }
  await writeFile(t.executable,`#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(JSON.stringify(wire()))})`);
  expect(await reader.read('dag-test')).toMatchObject({ok:true,unchanged:false});expect(reader.recoveryState!()).toMatchObject({cause:'cancelled',retired:false,generation:2,cleanup:'verified'});
-});
+},15000);
 it('keeps timeout cause and refuses recovery while filesystem IO remains unresolved',async()=>{
  const t=await setup();const reader=createDagReader({...t.options,timeoutMs:20});let release!:(p:string)=>void;
  ioHooks.realpath=async()=>new Promise<string>(r=>{release=r});

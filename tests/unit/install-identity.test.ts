@@ -6,7 +6,7 @@ import {inspectInstallation,readInstallation,verificationProfile,allowInstallati
 const roots:string[]=[];
 const metadata={sourceSha:'a'.repeat(40),installation:{role:'user',buildNumber:'2'}};
 afterEach(async()=>{for(const root of roots.splice(0))await rm(root,{recursive:true,force:true});});
-async function fixture(){const root=await realpath(await mkdtemp(path.join(tmpdir(),'note-app-install-')));roots.push(root);const home=path.join(root,'home'),bundle=path.join(home,'Applications','note-app.app'),appRoot=path.join(bundle,'Contents/Resources/app');await mkdir(appRoot,{recursive:true});await writeFile(path.join(appRoot,'package.json'),JSON.stringify(metadata));return {root,home,bundle,appRoot};}
+async function fixture(ancestry:string[]=[]){const root=await realpath(await mkdtemp(path.join(tmpdir(),'note-app-install-')));roots.push(root);const home=path.join(root,...ancestry,'home'),bundle=path.join(home,'Applications','note-app.app'),appRoot=path.join(bundle,'Contents/Resources/app');await mkdir(appRoot,{recursive:true});await writeFile(path.join(appRoot,'package.json'),JSON.stringify(metadata));return {root,home,bundle,appRoot};}
 describe('package installation boundary',()=>{
   it('accepts the canonical user package but rejects a copied or symlinked bundle',async()=>{
     const f=await fixture();expect(readInstallation(true,'darwin',f.appRoot,f.home).role).toBe('user');
@@ -19,9 +19,14 @@ describe('package installation boundary',()=>{
     for(const value of ['0','02','2.1','10000','2\n',2,null])expect(validBuildNumber(value)).toBe(false);
     expect(validBuildNumber('2')).toBe(true);expect(validBuildNumber('9999')).toBe(true);
   });
-  it('keeps verification storage separate and refuses a symlink to an existing profile',async()=>{
-    const f=await fixture();const identity=inspectInstallation({...metadata,installation:{role:'verification',buildNumber:'2'}},f.bundle,f.home);
-    expect(identity.role).toBe('verification');const profile=verificationProfile(identity);expect(profile).toContain('/.note-app-verification/2-');expect(profile).not.toContain('Application Support/note-app');
+  it.each([
+    {name:'ordinary temporary parent',ancestry:[]},
+    {name:'source updater temporary parent',ancestry:['Library','Application Support','note-app-updater','tmp']},
+    {name:'note-app named ancestor',ancestry:['Library','Application Support','note-app']},
+  ])('keeps verification storage separate and refuses a symlink to an existing profile ($name)',async({ancestry})=>{
+    const f=await fixture(ancestry);const identity=inspectInstallation({...metadata,installation:{role:'verification',buildNumber:'2'}},f.bundle,f.home);
+    // Check the actual bundle-sibling boundary, not unrelated ancestor names in TMPDIR.
+    expect(identity.role).toBe('verification');const profile=verificationProfile(identity);expect(profile).toBe(path.join(path.dirname(f.bundle),'.note-app-verification','2-'+metadata.sourceSha));
     const base=path.dirname(profile);await rm(base,{recursive:true});const sensitive=path.join(f.root,'existing-profile');await mkdir(sensitive);await writeFile(path.join(sensitive,'sentinel'),'preserve');await symlink(sensitive,base);
     expect(()=>verificationProfile(identity)).toThrow('Unsafe verification profile');expect(await readdir(sensitive)).toEqual(['sentinel']);
   });

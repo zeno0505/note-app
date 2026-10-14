@@ -115,8 +115,9 @@ async function readLiveConfiguration(filename: string | undefined): Promise<Load
   } catch {return {configuration:null,view:{...base,state:'invalid',message:'로컬 설정을 읽거나 검증하지 못했습니다. 경로·파일 권한·설정 형식을 확인한 뒤 앱을 다시 열어 주세요.'}};}
   finally {await handle?.close();}
 }
-export function loadLiveConfiguration(filename: string | undefined): Promise<LoadedLiveConfiguration> {
-  return boundedStartup(readLiveConfiguration(filename), {configuration:null,view:{state:'invalid',
+export function loadLiveConfiguration(filename: string | undefined, track?:(operation:Promise<LoadedLiveConfiguration>)=>Promise<LoadedLiveConfiguration>): Promise<LoadedLiveConfiguration> {
+  const operation=readLiveConfiguration(filename);
+  return boundedStartup(track?track(operation):operation, {configuration:null,view:{state:'invalid',
     message:'시작 설정 파일 조회를 완료하지 못했습니다. 경로·권한을 확인한 뒤 앱을 다시 열어 주세요.',
     orcaExecutable:null,codeburnExecutable:null,noteScopeCount:0,dagQueryConfigured:false,summaryTransport:'blocked'}});
 }

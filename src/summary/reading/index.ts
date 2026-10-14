@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { LiveDagView, LiveWorkstreamView } from '../../shared/live';
 import type { ReadingParagraph, ReadingSection, ReadingSource, ReadingSummary } from '../../shared/reading-summary';
 import { parsePullObservation, type PullObservationAdapter, type PullObservationResult } from './pulls';
+import { interpretTasks } from '../../phase2/tasks';
 
 export interface ReadingInput { workstream: LiveWorkstreamView; dag?: LiveDagView; documents?:ProjectDocumentObservation }
 type PullState = {state: 'unconfigured'} | {state: 'error'; retained?: PullObservationResult;reason?:'rate-limit'} | {state: 'observed'; value: PullObservationResult};
@@ -31,7 +32,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
   } else {
     const doneStatus = dag.doneStatus ?? 'done';
     const done = dag.tasks.filter(t => t.status === doneStatus);
-    const running = dag.tasks.filter(t => t.status === 'running');
+    const running = dag.tasks.filter(t => ['running','in_progress'].includes(t.status??''));
     const remaining = dag.tasks.filter(t => t.status !== doneStatus);
     implemented.push(done.length
       ? paragraph(`DAG는 ${names(done)}의 작업 완료를 선언합니다. 이 선언만으로 실제 구현 검수나 배포 완료를 확인할 수는 없습니다.`, 'declaration', sources)
@@ -47,7 +48,22 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
       evidence.push(paragraph('작업 또는 참조 표시 상한이 적용되었습니다. 생략된 범위의 완료·의존성·검수는 판단하지 않습니다.', 'unknown', sources));
     }
   }
-  decisions.push(paragraph('설계 상태가 미기재되어 있습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
+  const policyTasks = available && dag?.readContractVersion === 2 ? interpretTasks(dag.tasks, {
+    projectId: input.workstream.id, dagId: dag.dagId, sourceHash: dag.sourceHash ?? null,
+    observedAt: dag.observedAt, policies: dag.policies ?? [],
+  }) : [];
+  const hasDiscussionDeclaration = policyTasks.some(row => row.discussionRequirement !== null);
+  if (hasDiscussionDeclaration) {
+    const descriptions: string[] = [];
+    for (const [requirement, label] of [[true, '명시 정책에서 논의 필요로 선언된 작업'], [false, '명시 정책에서 논의 불필요로 선언된 작업'], [null, '논의 필요 여부가 미기재되거나 정책 해석이 미확인인 작업']] as const) {
+      const rows = policyTasks.filter(row => row.discussionRequirement === requirement);
+      if (rows.length) descriptions.push(`${label}: ${rows.slice(0, 5).map(row => row.task.id).join(', ')}${rows.length > 5 ? ' 등 (표시 상한 적용)' : ''}.`);
+    }
+    decisions.push(paragraph(`${descriptions.join(' ')} 이 선언은 표시된 작업 범위에만 적용되며 설계 완료나 실제 논의 종료를 증명하지 않습니다.`, 'declaration', sources));
+  }
+  decisions.push(paragraph(hasDiscussionDeclaration
+    ? '설계 상태가 미기재되어 있습니다. 설계가 끝나 구현만 남았는지는 미확인입니다.'
+    : '설계 상태가 미기재되어 있습니다. 논의가 필요한지, 설계가 끝나 구현만 남았는지는 미확인입니다.'));
   evidence.push(paragraph('DAG 작업별 실제 화면 검증, 테스트 항목별 실행 결과, 배포 결과는 현재 관측에 연결되지 않았습니다. DAG의 E2E 참조와 커밋 참조는 실행·통과 증명이 아닙니다.', 'unknown', sources));
   const unsupportedCommits=dag?.tasks.reduce((n,t)=>n+(t.commitReferencesUnsupported??0),0)??0;
   if(unsupportedCommits){partial=true;evidence.unshift(paragraph(`표시한 태스크의 커밋 참조 중 ${unsupportedCommits}개는 형식 미지원으로 미확인입니다. 내용이나 검증 여부를 추정하지 않으며 참조가 없다는 뜻이 아닙니다.`, 'unknown', sources));}
@@ -135,7 +151,8 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
 function semantics(input: ReadingInput, pulls: PullState): unknown {
   const {workstream: w, dag: d} = input;
   return {workstreamId: w.id, mapping: w.noteMapping, dag: d ? {dagId: d.dagId, state: d.state,
-    doneStatus: d.doneStatus, tasks: d.tasks, taskCount: d.taskCount, displayedTaskCount: d.displayedTaskCount} : null,
+    doneStatus: d.doneStatus, readContractVersion: d.readContractVersion, policies: d.policies,
+    tasks: d.tasks, taskCount: d.taskCount, displayedTaskCount: d.displayedTaskCount} : null,
     documents:input.documents?.state==='ready'?{...input.documents,records:input.documents.records.map(r=>({...r,source:{...r.source,observedAt:undefined}}))}:input.documents,
     pulls: pulls.state === 'observed' ? {state: pulls.state, ...pulls.value, observedAt: undefined,
       ...(pulls.value.branch?{branch:{...pulls.value.branch,ciObservedAt:undefined}}:{})} : pulls};

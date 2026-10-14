@@ -1,9 +1,24 @@
+import {parseGraphSessionRequest} from '../shared/task-graph-transport';
+import {createTaskGraphService, type GraphAuthority} from './task-graph';
+import * as fs from 'node:fs/promises';
+import {exactTaskScope,selectedTaskExcerpts} from '../summary/reading/scoped-project';
+import {parseModelSelection,selectRecentTaskActivities,registeredTaskActivities,readTaskCommitActivities,type ProjectModelSelection,type RecentSummaryTasks,type TaskActivity,type ActivityCoverage} from '../summary/reading/recent-tasks';
+import {createDescriptorMetadataTransport} from './phase4/descriptor-metadata';
+import {createDocumentCatalog,documentRequest,parseDocumentListRequest,type DocumentRoot} from './phase4/catalog';
+import {discoverTaskRecordPaths,inspectDocumentFile} from './phase4/relationships';
+import type {DocumentRelationship,ProjectDocumentCatalog,ProjectDocumentListing,ProjectDocumentListRequest} from '../shared/documents';
+import {createUpdateCleanupGate,UpdateCleanupError} from './update-cleanup';
+import {createRepositoryUsageReader,projectRepositoryUsage,type RepositoryUsageResult,type RepositoryUsagePeriod,type RepositoryUsageObservation,type ObservedRepositoryCheckout} from '../phase2/repository-usage';
+import {extractDocumentReferences,parseDocumentTarget} from '../phase2/markdown';
+import {createEvidenceReader,parseEvidenceTarget,type EvidenceRegistration} from '../phase2/evidence';
+import type {EvidenceList,EvidenceReadView} from '../shared/evidence';
 import {prefixSelection,scopedDagView,prefixReading} from '../summary/reading/prefix';
 import {ModelDiagnosticError} from './model-diagnostics';
+import {createJoinedRead} from './joined-read';
 import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
-import { createHash } from 'node:crypto';
+import { createHash,randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createOrcaAdapter, type OrcaObservation } from '../collector/orca';
 import { mapWorktreesToNotes, type NoteMapping, type NoteWorktree, type ResolvedNoteMapping } from '../collector/notes';
@@ -25,11 +40,12 @@ import type { SummaryCacheRecord } from '../summary/storage';
 import { assertPrivateSummaryCachePath } from '../summary/workflow/cache-path';
 import type { LiveDagView, LiveSummaryView, LiveWorkspaceView, LiveWorkstreamView } from '../shared/live';
 import type { LoadedLiveConfiguration } from './live-config-types';
+import {createProjectWorkspaceSelector} from './project-workspaces';
 
 const INTERVAL_MS = 20_000;
 const STALE_MS = 40_000;
 const MAX_DAGS = 8;
-const MAX_DISPLAY_TASKS = 200;
+const MAX_DISPLAY_TASKS = 1000;
 const MAX_DISPLAY_STATUSES = 12;
 const MAX_DISPLAY_REFERENCES = 8;
 const CONTEXT_LIMITS = { maxBytes: 32_768, maxApproxTokens: 32_768, maxRecords: 64 };
@@ -45,6 +61,7 @@ export interface LiveRuntimeDependencies {
   mapNotes: typeof mapWorktreesToNotes;
   dagReader: typeof createDagReader;
   codeburn: typeof createCodeBurnReader;
+  repositoryUsage:typeof createRepositoryUsageReader;
   summaryCache(options: {directory: string; codec: typeof summaryCacheCodec}): {
     read(signal?: AbortSignal): Promise<SummaryCacheRecord<SummaryCachePayload> | null>;
   };
@@ -55,7 +72,7 @@ export interface LiveRuntimeDependencies {
   publicGitHubObserver: typeof createPublicGitHubObserver;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null; present?:boolean}
-interface CurrentWorktree {worktreeId:string;hostId:string|null;path:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
+interface CurrentWorktree {verifiedRepository?:{host:string;owner:string;name:string};viewId?:string;worktreeId:string;hostId:string|null;instanceId:string|null;path:string|null;branch:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[];currentWorktrees:CurrentWorktree[] }
 interface DagSession {
   canonicalPath: string;
@@ -78,18 +95,114 @@ export function createLiveRuntime(options: {
   cacheAvailable?: boolean;
   dependencies?: Partial<LiveRuntimeDependencies>;
   projectRegistry?:ProjectRegistry;
-  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>&Partial<Pick<ReturnType<typeof createReadRoots>,'scopeForDirectory'>>;
+  gitActivityIdentity?:(workstreamId:string)=>Promise<string|null>;
+  readGitActivity?:(workstreamId:string,tasks:readonly import('../facts/dag-read-model/types').DagTask[],signal:AbortSignal,revalidate:boolean)=>Promise<{events:TaskActivity[];coverage:ActivityCoverage}>;
+  extraDocumentRoots?:(workstreamId:string)=>Promise<DocumentRoot[]>;
+  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>&Partial<Pick<ReturnType<typeof createReadRoots>,'scopeForDirectory'|'allowsDirectory'>>;
 }) {
-  const registry=options.projectRegistry;
+  const updateCleanup=createUpdateCleanupGate();
+  let updateShutdown=false;
+  const dagReads=createJoinedRead<import('../facts/dag-read-model').DagReadResult>();
+  const cleanupFailure=()=>false;
+  const processClean=(result:{ok:boolean;error?:{kind:string}})=>result.ok||!['cleanup_unverified','cleanup-unverified'].includes(result.error?.kind??'');
+  const registrySource=options.projectRegistry;
+  // Registry settle() deliberately absorbs transaction errors for ordinary quit.
+  // Retain the original failures here so an updater cannot mistake that for proof.
+  const registry=registrySource?{...registrySource,
+    load:()=>updateCleanup.track('project state',()=>registrySource.load(),{rejected:cleanupFailure}),
+    discover:(...args:Parameters<ProjectRegistry['discover']>)=>updateCleanup.track('project state',()=>registrySource.discover(...args),{rejected:cleanupFailure}),
+    capture:(...args:Parameters<ProjectRegistry['capture']>)=>updateCleanup.track('project state',()=>registrySource.capture(...args),{rejected:cleanupFailure}),
+    chooseConnection:(...args:Parameters<ProjectRegistry['chooseConnection']>)=>updateCleanup.track('project state',()=>registrySource.chooseConnection(...args),{rejected:cleanupFailure}),
+    chooseSummaryPrefix:(...args:Parameters<ProjectRegistry['chooseSummaryPrefix']>)=>updateCleanup.track('project state',()=>registrySource.chooseSummaryPrefix(...args),{rejected:cleanupFailure}),
+    setStatus:(...args:Parameters<ProjectRegistry['setStatus']>)=>updateCleanup.track('project state',()=>registrySource.setStatus(...args),{rejected:cleanupFailure}),
+  }:undefined;
   let registryError:string|null=null;
   const retainedAllowed=(p:RegisteredProject)=>config?.localHostId===p.hostId&&noteScopes.some(scope=>scope.scopeId===p.scopeId&&scope.hostId===p.hostId&&scope.dagRelativePaths.includes(path.relative(scope.scopePath,p.canonicalDagPath))&&p.canonicalDagPath.startsWith(p.canonicalNotePath+path.sep));
   const loaded = structuredClone(options.configuration);
   const config = loaded.configuration;
+  const documentMetadata=process.platform!=='linux'&&config?.dagQuery?.pythonPath?createDescriptorMetadataTransport({pythonPath:config.dagQuery.pythonPath}):undefined;
   let noteScopes=config?.noteScopes??[];
   const deps = options.dependencies ?? {};
   const now = deps.clock?.now ?? Date.now;
   const connectionChoices=new Map<string,{workstreamId:string;hostId:string;worktreePath:string;scopeId:string;dagRelativePath:string;canonicalDagPath:string}>();
-  const documentLinks=new Map<string,{workstreamId:string;wikilink:string;canonicalNotePath:string;vaultRootPath:string}>();
+  const documentLinks=new Map<string,{workstreamId:string;wikilink:string;canonicalNotePath:string;vaultRootPath:string;role?:string;observedAt?:string;sourceHash?:string}>();
+  const evidenceSessions=new Map<string,{reader:Awaited<ReturnType<typeof createEvidenceReader>>;root:string;registrations:EvidenceRegistration[];authorize:()=>Promise<boolean>;controller:AbortController;proofs:{sessionId:string;evidenceId:string;sourceHash:string}[];children:Map<string,EvidenceList>;vaultPrefix?:string}>();
+  const documentCatalogs=new Map<string,{catalog:Awaited<ReturnType<typeof createDocumentCatalog>>;workstreamId:string;sessions:Set<string>}>();
+  let catalogPending=0,taskDiscoveryPending=0,catalogOperationsPending=0;
+  let evidencePending=0,evidenceEpoch=0,evidencePermissionPending=0;
+  let evidenceLifetime=new AbortController();
+  async function boundedEvidencePermission(operation:()=>Promise<boolean>,signal:AbortSignal):Promise<boolean>{
+    if(signal.aborted||evidencePermissionPending>=4)return false;
+    evidencePermissionPending++;
+    const work=updateCleanup.track('evidence permission',operation).then(value=>value,()=>false).finally(()=>{evidencePermissionPending--;});
+    let timer:ReturnType<typeof setTimeout>|undefined,onAbort:()=>void=()=>{};
+    const stopped=new Promise<boolean>(resolve=>{onAbort=()=>resolve(false);signal.addEventListener('abort',onAbort,{once:true});timer=setTimeout(onAbort,5000);});
+    try{return await Promise.race([work,stopped]);}finally{if(timer)clearTimeout(timer);signal.removeEventListener('abort',onAbort);}
+  }
+  let graphGeneration=0,graphSuspended=false;
+  const graphService=createTaskGraphService({current:graphAuthority,read:readGraphSource});
+  function graphAuthority(projectId:string):GraphAuthority|null {
+    const snapshot=store.getState(),workstream=snapshot.value?.workstreams.find(w=>w.id===projectId),dagId=workstream?.noteMapping.dagId;
+    if(disposed||updateShutdown||graphSuspended||!connected||!activity.visible||!activity.active||snapshot.refreshing||snapshot.freshness!=='current'||['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')||!dagId||workstream?.noteMapping.state!=='resolved'||workstream.noteMapping.context?.state!=='verified'||snapshot.value?.dags.find(d=>d.dagId===dagId)?.state!=='ready'||!dagSessions.get(dagId)?.model)return null;
+    return {projectId,dagId,sessionKey:digest(JSON.stringify([snapshot.runtimeId,snapshot.revision,graphGeneration,evidenceEpoch,workstream.noteMapping]))};
+  }
+  async function readGraphSource(authority:GraphAuthority,signal:AbortSignal):Promise<DagReadModel>{
+    const before=graphAuthority(authority.projectId);if(JSON.stringify(before)!==JSON.stringify(authority))throw Error('stale-session');
+    const snapshot=store.getState(),source=snapshot.value?.worktreeSources.find(w=>w.id===authority.projectId),session=dagSessions.get(authority.dagId),project=registry?.records().find(p=>p.id===authority.projectId);
+    if(!source?.hostId||source.hostId!==config?.localHostId||!source.worktreePath||!session?.reader)throw Error('source-unavailable');
+    const selected=project&&project.hostId===source.hostId&&project.dagId===authority.dagId&&project.canonicalDagPath===session.canonicalPath?{selectedScopeId:project.scopeId,selectedDagRelativePath:path.relative(project.canonicalNotePath,project.canonicalDagPath)}:{};
+    const verify=async()=>{const result=await readMapping({localHostId:config!.localHostId!,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId!,worktreePath:source.worktreePath!,...selected}],signal});const mapping=result.mappings[0];if(signal.aborted)throw Error('cancelled');if(mapping?.state!=='resolved'||mapping.dagId!==authority.dagId||mapping.canonicalDagPath!==session.canonicalPath)throw Error('stale-session');return JSON.stringify(mapping);};
+    const binding=await verify();const result=await readDagForUpdate(session.reader,authority.dagId,signal,JSON.stringify(['graph',authority]));
+    if(!result.ok)throw Error(result.error.kind==='source_changed'?'source-changed':result.error.kind==='timeout'?'timeout':result.error.kind==='cancelled'?'cancelled':['source_limit','output_limit','invalid_schema'].includes(result.error.kind)?'unsupported':'source-unavailable');
+    if(binding!==await verify()||JSON.stringify(graphAuthority(authority.projectId))!==JSON.stringify(authority))throw Error('stale-session');
+    return result.value;
+  }
+  function clearEvidence(){graphGeneration++;graphService.invalidate();for(const item of documentCatalogs.values())item.catalog.release();documentCatalogs.clear();evidenceEpoch++;evidenceLifetime.abort();evidenceLifetime=new AbortController();for(const session of evidenceSessions.values()){session.controller.abort();session.reader.retire();}evidenceSessions.clear();}
+  function releaseEvidenceSession(id:string){
+    const affected=[...evidenceSessions].filter(([key,session])=>key===id||session.proofs.some(proof=>proof.sessionId===id)).map(([key])=>key);
+    for(const key of affected){const session=evidenceSessions.get(key);session?.controller.abort();session?.reader.retire();evidenceSessions.delete(key);}
+  }
+  function reserveEvidenceCapacity(proofs:{sessionId:string}[]){
+    if(evidenceSessions.size<16)return;
+    const protectedIds=new Set([...proofs.map(p=>p.sessionId),...[...evidenceSessions.values()].flatMap(session=>session.proofs.map(p=>p.sessionId))]);
+    const candidate=[...evidenceSessions.keys()].find(id=>!protectedIds.has(id));
+    if(!candidate)throw Error('근거 탐색 상한입니다. 이전 창을 닫고 다시 선택해 주세요.');releaseEvidenceSession(candidate);
+  }
+  async function registerEvidence(root:string,registrations:EvidenceRegistration[],authorize:()=>Promise<boolean>,unsupportedCount=0,proofs:{sessionId:string;evidenceId:string;sourceHash:string}[]=[],metadata?:Map<string,DocumentRelationship[]>,vaultPrefix?:string):Promise<EvidenceList>{
+    if(proofs.length>8)throw Error('근거 연결은8단계까지 확인합니다. 원래 목록에서 다시 선택해 주세요.');
+    if(evidencePending>=4)throw Error('근거 읽기 요청 처리 중입니다.');evidencePending++;
+    try {
+    if(!await authorize())throw Error('근거 읽기 범위가 변경되었습니다.');
+    reserveEvidenceCapacity(proofs);
+    const sessionId=randomUUID(),reader=await updateCleanup.track('evidence initialization',()=>createEvidenceReader({scopeId:sessionId,canonicalRootPath:root,registrations,authorize,now}),{rejected:cleanupFailure});
+    if(!await authorize()){reader.retire();throw Error('근거 읽기 범위가 변경되었습니다.');}
+    reserveEvidenceCapacity(proofs);
+    evidenceSessions.set(sessionId,{reader,root,registrations,authorize,controller:new AbortController(),proofs:[...proofs],children:new Map(),vaultPrefix});return {sessionId,items:reader.list().map(item=>({...item,relativePath:registrations.find(r=>r.id===item.registrationId)?.relativePath,...(metadata?.has(item.registrationId)?{relationships:metadata.get(item.registrationId)}:{})})),unsupportedCount};
+    }finally{evidencePending--;}
+  }
+
+  function projectDocumentContext(workstreamId:string,sourceHash?:string){
+    const view=getState(),workstream=view.workstreams.find(w=>w.id===workstreamId),dagId=workstream?.noteMapping.dagId,root=workstream?.noteMapping.context?.noteRootPath;
+    const scope=noteScopes.find(s=>root&&(root===s.scopePath||root.startsWith(s.scopePath+path.sep)));
+    if(!root||!dagId||!scope||!connected||disposed||view.freshness!=='current'||['error','cancelled'].includes(store.getState().lastAttempt?.outcome??'')||workstream?.noteMapping.context?.state!=='verified'||sourceHash!==undefined&&dagSessions.get(dagId)?.model?.sourceHash!==sourceHash)throw Error('현재 프로젝트의 문서 읽기 범위를 확인해 주세요.');
+    const epoch=evidenceEpoch,lifetime=evidenceLifetime.signal;
+    const authorize=()=>boundedEvidencePermission(async()=>{
+      const allowed=!options.readRoots||(await options.readRoots.filterScopes(noteScopes)).some(s=>s.scopeId===scope.scopeId&&(root===s.scopePath||root.startsWith(s.scopePath+path.sep)));
+      const currentView=getState(),current=currentView.workstreams.find(w=>w.id===workstreamId);
+      return epoch===evidenceEpoch&&allowed&&!disposed&&connected&&currentView.freshness==='current'&&!['error','cancelled'].includes(store.getState().lastAttempt?.outcome??'')&&current?.noteMapping.dagId===dagId&&current.noteMapping.context?.noteRootPath===root&&current.noteMapping.context.state==='verified'&&(sourceHash===undefined||dagSessions.get(dagId)?.model?.sourceHash===sourceHash);
+    },lifetime);
+    const vaultRelative=path.relative(scope.vaultRootPath,root).split(path.sep).join('/');
+    return {root,dagId,authorize,lifetime,vaultPrefix:vaultRelative&&!vaultRelative.startsWith('../')&&!path.isAbsolute(vaultRelative)?vaultRelative:undefined};
+  }
+  function releaseDocumentCatalog(id:string){const entry=documentCatalogs.get(id);if(!entry)return;entry.catalog.release();for(const sessionId of entry.sessions)releaseEvidenceSession(sessionId);documentCatalogs.delete(id);}
+  async function boundedCatalog<T>(operation:()=>Promise<T>,cancel:()=>void):Promise<T>{
+    let timer:ReturnType<typeof setTimeout>|undefined;
+    if(catalogOperationsPending>=4)throw Error('이전 문서 조회가 아직 정리 중입니다. 잠시 후 다시 시도해 주세요.');catalogOperationsPending++;
+    const pending=updateCleanup.track('document catalog',operation).finally(()=>{catalogOperationsPending--;});
+    const stopped=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{cancel();reject(Error('문서 목록 조회가5초 응답 한도를 넘었습니다. 다시 조회해 주세요.'));},5000);});
+    try{return await Promise.race([pending,stopped]);}finally{if(timer)clearTimeout(timer);}
+  }
+
   const connectionConfirmations=new Set<AbortController>();
   const publicSelections=new Map<string,{dagId:string;branch:string;worktreePath:string}>();
   const publicObservers=new Map<string,PullObservationAdapter>();
@@ -102,7 +215,10 @@ export function createLiveRuntime(options: {
       return observer.read(selection,signal,intent);
     },
   }:undefined;
-  const reading = createReadingScheduler({now, adapter: deps.pullObservations??publicAdapter});
+  const pullAdapter=deps.pullObservations??publicAdapter;
+  const reading = createReadingScheduler({now, adapter:pullAdapter?{
+    read:(...args:Parameters<PullObservationAdapter['read']>)=>updateCleanup.track('public observations',()=>pullAdapter.read(...args),{rejected:cleanupFailure}),
+  }:undefined});
   const mapNotes = deps.mapNotes ?? mapWorktreesToNotes;
   const makeCache: LiveRuntimeDependencies['summaryCache'] = deps.summaryCache ?? (cacheOptions=>{
     const cache=createLocalSummaryCache<SummaryCachePayload>(cacheOptions);
@@ -111,9 +227,23 @@ export function createLiveRuntime(options: {
   const orca = config ? (deps.orca ?? createOrcaAdapter)({ executablePath: config.orcaExecutablePath }) : null;
   const codeburn = config?.codeburnExecutablePath
     ? (deps.codeburn ?? createCodeBurnReader)({ executablePath: config.codeburnExecutablePath }) : null;
+  // Test-only budget injection must not unexpectedly spawn an uninjected executable.
+  const repositoryReader=config?.codeburnExecutablePath&&(!deps.codeburn||deps.repositoryUsage)?(deps.repositoryUsage??createRepositoryUsageReader)({executablePath:config.codeburnExecutablePath}):null;
+  const repositoryResults=new Map<RepositoryUsagePeriod,RepositoryUsageResult>(),repositoryLastGood=new Map<RepositoryUsagePeriod,RepositoryUsageObservation>();
+  let repositoryAttemptAt:number|null=null,repositoryDurationMs:number|null=null;
+  async function readRepositoryUsage(signal:AbortSignal,manual:boolean){
+    const interval=activity.active&&activity.visible?60000:300000;
+    if(!repositoryReader||signal.aborted||!manual&&repositoryAttemptAt!==null&&now()-repositoryAttemptAt<interval)return;
+    const start=now();repositoryAttemptAt=start;
+    for(const period of ['today','month'] as const){if(signal.aborted)break;let result:RepositoryUsageResult;try{result=await updateCleanup.track('repository query',()=>repositoryReader.read(period,{signal}),{fulfilled:processClean,rejected:cleanupFailure});}catch{result={ok:false,observedAt:now(),error:{kind:'command-failed',query:period}};}if(!signal.aborted&&!disposed){repositoryResults.set(period,result);if(result.ok)repositoryLastGood.set(period,result.value);}}
+    repositoryDurationMs=Math.max(0,now()-start);
+  }
   const prefixSummaries=new Map<string,import('../shared/reading-summary').ReadingSummary>();
   function readPrefixSummary(w:LiveWorkstreamView,d:LiveDagView){const next=prefixReading(w,d),key=JSON.stringify([w.id,d.dagId,d.summaryScope!.selected]),prior=prefixSummaries.get(key);const result=prior?.fingerprint===next.fingerprint?{...prior,checkedAt:next.checkedAt,changed:w.readingSummary?.changed??false}:{...next,revision:(prior?.revision??0)+1};if(prefixSummaries.size>=256&&!prefixSummaries.has(key))prefixSummaries.delete(prefixSummaries.keys().next().value!);prefixSummaries.set(key,result);return structuredClone(result);}
   const summaryPrefixes=new Map<string,string>();
+  const summaryTaskIds=new Map<string,string[]>();
+  const recentTaskIds=new Map<string,string[]>();
+  const selectedTasks=(id:string)=>registry?.records().find(p=>p.dagId===id)?.summaryTaskIds??summaryTaskIds.get(id);
   const selectedPrefix=(id:string)=>registry?.records().find(p=>p.dagId===id)?.summaryPrefix??summaryPrefixes.get(id)??'T';
   const dagSessions = new Map<string, DagSession>();
   const excerptReaders = new Map<string, { identity: string; reader: ReturnType<typeof createRegisteredExcerptReader>; retired: boolean }>();
@@ -133,7 +263,7 @@ export function createLiveRuntime(options: {
     for (const query of CODEBURN_QUERIES) {
       if (signal.aborted) break;
       let result: CodeBurnResult;
-      try { result = await codeburn.read(query, { signal }); }
+      try { result = await updateCleanup.track('usage query',()=>codeburn.read(query, { signal }),{fulfilled:processClean,rejected:cleanupFailure}); }
       catch { result = { ok: false, observedAt: now(), error: { kind: 'command-failed', query } }; }
       results.push([query, result]);
     }
@@ -168,7 +298,7 @@ export function createLiveRuntime(options: {
       if (combined.aborted) { abort(); return; }
       void Promise.resolve().then(() => {
         if (combined.aborted) throw new Error('Cache read cancelled');
-        return session.cache!.read(combined);
+        return updateCleanup.track('summary cache',()=>session.cache!.read(combined),{rejected:error=>!!error&&typeof error==='object'&&'code' in error&&error.code==='ENOENT'});
       }).then(value => {
         if (settled) return;
         settled = true; cleanup(); resolve(value);
@@ -192,9 +322,9 @@ export function createLiveRuntime(options: {
       // Timeout/cancellation can leave one owned kernel metadata call outstanding.
       // Keep this lifetime retired instead of accumulating a fresh call each poll.
       if (request.signal?.aborted || [...result.mappings, ...result.scopeIssues].some(issue =>
-        'reason' in issue && (issue.reason === 'timeout' || issue.reason === 'aborted'))) mappingRetired = true;
+        'reason' in issue && (issue.reason === 'timeout' || issue.reason === 'aborted'))) {mappingRetired = true;updateCleanup.markUnverified('note mapping');}
       return result;
-    } catch { mappingRetired = true; throw new Error('Mapping unavailable'); }
+    } catch { mappingRetired = true;updateCleanup.markUnverified('note mapping'); throw new Error('Mapping unavailable'); }
   }
 
   async function readBoundedExcerpts(owned:{retired:boolean;reader:ReturnType<typeof createRegisteredExcerptReader>},dagId:string,signal:AbortSignal):Promise<RegisteredExcerptContext> {
@@ -209,7 +339,7 @@ export function createLiveRuntime(options: {
       if (combined.aborted) { abort(); return; }
       void Promise.resolve().then(() => {
         if (combined.aborted) throw new Error('Registered excerpt read cancelled');
-        return owned.reader.read(dagId, combined);
+        return updateCleanup.track('registered excerpts',()=>owned.reader.read(dagId, combined),{rejected:cleanupFailure});
       }).then(value => { if (settled) return; settled = true; cleanup(); resolve(value); }, error => {
         if (settled) return; settled = true; cleanup();
         if (combined.aborted || (error && typeof error === 'object' && 'code' in error && ['timeout', 'cancelled', 'retired'].includes(String(error.code)))) owned.retired = true;
@@ -237,7 +367,7 @@ export function createLiveRuntime(options: {
       const documents=observeProjectDocuments(context,dag.dagId);
       if(documents.state==='ready'){
         workstream.documentLinks=[];
-        for(const record of documents.records)for(const link of record.links??[]){if(workstream.documentLinks.length>=12)break;const target=parseWikiTarget(link.wikilink),id=digest(JSON.stringify([workstream.id,record.source.sourceHash,link]));documentLinks.set(id,{workstreamId:workstream.id,wikilink:link.wikilink,canonicalNotePath:mapping.canonicalNotePath,vaultRootPath:scope.vaultRootPath});workstream.documentLinks.push({id,role:link.role,label:target.label});}
+        for(const record of documents.records)for(const link of record.links??[]){if(workstream.documentLinks.length>=12)break;const target=parseWikiTarget(link.wikilink),id=digest(JSON.stringify([workstream.id,record.source.sourceHash,link]));documentLinks.set(id,{workstreamId:workstream.id,wikilink:link.wikilink,canonicalNotePath:mapping.canonicalNotePath,vaultRootPath:scope.vaultRootPath,role:link.role,sourceHash:record.source.sourceHash??undefined,observedAt:new Date(now()).toISOString()});workstream.documentLinks.push({id,role:link.role,label:target.label});}
       }
       return documents;
     }catch{return {state:'unavailable'};}
@@ -324,7 +454,8 @@ export function createLiveRuntime(options: {
     const currentWorktrees:CurrentWorktree[]=observation.joined.map(({worktree:w,project,process})=>{
       const bound=!!w.repoId&&project?.sourceRepoIds?.includes(w.repoId)===true;
       const provider=bound?project?.providerIdentity:undefined;
-      return {worktreeId:w.id,hostId:w.identity.hostId,path:w.path,archived:w.isArchived,
+      return {worktreeId:w.id,hostId:w.identity.hostId,instanceId:w.identity.instanceId,path:w.path,branch:w.branch,archived:w.isArchived,
+        ...(provider?.provider==='github'?{verifiedRepository:{host:'github.com',owner:provider.owner,name:provider.repo}}:{}),
         repository:{key:JSON.stringify([w.identity.hostId,w.repoId]),id:w.repoId,hostId:w.identity.hostId,projectId:bound?project?.id??null:null,label:provider?`${provider.owner}/${provider.repo}`:bound?project?.displayName??'저장소 이름 미확인':w.repoId??'저장소 미확인'},
         observation:{worktree:'observed',sidebarActivity:process?.hasHostSidebarActivity??null,selected:process?.isActive??null,workspaceStatus:w.workspaceStatus??'unknown'}};
     });
@@ -335,7 +466,7 @@ export function createLiveRuntime(options: {
       ? [{ worktreeId: w.id, hostId: w.identity.hostId, worktreePath: w.path }] : []);
     if(options.readRoots&&!mappingRetired){
       const deadline=new AbortController();const combined=AbortSignal.any([signal,deadline.signal]);let timer:ReturnType<typeof setTimeout>|undefined;
-      try{noteScopes=await Promise.race([options.readRoots.scopesFor(worktrees,registry?.records().map(p=>({scopeId:p.scopeId,hostId:p.hostId,scopePath:p.canonicalNotePath,vaultRootPath:path.dirname(p.canonicalNotePath),dagRelativePaths:[path.relative(p.canonicalNotePath,p.canonicalDagPath)]}))??[],combined),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{deadline.abort();reject(Error('Read scope deadline'));},5000);})]);}
+      try{noteScopes=await Promise.race([updateCleanup.track('read scopes',()=>options.readRoots!.scopesFor(worktrees,registry?.records().map(p=>({scopeId:p.scopeId,hostId:p.hostId,scopePath:p.canonicalNotePath,vaultRootPath:path.dirname(p.canonicalNotePath),dagRelativePaths:[path.relative(p.canonicalNotePath,p.canonicalDagPath)]}))??[],combined)),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{deadline.abort();reject(Error('Read scope deadline'));},5000);})]);}
       catch{mappingRetired=true;noteScopes=[];}finally{if(timer)clearTimeout(timer);}
     }
     let mappings: NoteMapping[] = [];
@@ -366,6 +497,7 @@ export function createLiveRuntime(options: {
           ? { state: 'resolved', reason: null, dagId: mapping.dagId,context:{state:'verified',noteRootPath:mapping.canonicalNotePath,dagPath:mapping.canonicalDagPath},...(mapping.registration?{registration:mapping.registration}:{}) }
           : { state: 'unresolved', reason: mappingFailure ?? (mapping?.state === 'unresolved' ? mapping.reason : 'Worktree host identity or local path is unavailable.'), dagId: null } };
     });
+    observedRows.forEach(({worktree},index)=>{const current=currentByWorktree.get(identity(worktree.identity.hostId,worktree.id));if(current)current.viewId=workstreams[index].id;});
     connectionChoices.clear();documentLinks.clear();
     if(registry){let checks=0;for(let index=0;index<observedRows.length;index++) {
       const view=workstreams[index],row=observedRows[index].worktree;
@@ -435,14 +567,14 @@ export function createLiveRuntime(options: {
       if (!reason && session?.reader) {
         try {
           if(manual)session.reader.recover?.();
-          const result = await session.reader.read(mapping.dagId, { signal });
+          const result = await readDagForUpdate(session.reader,mapping.dagId,signal);
           if (result.ok && !signal.aborted) { session.model = result.value; unchanged = result.unchanged; state = 'ready'; }
           else if (!result.ok) reason = `DAG observation could not be refreshed (${result.error.kind}).`;
         } catch { reason = 'DAG observation could not be refreshed.'; }
       } else if (!reason) reason = 'DAG reader could not be initialized.';
       if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
-      dags.push({ readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
+      dags.push({ ...(model?.readContractVersion?{readContractVersion:model.readContractVersion,policies:model.policies??[]} : {}), readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
         tasks: model?.tasks.slice(0, MAX_DISPLAY_TASKS).map(task => ({ ...task,
           dependencies: task.dependencies.slice(0, MAX_DISPLAY_REFERENCES),
@@ -483,23 +615,36 @@ export function createLiveRuntime(options: {
     return { workstreams, dags, worktreeSources,currentWorktrees };
   }
 
+  function readDagForUpdate(reader:NonNullable<DagSession['reader']>,dagId:string,signal:AbortSignal,sourceKey?:string){
+    const read=(querySignal:AbortSignal)=>updateCleanup.track('DAG query',()=>reader.read(dagId,{signal:querySignal}),{
+      fulfilled:result=>result.ok||!!reader.recoveryState||!['timeout','cancelled','cleanup_unverified'].includes(result.error.kind),
+      rejected:cleanupFailure,
+    });
+    const snapshot=store.getState();
+    const key=sourceKey??JSON.stringify(['collection',dagId,snapshot.runtimeId,snapshot.revision,snapshot.lastAttempt?.id]);
+    // A collector starts a distinct fresh read after existing consumers drain;
+    // it never borrows an old revision's result or races the reader's busy guard.
+    return dagReads.read(reader,key,signal,read);
+  }
+
   const store = createSnapshotStore<CollectedView, LiveWorkspaceView['coverage'], {kind: string; message: string}>({
     clock: deps.clock, intervalMs: INTERVAL_MS, staleAfterMs: STALE_MS, active: false, visible: true,
     backgroundIntervalMs: 300_000, resumeDelayMs: 5_000,
     async load({signal,reason}) {
-      const budgets = readCodeburn(signal);
+      return updateCleanup.track('live collection',async()=>{
+      const budgets = readCodeburn(signal),repositoryRead=readRepositoryUsage(signal,reason==='manual');
       let result;
-      try { result = await orca!.collect({signal}); }
+      try { result = await updateCleanup.track('Orca query',()=>orca!.collect({signal}),{fulfilled:processClean,rejected:cleanupFailure}); }
       catch { result = { ok: false as const, error: { kind: 'load_failed', message: 'Orca observation could not be refreshed.' } }; }
       let value: CollectedView | null = null;
       let projectionFailed = false;
       if (result.ok && !signal.aborted) {
         try { value = await collectView(result.value, signal,reason==='manual'); } catch { projectionFailed = true; }
       }
-      const costResults = await budgets;
+      const costResults = await budgets;await repositoryRead;
       if (!signal.aborted && !disposed) acceptCodeburn(costResults);
-      if (!result.ok) return {kind: 'failure', error: { kind: result.error.kind, message: `Orca observation could not be refreshed (${result.error.kind}).` }};
-      if (projectionFailed || !value) return {kind: 'failure', error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
+      if (!result.ok) return {kind: 'failure' as const, error: { kind: result.error.kind, message: `Orca observation could not be refreshed (${result.error.kind}).` }};
+      if (projectionFailed || !value) return {kind: 'failure' as const, error: {kind: 'projection_failed', message: 'The live read-only projection could not be refreshed.'}};
       const inputs=[];
       for(const workstream of value.workstreams.filter(w=>w.archived!==true)) {
         const dag=value.dags.find(d=>d.dagId===workstream.noteMapping.dagId);
@@ -510,9 +655,10 @@ export function createLiveRuntime(options: {
       for (const summary of summaries) value.workstreams.find(w => w.id === summary.workstreamId)!.readingSummary = summary;
       if(registry){await registry.capture(value.workstreams,value.dags,reason==='manual',signal);registryError=null;}
       const observation = result.value;
-      return {kind: 'success', value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,
+      return {kind: 'success' as const, value, runtimeId: observation.runtimeId, observedAt: observation.observedAt,
         coverage: { projects: observation.projects.coverage.state, worktrees: observation.worktrees.coverage.state,
           processes: observation.processes.coverage.state, totalWorktrees: observation.worktrees.coverage.totalCount }};
+      });
     },
   });
 
@@ -535,7 +681,7 @@ export function createLiveRuntime(options: {
         view.project=lifecycleView(p,view,present);if(p.status==='completed')view.project.sourceState='not-checked';else if(!observedView||!retainedAllowed(p)||!connected||snapshot.freshness!=='current'||registryError)view.project.sourceState='not-checked';
       }
     }
-    for(let i=0;i<dags.length;i++){const model=dagSessions.get(dags[i].dagId)?.model;if(model)dags[i]=scopedDagView(dags[i],model,selectedPrefix(dags[i].dagId));}
+    for(let i=0;i<dags.length;i++){const model=dagSessions.get(dags[i].dagId)?.model;if(model)dags[i]=scopedDagView(dags[i],model,selectedPrefix(dags[i].dagId),200,selectedTasks(dags[i].dagId));}
     for(const w of value?.workstreams??[]){const dag=dags.find(d=>d.dagId===w.noteMapping.dagId);if(dag?.summaryScope)w.readingSummary=readPrefixSummary(w,dag);else if(w.readingSummary)w.readingSummary={...w.readingSummary,summaryPrefix:'T',...explainReading({workstream:w},{state:'unconfigured'})};}
     for (const dag of dags) {
       const sourceUnavailable = dag.state !== 'ready' || dag.summary.state === 'error';
@@ -548,26 +694,79 @@ export function createLiveRuntime(options: {
         dag.summary.approvedClaims = historical(dag.summary.approvedClaims);
       }
     }
+    const checkouts:ObservedRepositoryCheckout[]=(value?.currentWorktrees??[]).flatMap(checkout=>{
+      if(!checkout.hostId||!checkout.path)return [];
+      const retained=registry?.records().filter(p=>p.hostId===checkout.hostId&&p.worktrees.some(w=>w.id===checkout.worktreeId&&w.path===checkout.path))??[];
+      const viewId=checkout.viewId??(retained.length===1?retained[0].id:null),workstream=value?.workstreams.find(w=>w.id===viewId);
+      return viewId&&workstream?[{workstreamId:viewId,hostId:checkout.hostId,checkoutPath:checkout.path,repositoryId:checkout.repository.id,repositoryKey:checkout.repository.key,registeredProjectId:workstream.project?workstream.id:null}]:[];
+    });
+    const repositoryViews=(['today','month'] as const).map(period=>{const prior=repositoryLastGood.get(period),aged=prior&&now()-prior.observedAt>(activity.active&&activity.visible?120000:600000);return projectRepositoryUsage(repositoryResults.get(period)??null,config?.localHostId?{localHostId:config.localHostId,checkouts}:null,!connected||aged?'stale':freshness,prior);});
     return structuredClone({ mode: 'live-read-only', connection: connected ? 'connected' : 'disconnected', configuration: {...loaded.view,noteScopeCount:noteScopes.length},
       refreshing: connected && snapshot.refreshing, observedAt: snapshot.observedAt, freshness,
       polling: {activity: !connected ? 'stopped' : activity.active && activity.visible ? 'foreground' : 'background',
         nextRefreshAt: connected ? snapshot.nextPollAt : null, countdownSeconds: connected ? snapshot.resumeCountdownSeconds : 0},
       lastError: registryError??snapshot.lastAttempt?.error?.message ?? null, coverage: snapshot.coverage,
-      workstreams: value?.workstreams ?? [], dags, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
+      workstreams: value?.workstreams ?? [], dags,repositoryUsage:{capability:repositoryReader?'configured':'unconfigured',views:repositoryViews,lastAttemptAt:repositoryAttemptAt,durationMs:repositoryDurationMs,minimumIntervalMs:activity.active&&activity.visible?60000:300000}, codeburn: {state: codeburn ? codeburnResults.length ? 'observed' : 'idle' : 'unconfigured', results: codeburnResults} });
   }
   const publish = () => {
     if (disposed) return;
     for (const listener of [...listeners]) { try { listener(getState()); } catch { /* Isolate renderer consumers. */ } }
   };
   const unsubscribe = store.subscribe(publish);
-  return {
+  const projectWorkspaces=createProjectWorkspaceSelector(()=>{
+    const snapshot=store.getState();
+    return {connected,disposed:disposed||updateShutdown,refreshing:snapshot.refreshing,freshness:snapshot.freshness,
+      localHostId:config?.localHostId??null,runtimeId:snapshot.runtimeId,revision:snapshot.revision,observedAt:snapshot.observedAt,
+      currentWorktrees:snapshot.value?.currentWorktrees??[]};
+  });
+  const runtime = {
     getState,
-    async setSummaryPrefix(request:unknown){
-      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='prefix,workstreamId')throw Error('접두사 선택 요청 오류');
-      const r=request as {prefix:string;workstreamId:string};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
-      if(disposed||!connected||snapshot.refreshing||!id||!model||snapshot.value?.dags.find(d=>d.dagId===id)?.state!=='ready'||!prefixSelection(model).scope.available.some(p=>p.prefix===r.prefix))throw Error('현재 DAG의 실제 접두사를 선택해야 합니다.');
-      if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix);summaryPrefixes.set(id,r.prefix);publish();return getState();
+    getProjectWorkspaceOptions:projectWorkspaces.getProjectWorkspaceOptions,
+    resolveProjectWorkspace:projectWorkspaces.resolveProjectWorkspace,
+    /** Main-only display target. The opener must separately prove filesystem containment
+     * and revalidate this current observation before issuing its fixed Orca command. */
+    projectOrcaTargetState(workstreamId:string){
+      const blocked=(reason:import('../shared/orca-project-open').OrcaProjectOpenAvailabilityReason)=>({reason,target:null as {hostId:string;worktreeId:string;worktreePath:string;dagPath:string;runtimeId:string;noteRootPath:string}|null});
+      const snapshot=store.getState();
+      if(disposed||updateShutdown||!connected)return blocked('disconnected');
+      if(snapshot.refreshing)return blocked('collecting');
+      if(typeof workstreamId!=='string'||workstreamId.length>128||!snapshot.runtimeId||!snapshot.value||!config?.localHostId||registryError||mappingRetired)return blocked('unavailable');
+      const workstreams=snapshot.value.workstreams.filter(workstream=>workstream.id===workstreamId);
+      if(workstreams.length!==1||workstreams[0].archived===true)return blocked('unavailable');
+      const mapping=workstreams[0].noteMapping;
+      // File display needs a verified binding, not a parsed DAG model or its age.
+      // The opener proves this file/link and current native worktree on every click.
+      if(mapping.state!=='resolved'||mapping.context?.state!=='verified'||!mapping.context.dagPath||!mapping.context.noteRootPath)return blocked('mapping-unverified');
+      const dagPath=mapping.context.dagPath;
+      const registered=registry?.records().find(project=>project.id===workstreamId);
+      if(registered&&(registered.hostId!==config.localHostId||registered.dagId!==mapping.dagId
+        ||registered.canonicalDagPath!==dagPath||registered.canonicalNotePath!==mapping.context.noteRootPath||!retainedAllowed(registered)))return blocked('binding-changed');
+      const candidates=snapshot.value.currentWorktrees.filter(row=>row.viewId===workstreamId||!row.viewId&&registered
+        &&row.hostId===registered.hostId&&registered.worktrees.some(tree=>tree.id===row.worktreeId&&tree.path===row.path));
+      if(candidates.length!==1)return blocked('ambiguous-worktree');
+      const candidate=candidates[0];
+      if(candidate.hostId!==config.localHostId||!candidate.path)return blocked('binding-changed');
+      const structural=projectWorkspaces.getBoundWorkspacesForNativeRevalidation();
+      if(structural.state!=='ready'||!structural.options.some(option=>option.worktreeId===candidate.worktreeId&&option.hostId===candidate.hostId&&option.path===candidate.path))return blocked('ambiguous-worktree');
+      return {reason:'ready' as const,target:{hostId:config.localHostId,worktreeId:candidate.worktreeId,worktreePath:candidate.path,dagPath,runtimeId:snapshot.runtimeId,noteRootPath:mapping.context.noteRootPath}};
     },
+    resolveProjectOrcaTarget(workstreamId:string){return runtime.projectOrcaTargetState(workstreamId).target;},
+    async setSummaryPrefix(request:unknown){
+      if(!request||typeof request!=='object'||Array.isArray(request)||!['prefix,workstreamId','prefix,taskIds,workstreamId'].includes(Object.keys(request).sort().join(',')))throw Error('접두사 선택 요청 오류');
+      const r=request as {prefix:string;workstreamId:string;taskIds?:string[]};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
+      if(disposed||!connected||snapshot.refreshing||!id||!model||snapshot.value?.dags.find(d=>d.dagId===id)?.state!=='ready'||!prefixSelection(model).scope.available.some(p=>p.prefix===r.prefix))throw Error('현재 DAG의 실제 접두사를 선택해야 합니다.');
+      if(r.taskIds!==undefined&&(!Array.isArray(r.taskIds)||!r.taskIds.length||r.taskIds.length>20||new Set(r.taskIds).size!==r.taskIds.length||r.taskIds.some(taskId=>typeof taskId!=='string'||taskId.length>128||!prefixSelection(model,r.prefix).tasks.some(t=>t.id===taskId))))throw Error('현재 접두사 작업을 1~20개 선택해 주세요.');
+      const ids=r.taskIds?[...r.taskIds].sort():undefined;
+      if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix,ids);summaryPrefixes.set(id,r.prefix);if(ids)summaryTaskIds.set(id,ids);else summaryTaskIds.delete(id);publish();return getState();
+    },
+    taskGraphAuthority:graphAuthority,
+    verifiedTaskGraphRepository(projectId:string){if(!graphAuthority(projectId))return null;const snapshot=store.getState(),source=snapshot.value?.worktreeSources.find(w=>w.id===projectId);const matches=snapshot.value?.currentWorktrees.filter(w=>w.hostId===source?.hostId&&w.path===source?.worktreePath)??[];return matches.length===1&&matches[0].verifiedRepository?{...matches[0].verifiedRepository}:null;},
+    async resolveTaskGraphSource(projectId:string,signal:AbortSignal){const authority=graphAuthority(projectId);if(!authority)throw Error('stale-session');const dag=await readGraphSource(authority,signal);return {authority,dag};},
+    getTaskGraphSession(request:unknown){return graphAuthority(parseGraphSessionRequest(request).projectId);},
+    readTaskGraph:(request:unknown)=>graphService.read(request),
+    readTaskGraphChunk:(request:unknown)=>graphService.chunk(request),
+    readTaskGraphDetail:(request:unknown)=>graphService.detail(request),
+    cancelTaskGraph:(request:unknown)=>graphService.cancel(request),
     /** Main-only authority resolution. These raw paths/models never cross the live view IPC. */
     // A running manual request may outlive the display freshness window. Only
     // time ageing is relaxed on revalidation: mapping, root grants, DAG bytes,
@@ -579,7 +778,7 @@ export function createLiveRuntime(options: {
       const mapping=workstream?.noteMapping;
       const dagView=mapping?.dagId?snapshot.value.dags.find(d=>d.dagId===mapping.dagId):undefined;
       const session=mapping?.dagId?dagSessions.get(mapping.dagId):undefined;
-      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind?'dag_other_failure':'current_dag_unavailable');}
+      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind==='busy'?'dag_busy':kind?'dag_other_failure':'current_dag_unavailable');}
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new ModelDiagnosticError('project_mapping_unavailable');
       // Revalidate the existing project binding, rather than asking an unrelated
@@ -592,26 +791,68 @@ export function createLiveRuntime(options: {
         worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath,...selected}],signal});
       const currentMapping=verified.mappings[0];
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new ModelDiagnosticError('read_permission_or_mapping_changed');
-      const currentDag=await session.reader.read(mapping.dagId!,{signal});
-      if(!currentDag.ok||signal.aborted)throw new ModelDiagnosticError(currentDag.ok?'source_changed':currentDag.error.kind==='cleanup_unverified'?'dag_cleanup_unverified':currentDag.error.kind==='timeout'?'dag_timeout':currentDag.error.kind==='command_failed'?'dag_command_failed':'dag_other_failure');
+      const sourceKey=JSON.stringify([workstreamId,snapshot.runtimeId,snapshot.revision,mapping.dagId,session.canonicalPath,currentMapping,revalidateSnapshot]);
+      const currentDag=await readDagForUpdate(session.reader,mapping.dagId!,signal,sourceKey);
+      if(!currentDag.ok||signal.aborted)throw new ModelDiagnosticError(signal.aborted?'request_cancelled':currentDag.ok?'source_changed':currentDag.error.kind==='busy'?'dag_busy':currentDag.error.kind==='cleanup_unverified'?'dag_cleanup_unverified':currentDag.error.kind==='timeout'?'dag_timeout':currentDag.error.kind==='command_failed'?'dag_command_failed':currentDag.error.kind==='invalid_schema'?'dag_invalid_schema':'dag_other_failure');
       const registeredExcerpts=await readRegistered(currentMapping,signal);
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      // A shared read cannot substitute for each consumer's final authority proof.
+      const finalMapping=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
+        worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath,...selected}],signal});
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      if(JSON.stringify(finalMapping.mappings[0])!==JSON.stringify(currentMapping))throw new ModelDiagnosticError('read_permission_or_mapping_changed');
       const after=store.getState();
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
       if(disposed||!connected||after.refreshing||(!revalidateSnapshot&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new ModelDiagnosticError('source_changed');
       session.model=currentDag.value;
-      return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
+      return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),sourceRevision:snapshot.revision,codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
+    async summaryActivityIdentity(workstreamId:string){if(options.gitActivityIdentity)return options.gitActivityIdentity(workstreamId);const repository=store.getState().value?.worktreeSources.find(w=>w.id===workstreamId)?.worktreePath;if(!repository||!options.readRoots?.allowsDirectory||!await options.readRoots.allowsDirectory(repository))return null;try{const stat=await fs.lstat(repository);if(stat.isSymbolicLink()||!stat.isDirectory()||await fs.realpath(repository)!==repository)return null;return JSON.stringify([repository,stat.dev,stat.ino]);}catch{return null;}},
+    async getRecentSummaryTasks(workstreamId:string,signal:AbortSignal=new AbortController().signal,revalidate=false,provided?:{dag:import('../facts/dag-read-model').DagReadModel;registeredExcerpts?:import('../summary/context/registered').RegisteredExcerptContext;sourceRevision:number|null;mappingIdentity:string}):Promise<RecentSummaryTasks>{
+      const snapshot=store.getState();
+      const source=provided??await this.resolveSummarySource(workstreamId,signal,revalidate);
+      const current=store.getState();
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      const currentMappingIdentity=JSON.stringify([current.runtimeId,workstreamId,current.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping.dagId,current.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping.context?.dagPath]);
+      if(current.revision!==snapshot.revision||current.runtimeId!==snapshot.runtimeId||source.sourceRevision!==snapshot.revision||source.mappingIdentity!==currentMappingIdentity)throw new ModelDiagnosticError('source_changed');
+      const repository=snapshot.value?.worktreeSources.find(w=>w.id===workstreamId)?.worktreePath;
+      let events=registeredTaskActivities(source.registeredExcerpts,source.dag.tasks),omitted=0;let activityCoverage:ActivityCoverage|undefined;
+      if(options.readGitActivity){const result=await options.readGitActivity(workstreamId,source.dag.tasks,signal,revalidate);events=[...events,...result.events];activityCoverage=result.coverage;omitted=result.coverage.pending+result.coverage.unresolved;}
+      else if(repository&&options.readRoots?.allowsDirectory&&await options.readRoots.allowsDirectory(repository)){try{const result=await readTaskCommitActivities(source.dag.tasks,repository,signal);events=[...events,...result.events];omitted=result.omitted;}catch{if(signal.aborted)throw Error('Activity read cancelled');omitted=source.dag.tasks.reduce((sum,t)=>sum+t.commitReferences.length,0);}}
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      const after=store.getState();
+      if(disposed||!connected||after.refreshing||(!revalidate&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision||JSON.stringify(after.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping)!==JSON.stringify(snapshot.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping))throw new ModelDiagnosticError('source_changed');
+      const result=selectRecentTaskActivities(source.dag.tasks,events,now(),omitted);if(activityCoverage){result.activityCoverage=activityCoverage;if(activityCoverage.state!=='complete')result.message='확인된 기록 중 최근 작업입니다. 커밋 참조 '+activityCoverage.checked+'/'+activityCoverage.total+'개 확인, 미확인 '+(activityCoverage.pending+activityCoverage.unresolved)+'개입니다. 전체 프로젝트의 최신 활동을 뜻하지 않습니다.';}recentTaskIds.set(workstreamId,result.taskIds);return result;
+    },
+    getSummaryTaskChoices(workstreamId:string){const w=this.getState().workstreams.find(w=>w.id===workstreamId),model=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId)?.model:undefined;return model?.tasks.map(t=>({id:t.id,title:t.title,status:t.status}))??[];},
+    async resolveSelectedProjectModelSource(workstreamId:string,signal:AbortSignal,revalidate=false,selection:ProjectModelSelection={purpose:'recent'}){
+      const choice=parseModelSelection(selection),source=await this.resolveSummarySource(workstreamId,signal,revalidate);
+      const recent=choice.purpose==='recent'?await this.getRecentSummaryTasks(workstreamId,signal,revalidate,source):undefined;
+      const ids=choice.purpose==='recent'?recent!.taskIds:choice.taskIds!;
+      const selected=exactTaskScope(source.dag,ids),w=this.getState().workstreams.find(w=>w.id===workstreamId)!;
+      const base=this.getState().dags.find(d=>d.dagId===source.dag.dagId)!;
+      const scope={sourceHash:selected.sourceHash,selected:choice.purpose==='recent'?'최근 활동':'직접 선택',available:[],total:source.dag.tasks.length,selectedCount:ids.length,otherCount:0,unparsedCount:0,taskSelection:selected.taskSelection,dependencies:selected.dependencies};
+      const readingSummary=prefixReading(w,{...base,readContractVersion:source.dag.readContractVersion,policies:source.dag.policies,tasks:selected.tasks.map(t=>({...t,displayOmissions:{dependencies:0,commitReferences:0,e2eReferences:0}})),taskCount:ids.length,displayedTaskCount:ids.length,summaryScope:scope});
+      delete readingSummary.summaryPrefix;
+      const evidence=readingSummary.sections.find(section=>section.id==='evidence');if(evidence?.paragraphs.length)evidence.paragraphs[0]={text:choice.purpose==='recent'?'명시 연결된 코드·논의·검증 활동 기록에서 최근 최대 3개 태스크를 선택했습니다. 기록 시각은 상태 변경·완료 인증이 아닙니다.':'사용자가 직접 선택한 '+ids.length+'개 태스크입니다. 선택 밖의 태스크 본문은 포함하지 않습니다.',basis:'declaration',sources:[]};
+      return {policyProjectId:workstreamId,observedDagHash:source.dag.sourceHash,taskSelection:selected.taskSelection,dependencyObservations:selected.dependencies,projectKey:this.identifySelectedModelProject(workstreamId,choice)!,readingSummary,dag:{...source.dag,sourceHash:selected.sourceHash,tasks:selected.tasks},mappingIdentity:JSON.stringify([source.mappingIdentity,choice]),codeburn:source.codeburn,registeredExcerpts:selectedTaskExcerpts(source.registeredExcerpts,source.dag,ids,w.noteMapping.context!.noteRootPath),...(recent?{recentActivity:recent}:{})};
+    },
+    summaryProjectIdentity(workstreamId:string){const w=this.getState().workstreams.find(w=>w.id===workstreamId),session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return connected&&!disposed&&w?.noteMapping.state==='resolved'&&w.noteMapping.context?.state==='verified'&&session&&config?.localHostId?JSON.stringify([config.localHostId,w.noteMapping.context.noteRootPath,session.canonicalPath]):null;},
+    identifySelectedModelProject(workstreamId:string,selection:ProjectModelSelection){const identity=this.summaryProjectIdentity(workstreamId);return identity?'project:'+digest(JSON.stringify([identity,'selected-summary-v3',parseModelSelection(selection)])).replace(/^sha256:/,''):null;},
+    selectedModelSourceRevision(workstreamId:string,selection:ProjectModelSelection){const w=this.getState().workstreams.find(w=>w.id===workstreamId),session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined,identity=this.summaryProjectIdentity(workstreamId);if(!session?.model||!identity)return null;try{const ids=selection.purpose==='custom'?selection.taskIds!:recentTaskIds.get(workstreamId)??[];return JSON.stringify([identity,exactTaskScope(session.model,ids).sourceHash,parseModelSelection(selection)]);}catch{return null;}},
     async resolveProjectModelSource(workstreamId:string,signal:AbortSignal,revalidate=false){
       const w=this.getState().workstreams.find(w=>w.id===workstreamId),id=w?.noteMapping.dagId;
-      if(!id)throw new ModelDiagnosticError('current_dag_unavailable');const prefix=selectedPrefix(id);
+      if(!id)throw new ModelDiagnosticError('current_dag_unavailable');const prefix=selectedPrefix(id),selection=selectedTasks(id),selectionKey=JSON.stringify(selection);
       const source=await this.resolveSummarySource(workstreamId,signal,revalidate);
-      if(prefix!==selectedPrefix(id))throw new ModelDiagnosticError('source_changed');
-      const {tasks,scope}=prefixSelection(source.dag,prefix);if(!tasks.length)throw new ModelDiagnosticError('current_dag_unavailable');
+      if(prefix!==selectedPrefix(id)||selectionKey!==JSON.stringify(selectedTasks(id)))throw new ModelDiagnosticError('source_changed');
+      const {tasks,scope}=prefixSelection(source.dag,prefix,selection);if(!tasks.length||scope.taskSelection.missingIds.length)throw new ModelDiagnosticError('current_dag_unavailable');
       const base=this.getState().dags.find(d=>d.dagId===id)!;
       const coverage={tasksTotal:tasks.length,declared:tasks.filter(t=>t.e2e.state==='declared').length,required:tasks.filter(t=>t.e2e.required).length,uncoveredDone:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status===source.dag.doneStatus).map(t=>t.id),uncoveredOpen:tasks.filter(t=>t.e2e.coverage==='unmet'&&t.status!==source.dag.doneStatus).map(t=>t.id),malformed:tasks.filter(t=>t.e2e.coverage==='malformed').map(t=>t.id)};
-      return {observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix]),codeburn:source.codeburn};
+      return {policyProjectId:workstreamId,observedDagHash:source.dag.sourceHash,summaryPrefix:prefix,taskSelection:scope.taskSelection,dependencyObservations:scope.dependencies,projectKey:this.identifyModelProject(workstreamId)!,readingSummary:prefixReading(w!,scopedDagView(base,source.dag,prefix,200,selection)),dag:{...source.dag,sourceHash:scope.sourceHash,tasks,coverage,statusCounts:scopedDagView(base,source.dag,prefix,200,selection).statusCounts},mappingIdentity:JSON.stringify([source.mappingIdentity,prefix,selection]),codeburn:source.codeburn};
     },
-    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!))).fingerprint]):null;},
-    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'prefix-v1',selectedPrefix(w.noteMapping.dagId!)])).replace(/^sha256:/,''):null;},
+    modelSourceRevision(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);return connected&&!disposed&&!['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')&&registry?.records().find(p=>p.id===workstreamId)?.status!=='completed'&&w?.noteMapping.state==='resolved'&&snapshot.value?.dags.find(d=>d.dagId===w.noteMapping.dagId)?.state==='ready'&&w.readingSummary?JSON.stringify([snapshot.runtimeId,w.noteMapping.dagId,selectedPrefix(w.noteMapping.dagId!),prefixReading(structuredClone(w) as LiveWorkstreamView,scopedDagView(structuredClone(snapshot.value!.dags.find(d=>d.dagId===w.noteMapping.dagId)!) as LiveDagView,dagSessions.get(w.noteMapping.dagId!)!.model!,selectedPrefix(w.noteMapping.dagId!),200,selectedTasks(w.noteMapping.dagId!))).fingerprint]):null;},
+    identifyModelProject(workstreamId:string){const snapshot=store.getState();const w=snapshot.value?.workstreams.find(w=>w.id===workstreamId);const session=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId):undefined;return w?.noteMapping.state==='resolved'&&session&&config?.localHostId?'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath,'task-scope-v1',selectedPrefix(w.noteMapping.dagId!),selectedTasks(w.noteMapping.dagId!)??'representative'])).replace(/^sha256:/,''):null;},
+    resolveGitMetadataProject(id:string){const snapshot=store.getState(),identity=this.summaryProjectIdentity(id),source=snapshot.value?.worktreeSources.find(w=>w.id===id);return identity&&connected&&!disposed&&config?.localHostId&&source?.hostId===config.localHostId&&source.worktreePath&&source.present!==false?{worktree:source.worktreePath,projectIdentity:identity}:null;},
     resolveReconnectWorktree(id:string){const snapshot=store.getState();if(disposed||!connected||snapshot.refreshing||snapshot.freshness!=='current'||!config?.localHostId)return null;const s=snapshot.value?.worktreeSources.find(w=>w.id===id);return s?.hostId===config.localHostId&&s.worktreePath&&s.present!==false?{worktreePath:s.worktreePath}:null;},
     reconnectedWorkstream(worktreePath:string){return store.getState().value?.worktreeSources.find(s=>s.worktreePath===worktreePath&&s.hostId===config?.localHostId&&s.present!==false)?.id;},
     async bindReconnectedNote(selection:{worktreePath:string;directory:string;dagRelativePath:string}){
@@ -649,12 +890,142 @@ export function createLiveRuntime(options: {
       return getState();
     },
     async disconnect(): Promise<LiveWorkspaceView> {
-      connected = false;
+      dagReads.abortAll();
+      connected = false;clearEvidence();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel();
       store.stop();
       publish();
       return getState();
+    },
+    projectDocumentDirectoryAllowed(workstreamId:string,candidate:string):boolean{
+      try{const context=projectDocumentContext(workstreamId);if(!path.isAbsolute(candidate)||path.normalize(candidate)!==candidate||candidate===path.parse(candidate).root)return false;
+        const inside=(root:string,p:string)=>root===p||p.startsWith(root+path.sep);
+        const worktrees=store.getState().value?.worktreeSources.filter(source=>source.id===workstreamId&&source.hostId===config?.localHostId).flatMap(source=>source.worktreePath?[source.worktreePath]:[])??[];
+        const registryPaths=registry?.records().find(project=>project.id===workstreamId)?.worktrees.map(tree=>tree.path)??[];
+        return !noteScopes.some(scope=>inside(candidate,scope.vaultRootPath))&&!inside(candidate,context.root)&&![...worktrees,...registryPaths].some(tree=>inside(candidate,tree));
+      }catch{return false;}
+    },
+    projectDocumentIdentity(workstreamId:string):string|null{try{const context=projectDocumentContext(workstreamId);return JSON.stringify([config?.localHostId,context.root,dagSessions.get(context.dagId)?.canonicalPath]);}catch{return null;}},
+    invalidateProjectDocuments():void{clearEvidence();},
+    async prepareProjectDocuments(request:unknown):Promise<ProjectDocumentCatalog>{
+      const r=documentRequest(request,['workstreamId']),workstreamId=r.workstreamId!,context=projectDocumentContext(workstreamId);
+      if(catalogPending>=4)throw Error('문서 폴더를 확인 중입니다.');
+      const pendingController=new AbortController();
+      const operation=async()=>{
+        catalogPending++;try{
+          const extra=await options.extraDocumentRoots?.(workstreamId)??[];
+          const roots:DocumentRoot[]=[{key:'project-note',path:context.root,label:'프로젝트 노트',kind:'note',authorize:context.authorize},...extra.map(root=>({...root,authorize:async()=>await context.authorize()&&await root.authorize()}))];
+          const catalog=await createDocumentCatalog({roots,now,metadata:documentMetadata,signal:AbortSignal.any([context.lifetime,pendingController.signal])});
+          if(pendingController.signal.aborted||!await context.authorize()){catalog.release();throw Error('문서 읽기 범위가 변경되었습니다.');}
+          if(documentCatalogs.size>=8)releaseDocumentCatalog(documentCatalogs.keys().next().value!);
+          const view=catalog.view();documentCatalogs.set(view.catalogId,{catalog,workstreamId,sessions:new Set()});return view;
+        }finally{catalogPending--;}
+      };
+      return boundedCatalog(operation,()=>pendingController.abort());
+    },
+    async listProjectDocuments(request:unknown):Promise<ProjectDocumentListing>{
+      const r=parseDocumentListRequest(request),entry=documentCatalogs.get(r.catalogId);if(!entry)throw Error('문서 목록 세션이 만료되었습니다.');
+      return boundedCatalog(()=>entry.catalog.list(request as ProjectDocumentListRequest),()=>releaseDocumentCatalog(r.catalogId!));
+    },
+    async openCatalogDocument(request:unknown):Promise<EvidenceList>{
+      const r=documentRequest(request,['catalogId','documentId']),entry=documentCatalogs.get(r.catalogId!);if(!entry)throw Error('문서 목록 세션이 만료되었습니다.');
+      return boundedCatalog(async()=>{const document=await entry.catalog.resolve(r.documentId!),context=projectDocumentContext(entry.workstreamId);const list=await registerEvidence(document.root.path,[{id:'document',relativePath:document.relativePath,label:document.descriptor.name}],document.authorize,0,[],new Map([['document',document.descriptor.relationships]]),document.root.kind==='note'?context.vaultPrefix:undefined);if(documentCatalogs.get(r.catalogId!)!==entry){releaseEvidenceSession(list.sessionId);throw Error('문서 목록 세션이 취소되었습니다.');}entry.sessions.add(list.sessionId);return list;},()=>releaseDocumentCatalog(r.catalogId!));
+    },
+    releaseProjectDocuments(request:unknown):void{const r=documentRequest(request,['catalogId']);releaseDocumentCatalog(r.catalogId!);},
+    releaseTaskEvidence(request:unknown):void{
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).join(',')!=='sessionId'||typeof (request as {sessionId:unknown}).sessionId!=='string')throw Error('근거 세션 취소 요청 오류');
+      releaseEvidenceSession((request as {sessionId:string}).sessionId);
+    },
+    async prepareTaskEvidence(request:unknown):Promise<EvidenceList>{
+      if(!request||typeof request!=='object'||Array.isArray(request)||![Object.prototype,null].includes(Object.getPrototypeOf(request)))throw Error('근거 선택 오류');
+      const raw=request as Record<string,unknown>,keys=Object.keys(raw).sort().join(',');if(!['sourceHash,taskId,workstreamId','discoverTaskRecords,sourceHash,taskId,workstreamId'].includes(keys)||Object.hasOwn(raw,'discoverTaskRecords')&&raw.discoverTaskRecords!==true)throw Error('근거 선택 오류');
+      const r=request as {workstreamId:string;taskId:string;sourceHash:string;discoverTaskRecords?:true};if([r.workstreamId,r.taskId,r.sourceHash].some(v=>typeof v!=='string'||!v||v.length>1024))throw Error('근거 식별자 오류');
+      const context=projectDocumentContext(r.workstreamId,r.sourceHash),model=dagSessions.get(context.dagId)?.model,tasks=model?.tasks.filter(t=>t.id===r.taskId)??[];
+      if(tasks.length!==1)throw Error('유일한 태스크의 문서 관계를 확인해 주세요.');const task=tasks[0];
+      const registrations:EvidenceRegistration[]=[],metadata=new Map<string,DocumentRelationship[]>(),seen=new Map<string,string>();let unsupportedCount=0;const omissions:string[]=[];
+      const add=(reference:string,relation:Omit<DocumentRelationship,'observedAt'|'verification'>)=>{
+        try{let target=parseEvidenceTarget(reference);if(reference.startsWith('[[')&&context.vaultPrefix&&target.relativePath.startsWith(context.vaultPrefix+'/'))target={...target,relativePath:target.relativePath.slice(context.vaultPrefix.length+1)};
+          const key=JSON.stringify([target.relativePath,target.anchor]),existing=seen.get(key),relationship:DocumentRelationship={...relation,originalReference:reference,anchor:target.anchor,observedAt:new Date(now()).toISOString(),verification:'not-assessed'};
+          if(existing){metadata.get(existing)!.push(relationship);return;}if(registrations.length>=128){unsupportedCount++;return;}const id=String(registrations.length);seen.set(key,id);registrations.push({id,...target});metadata.set(id,[relationship]);
+        }catch{unsupportedCount++;}
+      };
+      for(const field of ['design','discussion']as const)for(const reference of task.details?.[field]??[])add(reference,{kind:'task-declaration',label:field==='design'?'태스크 설계 링크':'태스크 논의 링크',field,taskId:r.taskId,dagSourceHash:r.sourceHash});
+      for(const link of [...documentLinks.values()].filter(l=>l.workstreamId===r.workstreamId))add(link.wikilink,{kind:'project-link',label:'프로젝트 공통 링크',declarationSourceHash:link.sourceHash});
+      if(r.discoverTaskRecords){
+        if(!await context.authorize())throw Error('문서 읽기 허용이 변경되었습니다.');
+        if(taskDiscoveryPending>=4)throw Error('태스크 기록을 확인 중입니다.');const controller=new AbortController();const records=await boundedCatalog(()=>{taskDiscoveryPending++;return discoverTaskRecordPaths(context.root,r.taskId,AbortSignal.any([context.lifetime,controller.signal]),documentMetadata).finally(()=>{taskDiscoveryPending--;});},()=>controller.abort());omissions.push(...records.omissions);
+        for(const file of records.paths)add(file,{kind:'task-record',label:'계약 경로에서 발견',taskId:r.taskId,dagSourceHash:r.sourceHash});
+        for(const file of records.common)add(file,{kind:'project-context',label:file.startsWith('inbox/integration/')?'프로젝트 통합 구현 기록 · 태스크 섹션 미확인':'프로젝트 공통',dagSourceHash:r.sourceHash});
+      }
+      const list=await registerEvidence(context.root,registrations,context.authorize,unsupportedCount,[],metadata,context.vaultPrefix);return {...list,...(omissions.length?{omissions}:{})};
+    },
+    async readTaskEvidence(request:unknown):Promise<EvidenceReadView>{
+      if(!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='evidenceId,expectedSourceHash,sessionId')throw Error('근거 읽기 요청 오류');
+      const r=request as {sessionId:string;evidenceId:string;expectedSourceHash:string|null};
+      if(typeof r.sessionId!=='string'||r.sessionId.length>128)throw Error('근거 세션 오류');
+      const session=evidenceSessions.get(r.sessionId);if(!session)throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
+      const operationSignal=AbortSignal.any([session.controller.signal,AbortSignal.timeout(5000)]);
+      const operation=async():Promise<EvidenceReadView>=>{
+      const liveSession=async()=>{
+        if(operationSignal.aborted||evidenceSessions.get(r.sessionId)!==session)return false;
+        if(!await session.authorize()||operationSignal.aborted)return false;
+        for(const proof of session.proofs){const ancestor=evidenceSessions.get(proof.sessionId);if(!ancestor||ancestor.controller.signal.aborted||operationSignal.aborted)return false;const checked=await updateCleanup.track('evidence read',()=>ancestor.reader.read({evidenceId:proof.evidenceId,expectedSourceHash:proof.sourceHash},operationSignal),{fulfilled:value=>value.ok,rejected:cleanupFailure});if(!checked.ok||evidenceSessions.get(proof.sessionId)!==ancestor||ancestor.controller.signal.aborted)return false;}
+        return evidenceSessions.get(r.sessionId)===session&&!operationSignal.aborted;
+      };
+      if(!await liveSession())throw Error('근거 세션이 변경되었습니다. 다시 선택해 주세요.');
+      const result=await updateCleanup.track('evidence read',()=>session.reader.read({evidenceId:r.evidenceId,expectedSourceHash:r.expectedSourceHash},operationSignal),{fulfilled:value=>value.ok,rejected:cleanupFailure});
+      if(!await liveSession())throw Error('근거 읽기가 취소되거나 변경되었습니다.');
+      let images:EvidenceList|undefined,references:EvidenceReadView['references'];
+      const derive=async(registrations:EvidenceRegistration[],kind:string,unsupportedCount:number)=>{
+        if(!result.ok)throw Error('근거 읽기 실패');
+        const key=digest(JSON.stringify([r.evidenceId,result.sourceHash,kind,registrations]));const prior=session.children.get(key);
+        if(prior&&evidenceSessions.has(prior.sessionId))return prior;
+        if(operationSignal.aborted)throw Error('근거 조회 취소');
+        const child=await registerEvidence(session.root,registrations,session.authorize,unsupportedCount,[...session.proofs,{sessionId:r.sessionId,evidenceId:r.evidenceId,sourceHash:result.sourceHash}],undefined,session.vaultPrefix);
+        if(operationSignal.aborted||evidenceSessions.get(r.sessionId)!==session){releaseEvidenceSession(child.sessionId);throw Error('근거 조회 취소');}
+        if(session.children.size>=32)session.children.delete(session.children.keys().next().value!);session.children.set(key,child);return child;
+      };
+
+      if(result.ok&&session.proofs.length>=8)result.omissions.push('문서 연결은 8단계까지 확인합니다. 더 깊은 링크는 프로젝트 문서 목록에서 다시 선택해 주세요.');
+      if(result.ok&&session.proofs.length<8&&result.content.kind==='text'&&result.content.imageReferences.targets.length){
+        const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),registration=session.registrations.find(v=>v.id===descriptor?.registrationId);
+        if(registration){const registrations=result.content.imageReferences.targets.map((t,i)=>({...t,id:String(i),relativePath:path.posix.join(path.posix.dirname(registration.relativePath),t.relativePath)}));images=await derive(registrations,'images',result.content.imageReferences.unsupportedCount);}
+      }
+      if(result.ok&&session.proofs.length<8&&result.content.kind==='text'&&result.content.mime==='text/markdown'){
+        const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),document=session.registrations.find(v=>v.id===descriptor?.registrationId);
+        if(document){
+          const extracted=extractDocumentReferences(result.content.text),registrations:EvidenceRegistration[]=[];
+          const targets:{href:string;kind:'link'|'image';status:'resolved'|'missing'|'ambiguous'|'out-of-scope'|'unsupported';registrationIds:string[]}[]=[];let unsupportedCount=extracted.unsupportedCount;
+          for(const target of extracted.targets){
+            const entry:{href:string;kind:'link'|'image';status:'resolved'|'missing'|'ambiguous'|'out-of-scope'|'unsupported';registrationIds:string[]}={href:target.href,kind:target.kind,status:'unsupported',registrationIds:[]};
+            targets.push(entry);
+            try{
+              const parsed=parseDocumentTarget(target.href);if(!parsed.relativePath)continue;
+              const candidatePaths:string[]=[];
+              if(parsed.syntax==='markdown')candidatePaths.push(path.posix.normalize(path.posix.join(path.posix.dirname(document.relativePath),parsed.relativePath)));
+              else if(session.vaultPrefix&&parsed.relativePath.startsWith(session.vaultPrefix+'/'))candidatePaths.push(parsed.relativePath.slice(session.vaultPrefix.length+1));
+              else {candidatePaths.push(path.posix.normalize(path.posix.join(path.posix.dirname(document.relativePath),parsed.relativePath)));if(!parsed.relativePath.startsWith('.'))candidatePaths.push(parsed.relativePath);}
+              let unsafe=false,unsupportedType=false;
+              for(const relativePath of [...new Set(candidatePaths)]){
+                const state=await inspectDocumentFile(session.root,relativePath,operationSignal,documentMetadata);if(state==='out-of-scope'){unsafe=true;continue;}if(state==='missing')continue;
+                if(!['.md','.markdown','.png','.yaml','.yml','.json'].includes(path.posix.extname(relativePath).toLowerCase())){unsupportedType=true;continue;}
+                if(registrations.length>=128){unsupportedCount++;continue;}
+                const id=String(registrations.length);registrations.push({id,relativePath,anchor:parsed.anchor,label:target.label||parsed.label});entry.registrationIds.push(id);
+              }
+              entry.status=entry.registrationIds.length>1?'ambiguous':entry.registrationIds.length===1?'resolved':unsupportedType?'unsupported':unsafe?'out-of-scope':'missing';
+            }catch{unsupportedCount++;}
+          }
+          // An empty capability list still carries explicit missing/out-of-scope states.
+          if(targets.length){const referenceSession=await derive(registrations,'references',unsupportedCount);references={session:referenceSession,targets:targets.map(target=>({href:target.href,kind:target.kind,status:target.status,evidenceId:target.status==='resolved'?referenceSession.items.find(item=>item.registrationId===target.registrationIds[0])!.evidenceId:'',...(target.status==='ambiguous'?{candidates:target.registrationIds.map(id=>{const item=referenceSession.items.find(item=>item.registrationId===id)!,registration=registrations.find(registration=>registration.id===id)!;return {evidenceId:item.evidenceId,label:item.label,relativePath:registration.relativePath,anchor:item.anchor};})}:{})}))};}
+        }
+      }
+      if(!await liveSession()){for(const child of [images,references?.session])if(child){releaseEvidenceSession(child.sessionId);}throw Error('근거 읽기가 취소되거나 변경되었습니다.');}
+      return {result,...(images?{images}:{}),...(references?{references}:{})};
+      };
+      let onAbort:()=>void=()=>{};
+      const aborted=new Promise<never>((_,reject)=>{onAbort=()=>{releaseEvidenceSession(r.sessionId);reject(Error('근거 조회가 취소됐거나5초 응답 한도를 넘었습니다.'));};operationSignal.addEventListener('abort',onAbort,{once:true});if(operationSignal.aborted)onAbort();});
+      try{return await Promise.race([updateCleanup.track('evidence operation',operation),aborted]);}finally{operationSignal.removeEventListener('abort',onAbort);}
     },
     async resolveDocumentLink(request:unknown):Promise<string>{
       if(disposed||!connected||!request||typeof request!=='object'||Array.isArray(request)||Object.keys(request).sort().join(',')!=='linkId,workstreamId')throw new Error('문서 열기 요청 오류');
@@ -684,22 +1055,70 @@ export function createLiveRuntime(options: {
     async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
     async invalidateReadRoots(){await this.disconnect();noteScopes=[];publish();},
     settleRegistry:()=>registry?.settle()??Promise.resolve(),
-    setSuspended(suspended:boolean):void{if(!disposed)store.setSuspended(suspended);},
+    setSuspended(suspended:boolean):void{graphSuspended=suspended;if(suspended){graphGeneration++;graphService.invalidate();}if(!disposed&&!updateShutdown)store.setSuspended(suspended);},
     setActivity(next: {visible: boolean; active: boolean}): void {
+      if(!next.visible||!next.active){graphGeneration++;graphService.invalidate();}
       activity = {...next};
-      if (!disposed) store.setActivity(activity);
+      if (!disposed&&!updateShutdown) store.setActivity(activity);
     },
     subscribe(listener: (view: LiveWorkspaceView) => void): () => void {
       if (disposed) return () => {};
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
+    /** Main-only install gate. Do not call ordinary dispose() before this: its
+     * cancellation is intentionally best effort and may retire bounded readers. */
+    async prepareUpdateShutdown():Promise<void>{
+      updateShutdown=true;
+      // Let current operations finish naturally; suspension removes future polls.
+      store.setSuspended(true);
+      await updateCleanup.settle({verify:()=>[...dagSessions.values()].flatMap(session=>{
+        const state=session.reader?.recoveryState?.();
+        return state?[{area:'DAG query',cleanup:state.cleanup}]:[];
+      })});
+      await registry?.settle();
+      await documentMetadata?.settle();
+      runtime.dispose();
+    },
     dispose(): void {
       if (disposed) return;
-      connected = false; disposed = true;
+      connected = false; disposed = true;dagReads.abortAll();clearEvidence();documentMetadata?.dispose();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();
     },
+  };
+  // Cover IPC requests as well as model-source revalidation and collector loads.
+  // Existing nested calls retain their parent lifetime; fresh calls are refused.
+  function entry<Args extends unknown[],Result>(operation:(...args:Args)=>Promise<Result>){
+    return (...args:Args):Promise<Result>=>{
+      if(updateShutdown)return Promise.reject(new UpdateCleanupError('pending',['shutdown in progress']));
+      return updateCleanup.track('live request',()=>operation.apply(runtime,args));
+    };
+  }
+  return {...runtime,
+    resolveTaskGraphSource:entry(runtime.resolveTaskGraphSource),
+    readTaskGraph:entry(runtime.readTaskGraph),
+    readTaskGraphChunk:entry(runtime.readTaskGraphChunk),
+    readTaskGraphDetail:entry(runtime.readTaskGraphDetail),
+    setSummaryPrefix:entry(runtime.setSummaryPrefix),
+    resolveSummarySource:entry(runtime.resolveSummarySource),
+    resolveProjectModelSource:entry(runtime.resolveProjectModelSource),
+    resolveSelectedProjectModelSource:entry(runtime.resolveSelectedProjectModelSource),
+    getRecentSummaryTasks:entry(runtime.getRecentSummaryTasks),
+    bindReconnectedNote:entry(runtime.bindReconnectedNote),
+    connect:entry(runtime.connect),
+    refresh:entry(runtime.refresh),
+    summarizeNow:entry(runtime.summarizeNow),
+    disconnect:entry(runtime.disconnect),
+    prepareProjectDocuments:entry(runtime.prepareProjectDocuments),
+    listProjectDocuments:entry(runtime.listProjectDocuments),
+    openCatalogDocument:entry(runtime.openCatalogDocument),
+    prepareTaskEvidence:entry(runtime.prepareTaskEvidence),
+    readTaskEvidence:entry(runtime.readTaskEvidence),
+    resolveDocumentLink:entry(runtime.resolveDocumentLink),
+    confirmProjectConnection:entry(runtime.confirmProjectConnection),
+    setProjectStatus:entry(runtime.setProjectStatus),
+    invalidateReadRoots:entry(runtime.invalidateReadRoots),
   };
 }

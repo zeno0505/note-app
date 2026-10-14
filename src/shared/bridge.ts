@@ -1,3 +1,11 @@
+import type {TaskGraphBridge} from './task-graph-contract';
+import type {GitMetadataReadBridge} from './git-metadata-grants';
+import type {SummaryReviewBridge} from './summary-review';
+import type {ProjectDocumentRootsBridge} from './project-document-roots';
+import type {ProjectDocumentBridge} from './documents';
+import type {ProjectCreationBridge} from './project-creation';
+import type {OrcaProjectOpenBridge} from './orca-project-open';
+import type {ProjectWorkspaceBridge} from './project-workspaces';
 import type {ModelRetryBridge} from './model-retry';
 import type {NoteReconnectBridge} from './note-reconnect';
 import type { WorkspaceSnapshot } from '../domain';
@@ -5,6 +13,8 @@ import type { LiveWorkspaceView } from './live';
 import type { SummaryWorkflowBridge } from './summary-workflow';
 import type { NoteLinkBridge } from './phase1-options';
 import type {ReadRootsBridge} from './read-roots';
+import type {UpdateBridge} from './update';
+import type {ProjectDraftBridge} from './project-draft';
 export interface AppEnvironment {
   version: string;
   buildSha?:string|null;
@@ -17,8 +27,17 @@ export interface AppEnvironment {
   summaryBackend: 'unconfigured';
   capabilities: {realOrca:boolean; noteWrites:boolean; remoteSummary:false};
 }
-export interface NoteAppBridge extends SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge {
-  setSummaryPrefix(request:{workstreamId:string;prefix:string}):Promise<LiveWorkspaceView>;
+export interface NoteAppBridge extends TaskGraphBridge, GitMetadataReadBridge, SummaryReviewBridge, ProjectDocumentRootsBridge, ProjectDocumentBridge, UpdateBridge, SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge, ProjectCreationBridge, OrcaProjectOpenBridge, ProjectWorkspaceBridge, ProjectDraftBridge {
+  readTaskGraphDates(request: import('./task-graph-contract').GraphReadRequest): Promise<import('./task-graph-dates').GraphDateReadResult>;
+  cancelTaskGraphDates(request: {requestId: string}): Promise<void>;
+  confirmAppBoot():Promise<void>;
+  getAppMemory():Promise<import('./app-memory').AppMemoryView>;
+  getWorkspaceState(request:{workstreamId:string}):Promise<import('./workspace-state').TaskWorkspaceState|null>;
+  setWorkspaceState(request:{workstreamId:string;state:import('./workspace-state').TaskWorkspaceState}):Promise<void>;
+  releaseTaskEvidence(request:{sessionId:string}):Promise<void>;
+  prepareTaskEvidence(request:import('./evidence').EvidenceSelection):Promise<import('./evidence').EvidenceList>;
+  readTaskEvidence(request:{sessionId:string;evidenceId:string;expectedSourceHash:string|null}):Promise<import('./evidence').EvidenceReadView>;
+  setSummaryPrefix(request:{workstreamId:string;prefix:string;taskIds?:string[]}):Promise<LiveWorkspaceView>;
   getProjectModelState(request:{workstreamId:string}):Promise<import('../main/project-model').ProjectModelView>;
   summarizeProjectModel(request:{workstreamId:string;transferConfirmed:true}):Promise<import('../main/project-model').ProjectModelView>;
   cancelProjectModel(request:{workstreamId:string}):Promise<import('../main/project-model').ProjectModelView>;

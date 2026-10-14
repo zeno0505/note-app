@@ -1,3 +1,4 @@
+import {projectDagExtensions} from '../../phase2/dag-extension';
 import type { DagCoverage, DagTask } from './types';
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown): v is string => typeof v === 'string' && v.length > 0 && v.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(v);
@@ -5,7 +6,7 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.length <= 1
 const count = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= 10000;
 function invalid(): never { throw new Error('Invalid DAG query schema.'); }
 /** Allowlist projection of official query output. Never reads YAML or recomputes coverage. */
-export function projectDagQuery(raw: unknown): { tasks: DagTask[]; coverage: DagCoverage; statusCounts: { status: string | null; count: number }[] } {
+export function projectDagQuery(raw: unknown): { tasks: DagTask[]; coverage: DagCoverage; statusCounts: { status: string | null; count: number }[]; readContractVersion?:2; policies?:Record<string,unknown>[] } {
   if (!object(raw) || !Array.isArray(raw.index) || raw.index.length > 10000 || !object(raw.coverage)) return invalid();
   const ids = new Set<string>();
   for (const row of raw.index) {
@@ -49,6 +50,7 @@ export function projectDagQuery(raw: unknown): { tasks: DagTask[]; coverage: Dag
   const uncoveredDone = entryIds(coverage.uncovered_done), uncoveredOpen = entryIds(coverage.uncovered_open), malformed = entryIds(coverage.malformed);
   const uncovered = [...uncoveredDone, ...uncoveredOpen];
   if (new Set(uncovered).size !== uncovered.length || uncovered.length > coverage.required || malformed.some(id => uncovered.includes(id))) return invalid();
-  return { tasks, coverage: { tasksTotal: coverage.tasks_total, declared: coverage.declared, required: coverage.required, uncoveredDone, uncoveredOpen, malformed },
+  const extensions=projectDagExtensions(raw,tasks);
+  return { ...extensions, tasks, coverage: { tasksTotal: coverage.tasks_total, declared: coverage.declared, required: coverage.required, uncoveredDone, uncoveredOpen, malformed },
     statusCounts: [...counts].map(([status, count]) => ({ status, count })) };
 }

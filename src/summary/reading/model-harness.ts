@@ -1,7 +1,7 @@
 import {createHash,randomUUID} from 'node:crypto';
 
 export const MODEL_HARNESS_VERSION='public-reading-v1';
-export const PROJECT_MODEL_VERSION='connected-project-reading-v2';
+export const PROJECT_MODEL_VERSION='connected-project-reading-v3';
 export const LEGACY_PROJECT_MODEL_VERSION='connected-project-reading-v1';
 export const SECTION_IDS=['implemented','next','evidence','decisions'] as const;
 export type SectionId=typeof SECTION_IDS[number];
@@ -19,7 +19,7 @@ export interface ModelAnswer extends ModelBinding {
   sections:{id:SectionId;text:string;facts:{id:string;state:FactState}[];sourceIds:string[]}[];
 }
 export interface ModelReceipt {answer:unknown;usage:Record<string,unknown>;runtimeMs:number;provider:string;process?:import('./model-process-failure').ModelProcessInfo}
-export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[]},signal:AbortSignal,observe?:(event:'authentication'|'launch-requested'|'started')=>Promise<void>):Promise<ModelReceipt>}
+export interface ModelAdapter {generate(request:{binding:ModelBinding;pack:ReadingModelPack;repairErrors:string[];expectedAccountId?:string;beforeLaunch?:()=>Promise<void>},signal:AbortSignal,observe?:(event:'authentication'|'launch-requested'|'started')=>Promise<void>):Promise<ModelReceipt>}
 export interface HarnessRecord {inputHash:string;runId?:string;attempts:number;status:'running'|'model'|'fallback'|'cancelled';answer?:ModelAnswer;fallback?:{kind:'rules-only';sections:{id:SectionId;text:string}[]};errors:string[];receipts:{provider:string;usage:Record<string,unknown>;runtimeMs:number}[]}
 export interface HarnessLedger {get(hash:string):Promise<HarnessRecord|undefined>;put(record:HarnessRecord,signal?:AbortSignal):Promise<void>;lock():Promise<()=>Promise<void>>}
 const exact=(x:Record<string,unknown>,keys:string[])=>Object.keys(x).sort().join('|')===keys.sort().join('|');
@@ -39,10 +39,7 @@ export function validateProjectPack(pack:ProjectReadingPack){
   // 공개 계약의 프로젝트·경로 제한은 유지하고 공통 근거 형식 검사만 재사용합니다.
   for(const s of pack.sources)if(!/^(dag|reading|runtime|documents)\/[A-Za-z0-9_.\/-]+$/.test(s.path)||s.path.split('/').some(x=>x==='..'||x==='.'||!x))throw Error('Invalid project source path');
   validatePublicPack({...pack,project:'zeno0505/note-app',sources:pack.sources.map(s=>({...s,path:'docs/'+s.path}))});
-  const runtime=pack.facts.find(f=>f.id==='F0'&&f.section==='implemented');
-  const decisionScope=pack.facts.find(f=>f.id==='F1'&&f.section==='decisions');
-  if(!decisionScope||!['수동 Claude','사용자 승인','기존 후보','자동 호출 없음'].every(x=>decisionScope.anchors.includes(x)))throw Error('Current approval scope required in decisions');
-  if(!runtime||!runtime.anchors.includes('Claude')||!runtime.anchors.includes('수동')||!runtime.anchors.includes('자동 호출 없음'))throw Error('Current runtime scope required');
+
 }
 export function readingInputHash(pack:ReadingModelPack){if(!('scope' in pack))return publicInputHash(pack);validateProjectPack(pack);return hash({version:PROJECT_MODEL_VERSION,pack});}
 export function validateModelAnswer(value:unknown,binding:ModelBinding,pack:ReadingModelPack):string[]{

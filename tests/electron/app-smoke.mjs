@@ -8,6 +8,26 @@ await mkdir(evidence,{recursive:true});
 const codeIdentity=await buildIdentity();
 let app;
 const checks=[];
+// Explicit reviewed surface, not derived from preload at runtime: unexpected
+// additions (including non-enumerable properties) must fail this boundary check.
+const expectedBridgeMethods=[
+  'approveSummary','cancelModelRetry','cancelNoteLink','cancelNoteReconnect','cancelProjectCreation',
+  'cancelProjectDocumentRoot','cancelProjectModel','cancelPublicModel','cancelReadRoot','cancelSummary',
+  'cancelUpdate','checkUpdate','confirmAppBoot','confirmNoteLink','confirmNoteReconnect',
+  'confirmProjectConnection','confirmProjectCreation','confirmProjectDocumentRoot','confirmReadRoot','connectLive',
+  'deferUpdate','disconnectLive','dismissUpdateOutcome','getAppMemory','getEnvironment','getLiveState',
+  'getOrcaProjectOpenAvailability','getPhase1Options','getProjectCreationAvailability','getProjectDocumentRoots',
+  'getProjectModelState','getProjectWorkspaceOptions','getPublicModelReview','getPublicModelState','getReadRoots',
+  'getUpdateState','getWorkspaceState','installUpdate','listProjectDocuments','listProjectDrafts','loadDemo',
+  'onLiveState','onSummary','onUpdateState','openCatalogDocument','openProjectDocument','openProjectInOrca',
+  'prepareModelRetry','prepareProjectCreation','prepareProjectDocuments','prepareSummary','prepareTaskEvidence',
+  'prepareUpdate','previewNoteLink','readSummary','readTaskEvidence','refreshLive','rejectSummary',
+  'releaseProjectDocuments','releaseTaskEvidence','resolveProjectWorkspace','revokeProjectDocumentRoot',
+  'revokeReadRoot','runModelRetry','runSummary','saveProjectDraft','selectNoteReconnect','selectProjectDocumentRoot',
+  'selectReadRoot','setProjectStatus','setSummaryPrefix','setWorkspaceState','summarizeNow',
+  'summarizeProjectModel','summarizePublicModel',
+];
+
 const screenshot=async(page,name)=>{await page.screenshot({path:path.join(evidence,name),fullPage:true});};
 try{
   app=await electron.launch({chromiumSandbox:true,args:[path.resolve('.')],timeout:30000});
@@ -27,8 +47,8 @@ try{
   });
   assert.equal(security.sandbox,true);assert.equal(security.contextIsolation,true);assert.equal(security.nodeIntegration,false);assert.equal(security.webSecurity,true);assert.equal(security.webviewTag,false);
   assert(!security.argv.some(arg=>arg.includes('no-sandbox')));
-  const exposed=await page.evaluate(()=>({require:typeof window.require,process:typeof window.process,keys:Object.keys(window.noteApp).sort()}));
-  assert.deepEqual(exposed,{require:'undefined',process:'undefined',keys:['approveSummary','cancelNoteLink','cancelSummary','confirmNoteLink','connectLive','disconnectLive','getEnvironment','getLiveState','getPhase1Options','loadDemo','onLiveState','onSummary','prepareSummary','previewNoteLink','readSummary','refreshLive','rejectSummary','runSummary']});
+  const exposed=await page.evaluate(()=>({require:typeof window.require,process:typeof window.process,keys:Object.getOwnPropertyNames(window.noteApp).sort(),symbols:Object.getOwnPropertySymbols(window.noteApp).length,nonFunctions:Object.getOwnPropertyNames(window.noteApp).filter(key=>typeof window.noteApp[key]!=='function')}));
+  assert.deepEqual(exposed,{require:'undefined',process:'undefined',keys:expectedBridgeMethods,symbols:0,nonFunctions:[]});
   for(const invalid of [null,{}, {scenario:'real'}, {scenario:'normal',path:'/etc/passwd'},{scenario:'normal',command:'echo injected'}]){
     await assert.rejects(page.evaluate(request=>window.noteApp.loadDemo(request),invalid),/Invalid demo/);
   }
@@ -105,7 +125,9 @@ try{
   assert.equal(await page.locator('.workstream-card').count(),0);
   checks.push('Synthetic failure keeps last-good workstreams and timestamp, including empty → failure;  normal retry recovers; repeated refreshes stable; explicit empty success separate');
   await page.getByRole('link',{name:'연결 및 설정',exact:true}).click();
-  await page.getByText('실제 AI 호출은 안전한 실행 경계가 검증될 때까지 차단됩니다.',{exact:false}).waitFor();
+  await page.getByRole('heading',{name:'요약 백엔드',exact:true}).waitFor();
+  await page.getByText('기존 작업별 후보 검토·승인 워크플로의 새 모델 전송은 별도로 차단되어 있습니다.',{exact:false}).waitFor();
+  await page.getByText('자동 모델 호출과 개발 위임은 활성화하지 않습니다.',{exact:false}).waitFor();
   await screenshot(page,'T-007-settings.png');
   await page.getByRole('button',{name:'샘플 모드 종료'}).click();
   await page.getByRole('heading',{name:'아직 연결된 데이터가 없어요'}).waitFor();

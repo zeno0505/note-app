@@ -16,7 +16,7 @@ async function revoke(){if(!removing.value||!reviewed.value||!state.value||busy.
   <section class="read-roots-settings" data-testid="read-roots-settings" aria-labelledby="read-roots-heading">
     <h2 id="read-roots-heading">노트 읽기 허용 폴더</h2><p class="notice warning" data-testid="read-root-ai-warning">{{AI_TRANSFER_WARNING}}</p>
     <p>이 목록은 앱의 읽기 허용 범위입니다. macOS의 접근 권한을 대신 부여하지 않습니다. 실행 파일과 노트 쓰기 권한은 별도입니다.</p>
-    <p>허용 폴더 안을 재귀적으로 수집하지 않습니다. Orca가 지정한 <code>docs/note</code> 프로젝트와 고정 DAG, 그 프로젝트의 명시된 문서 링크만 제한적으로 확인합니다.</p>
+    <p>전체 vault를 검색하지 않습니다. Orca가 지정한 <code>docs/note</code> 프로젝트와 고정 DAG를 확인하며, 문서 탐색에서는 연결된 프로젝트 노트 안의 폴더·파일명을 제한적으로 조회합니다. 문서 본문은 선택한 파일만 읽습니다. 별도로 연결한 소스 문서·검수 폴더는 해당 프로젝트의 문서 범위로만 사용합니다.</p>
     <p v-if="state?.error" role="alert" class="warning-text">{{state.error}}</p><p v-if="error" role="alert" class="warning-text">{{error}}</p><p v-if="message" role="status">{{message}}</p>
     <ul v-if="state?.roots.length" class="read-roots-list"><li v-for="root in state.roots" :key="root.id"><div><strong>{{root.path}}</strong><p>{{root.kind==='vault'?'하위 프로젝트 읽기 허용':'기존 시작 설정의 프로젝트 범위'}} · {{root.available?'폴더 확인됨':'현재 폴더 접근 불가 · 읽기 중단'}}</p></div><button :disabled="busy||!state.editable" @click="cancel().then(()=>{removing=root;reviewed=false})">허용 철회 검토</button></li></ul>
     <p v-else-if="state" class="muted">허용된 읽기 폴더가 없습니다. 과거 설명은 읽기 허용을 새로 부여하지 않습니다.</p>

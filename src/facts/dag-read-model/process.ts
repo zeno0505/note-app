@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import { finalizeQueryGroup } from '../../collector/orca/process-group';
 import type { DagFailureKind } from './types';
 
-/** Version-bound transport only: original external main executes twice with fixed CLI modes.
+/** Version-bound transport only: original external main executes with fixed CLI modes.
  * No DAG semantics are implemented here. Original bytes are verified before execution. */
 export const QUERY_SHA256 = '23d00c96beb0661bb7da064d7dd83566ea754f75165bb9790831dabc25887d47';
-const TRANSPORT = `import sys, json, hashlib, pathlib, os, stat
+const TRANSPORT = `import sys, json, hashlib, pathlib, os, stat, copy
 script, source, done, expected, source_hash, maximum, directory, require_shape = sys.argv[1:]
 with open(script, 'rb') as stream: code = stream.read(1024 * 1024 + 1)
 if hashlib.sha256(code).hexdigest() != expected: raise RuntimeError('unsupported query version')
@@ -24,8 +24,24 @@ if len(raw) > int(maximum) or hashlib.sha256(raw).hexdigest() != source_hash: ra
 result = {}
 snapshot = pathlib.Path(directory) / 'dag.yaml'
 snapshot.write_bytes(raw)
+if not callable(namespace.get('load')): raise RuntimeError('unsupported DAG loader')
+# Reuse only this verified private snapshot, for this process invocation. Keep the
+# pinned loader (including YAML type/alias behavior and task flattening) intact.
+# Copy the whole tuple together: tasks must still alias their document entries,
+# but mutations by one fixed mode must not leak into another mode or validation.
+original_load = namespace['load']
+parsed_snapshot = original_load(snapshot)
+def load_snapshot(path):
+    if path != snapshot: raise RuntimeError('unsupported snapshot path')
+    try:
+        return copy.deepcopy(parsed_snapshot)
+    except RecursionError:
+        # Safe YAML aliases can form deeper graphs than deepcopy can traverse.
+        # Preserve the pinned loader's behavior for those rare inputs rather
+        # than rejecting them or changing the interpreter recursion limit.
+        return original_load(snapshot)
+namespace['load'] = load_snapshot
 if require_shape == '1':
-    if not callable(namespace.get('load')): raise RuntimeError('unsupported DAG loader')
     _, document, _ = namespace['load'](snapshot)
     if not isinstance(document, dict) or not isinstance(document.get('phases'), list): sys.exit(65)
     if any(not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list) for phase in document['phases']): sys.exit(65)
@@ -36,7 +52,30 @@ for mode, args in [('index', ['--index', '--fields', 'id,title,status,depends_on
     namespace['main']()
     if len(emitted) != 1: raise RuntimeError('unsupported query emission')
     result[mode] = emitted[0]
-print(json.dumps(result, ensure_ascii=True, allow_nan=False))
+# Version 2 adds fixed allowlisted modes. The original pinned loader owns YAML parsing.
+emitted = []
+namespace['emit'] = emitted.append
+sys.argv = [script, str(snapshot), '--index', '--fields', 'id,type,feature,description,acceptance_criteria,target_files,discussion,design']
+namespace['main']()
+if len(emitted) != 1: raise RuntimeError('unsupported detail emission')
+result['details'] = emitted[0]
+emitted = []
+namespace['emit'] = emitted.append
+sys.argv = [script, str(snapshot), '--policy', '--all']
+namespace['main']()
+if len(emitted) != 1: raise RuntimeError('unsupported policy emission')
+result['policies'] = emitted[0]
+_, document, _ = namespace['load'](snapshot)
+phases = document.get('phases')
+if not isinstance(phases, list): raise RuntimeError('unsupported phase shape')
+result['phases'] = []
+for number, phase in enumerate(phases):
+    if not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list): raise RuntimeError('unsupported phase shape')
+    result['phases'].append({'index': number, 'id': phase.get('id'), 'title': phase.get('title', phase.get('name')), 'taskIds': [task.get('id') for task in phase['tasks']]})
+result['readContractVersion'] = 2
+# UTF-8 preserves the same fields without expanding Korean prose into six-byte escapes.
+# The parent still enforces the unchanged combined stdout/stderr byte limit.
+sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8') + bytes([10]))
 `;
 export type ProcessResult = { ok: true; data: unknown } | { ok: false; kind: DagFailureKind };
 /** Same-group cleanup is shared with Orca; query argv is independently fixed here. */

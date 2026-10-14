@@ -1,0 +1,174 @@
+<script setup lang="ts">
+import {computed,ref,shallowRef,watch,nextTick,onMounted,onBeforeUnmount} from 'vue';
+import Button from 'primevue/button';
+import InfoDialog from './InfoDialog.vue';
+import Select from 'primevue/select';
+import InputText from 'primevue/inputtext';
+import type {LiveWorkstreamView,LiveDagView} from '../../shared/live';
+import {interpretTasks,filterTasks,taskFilterOptions,TASK_STATUS_OPTIONS,type TaskStatusFilter} from '../../phase2/tasks';
+import {layoutTaskGraph} from '../../phase2/graph';
+import {taskPage,pageConnections,TASK_PAGE_SIZES} from '../../phase2/task-pages';
+import type {TaskWorkspaceState} from '../phase2-state';
+import {liveState,livePending} from '../store';
+import EvidenceViewer from './EvidenceViewer.vue';
+import VerificationSourcesPopover from './VerificationSourcesPopover.vue';
+import TaskGraphWorkspace from './TaskGraphWorkspace.vue';
+import {sameGraphIdentity} from '../../shared/task-graph-contract';
+import {parseGraphDetailResult} from '../../shared/task-graph-transport';
+import type {GraphDetailResult} from '../../shared/task-graph-contract';
+const props=withDefaults(defineProps<{workstream:LiveWorkstreamView;dag?:LiveDagView;state:TaskWorkspaceState;active?:boolean}>(),{active:true});
+const emit=defineEmits<{documents:[];summarize:[taskId:string]}>();
+const legacyGraph=ref(false),graphDetailUnavailable=ref(''),graphDetailStale=ref(false);
+const completeGraph=ref<InstanceType<typeof TaskGraphWorkspace>|null>(null);
+function graphDetailsAdmitted(){const identity=completeGraph.value?.currentIdentity();return current.value&&!!identity&&identity.projectId===props.workstream.id&&identity.dagId===props.dag?.dagId&&identity.sourceHash===props.dag?.sourceHash;}
+const graphDetail=shallowRef<Extract<GraphDetailResult,{state:'detail'}>|null>(null),graphDetailLoading=ref(false);
+let detailEpoch=0,detailRequest:string|null=null;
+function cancelGraphDetail(clear=true){detailEpoch++;if(detailRequest){void window.noteApp.cancelTaskGraph({requestId:detailRequest}).catch(()=>{});detailRequest=null;}graphDetailLoading.value=false;if(clear)graphDetail.value=null;}
+async function chooseGraph(id:string,focus=true,preserveReader=false){
+ const keep=preserveReader&&props.state.selected===id&&graphDetail.value?.identity.projectId===props.workstream.id&&graphDetail.value.identity.dagId===props.dag?.dagId&&graphDetail.value.identity.sourceHash===props.dag?.sourceHash;
+ cancelGraphDetail(!keep);graphDetailUnavailable.value='';graphDetailStale.value=!graphDetailsAdmitted();
+ const identity=completeGraph.value?.currentIdentity();if(!graphDetailsAdmitted()||!identity){props.state.selected='';graphDetailUnavailable.value=id;return;}
+ const epoch=detailEpoch,requestId=crypto.randomUUID();detailRequest=requestId;graphDetailLoading.value=true;props.state.selected=id;if(!keep)documentExpanded.value=false;
+ try {const result=parseGraphDetailResult(await window.noteApp.readTaskGraphDetail({requestId,identity,taskId:id}));
+ if(epoch!==detailEpoch||!props.active||props.state.view!=='dag'||legacyGraph.value||props.state.selected!==id)return;
+ if(result.state!=='detail'||result.requestId!==requestId||result.task.id!==id||!sameGraphIdentity(identity,result.identity)){graphDetailUnavailable.value=id;props.state.selected='';return;}
+ if(keep)await evidenceViewer.value?.revalidateOpenDocument();
+ const session=await window.noteApp.getTaskGraphSession({projectId:identity.projectId});if(epoch!==detailEpoch||!props.active||props.state.view!=='dag'||legacyGraph.value||props.state.selected!==id)return;
+ const now=completeGraph.value?.currentIdentity();if(!session||session.projectId!==identity.projectId||session.dagId!==identity.dagId||session.sessionKey!==identity.sessionKey||!now||!sameGraphIdentity(identity,now)||!graphDetailsAdmitted()){graphDetailStale.value=true;graphDetailUnavailable.value=id;props.state.selected='';return;}
+ graphDetail.value=result;sourceAtSelection.value=result.identity.sourceHash;if(!keep)props.state.detailScroll=0;await nextTick();if(epoch===detailEpoch&&focus)detail.value?.focus();
+ }catch{if(epoch===detailEpoch){graphDetailUnavailable.value=id;props.state.selected='';}}finally{void window.noteApp.cancelTaskGraph({requestId}).catch(()=>{});if(epoch===detailEpoch){detailRequest=null;graphDetailLoading.value=false;}}
+}
+function restoreGraphSelection(id:string|null,open:boolean){if(props.state.view!=='dag'||legacyGraph.value)return;if(!id||!open){cancelGraphDetail();graphDetailUnavailable.value='';props.state.selected='';return;}const identity=completeGraph.value?.currentIdentity();if(props.state.selected===id&&graphDetail.value&&identity&&sameGraphIdentity(graphDetail.value.identity,identity)&&graphDetailsAdmitted())return;void chooseGraph(id,false,true);}
+const documentExpanded=ref(false),evidenceViewer=ref<InstanceType<typeof EvidenceViewer>|null>(null);
+const detailRevalidating=computed(()=>props.state.view==='dag'&&!legacyGraph.value&&!documentExpanded.value&&(graphDetailLoading.value||!!completeGraph.value?.isRevalidating()));
+function openVerificationSource(relativePath:string){void evidenceViewer.value?.openVerificationSource(relativePath);}
+let returnPosition={detail:0,list:0,x:0,y:0};
+async function expandDocument(value:boolean){if(value===documentExpanded.value)return;if(value){returnPosition={detail:detail.value?.scrollTop??props.state.detailScroll,list:list.value?.scrollTop??props.state.scroll,x:graphPane.value?.scrollLeft??props.state.graphX,y:graphPane.value?.scrollTop??props.state.graphY};}documentExpanded.value=value;await nextTick();if(!value){if(detail.value)detail.value.scrollTop=returnPosition.detail;if(list.value)list.value.scrollTop=returnPosition.list;graphPane.value?.scrollTo?.({left:returnPosition.x,top:returnPosition.y});}}
+const tasks=computed(()=>props.dag?.workspaceTasks??props.dag?.tasks??[]);
+const rows=computed(()=>interpretTasks(tasks.value,{projectId:props.workstream.id,dagId:props.dag?.dagId??'',sourceHash:props.dag?.sourceHash??'',observedAt:props.dag?.observedAt??'',policies:props.dag?.policies??[]}));
+const options=computed(()=>taskFilterOptions(rows.value));
+const visible=computed(()=>filterTasks(rows.value,{status:props.state.status as TaskStatusFilter,search:props.state.search,type:props.state.type==='all'?undefined:props.state.type.slice(5),phase:props.state.phase==='all'?undefined:props.state.phase,prefix:props.state.prefix==='all'?undefined:props.state.prefix.slice(7)}).filter(row=>props.state.feature==='all'||row.task.rawFeature===props.state.feature.slice(8)));
+const features=computed(()=>[...new Set(tasks.value.flatMap(t=>t.rawFeature?[t.rawFeature]:[]))].sort());
+const omittedDependencies=computed(()=>tasks.value.reduce((n,t)=>n+t.displayOmissions.dependencies,0));
+const idCounts=computed(()=>{const counts=new Map<string,number>();for(const row of rows.value)counts.set(row.task.id,(counts.get(row.task.id)??0)+1);return counts;});
+const selected=computed(()=>{if(props.state.view==='dag'&&!legacyGraph.value){const value=graphDetail.value;return value&&value.task.id===props.state.selected?interpretTasks([value.task],{projectId:value.identity.projectId,dagId:value.identity.dagId,sourceHash:value.identity.sourceHash,observedAt:value.observedAt,policies:value.policies})[0]:undefined;}return idCounts.value.get(props.state.selected)===1?rows.value.find(r=>r.task.id===props.state.selected):undefined;});
+const detailDependencyPage=ref(1);
+const detailDependencies=computed(()=>{const all=selected.value?.task.dependencies??[];return props.state.view==='dag'&&!legacyGraph.value?all.slice((detailDependencyPage.value-1)*20,detailDependencyPage.value*20):all;});
+const pagination={get page(){return props.state.page;},set page(value:number){props.state.page=value;},get size(){return props.state.pageSize;},set size(value:number){props.state.pageSize=value;}},page=computed(()=>taskPage(visible.value,pagination.page,pagination.size));
+const pageIds=computed(()=>new Set(page.value.items.map(row=>row.task.id)));
+const fullGraph=computed(()=>layoutTaskGraph(tasks.value,visible.value.map(r=>r.task.id)));
+const connections=computed(()=>pageConnections(fullGraph.value,pageIds.value));
+const connectionPage=ref(1),connectionSlice=computed(()=>taskPage(connections.value,connectionPage.value,25));
+const graph=computed(()=>layoutTaskGraph(tasks.value,pageIds.value));
+const graphBounds=computed(()=>{const left=graph.value.nodes.length?Math.min(...graph.value.nodes.map(n=>n.x))-24:0;return {left,width:graph.value.width-left,height:graph.value.height};});
+const graphZoom=computed({get:()=>props.state.graphZoom,set:value=>{props.state.graphZoom=value;}}),graphPane=ref<HTMLElement|null>(null);
+const rowById=computed(()=>new Map(rows.value.map(row=>[row.task.id,row])));
+function fitGraph(){const pane=graphPane.value;if(!pane)return;graphZoom.value=Math.min(1,(pane.clientWidth-20)/graphBounds.value.width,420/graph.value.height);pane.scrollTo({left:0,top:0});}
+function centerGraphSelection(){const node=graph.value.nodes.find(n=>n.id===props.state.selected),pane=graphPane.value;if(node&&pane)pane.scrollTo({left:Math.max(0,(node.x-graphBounds.value.left+node.width/2)*graphZoom.value-pane.clientWidth/2),top:Math.max(0,(node.y+node.height/2)*graphZoom.value-pane.clientHeight/2),behavior:'smooth'});}
+
+const list=ref<HTMLElement|null>(null),detail=ref<HTMLElement|null>(null);
+const sourceAtSelection=ref(props.dag?.sourceHash),stale=computed(()=>!!selected.value&&sourceAtSelection.value!==props.dag?.sourceHash);
+const documentCurrent=computed(()=>liveState.value?.connection==='connected'&&props.workstream.noteMapping.state==='resolved'&&props.workstream.noteMapping.context?.state!=='retained');
+const current=computed(()=>liveState.value?.connection==='connected'&&liveState.value?.freshness==='current'&&props.dag?.state==='ready');
+async function choose(id:string){documentExpanded.value=false;props.state.selected=id;props.state.detailScroll=0;sourceAtSelection.value=props.dag?.sourceHash;await nextTick();detail.value?.focus();}
+function resetScroll(){props.state.scroll=0;if(list.value)list.value.scrollTop=0;if(graphPane.value)graphPane.value.scrollTo({left:0,top:0});}
+async function changePage(value:number){pagination.page=taskPage(visible.value,value,pagination.size).page;connectionPage.value=1;await nextTick();resetScroll();}
+function enterPage(event:Event){const input=event.target as HTMLInputElement;const target=taskPage(visible.value,Number(input.value),pagination.size).page;input.value=String(target);void changePage(target);}
+async function reveal(id:string,focus=true){const index=visible.value.findIndex(row=>row.task.id===id&&idCounts.value.get(id)===1);if(index<0)return false;await changePage(Math.floor(index/pagination.size)+1);await nextTick();if(focus)Array.from(list.value?.querySelectorAll<HTMLElement|SVGElement>('[data-task-id]')??[]).find(el=>el.dataset.taskId===id)?.focus();return true;}
+async function close(){const id=props.state.selected;cancelGraphDetail();props.state.selected='';await nextTick();if(props.state.view==='dag'&&!legacyGraph.value){await completeGraph.value?.focusOnly(id);return;}if(!await reveal(id)){document.querySelector<HTMLInputElement>('[data-testid=task-search]')?.focus();}}
+async function rowKeyboard(event:KeyboardEvent,id:string){if(!['ArrowDown','ArrowUp','Home','End','PageDown','PageUp'].includes(event.key))return;event.preventDefault();const index=visible.value.findIndex(row=>row.task.id===id);let next=event.key==='Home'?0:event.key==='End'?visible.value.length-1:index+(event.key==='PageDown'?pagination.size:event.key==='PageUp'?-pagination.size:event.key==='ArrowDown'?1:-1);const direction=['ArrowUp','PageUp','End'].includes(event.key)?-1:1;next=Math.max(0,Math.min(visible.value.length-1,next));while(next>=0&&next<visible.value.length&&idCounts.value.get(visible.value[next].task.id)!==1)next+=direction;if(next>=0&&next<visible.value.length)await reveal(visible.value[next].task.id);}
+watch(()=>[props.state.status,props.state.search,props.state.type,props.state.phase,props.state.prefix,props.state.feature].join('\0'),()=>{pagination.page=1;connectionPage.value=1;resetScroll();});
+watch(()=>pagination.size,(_,prior)=>{pagination.page=Math.floor((pagination.page-1)*prior/pagination.size)+1;connectionPage.value=1;resetScroll();});
+watch(()=>page.value.page,value=>{pagination.page=value;});
+watch(()=>rows.value.map(r=>r.task.id).join('\0'),()=>{if((props.state.view==='list'||legacyGraph.value)&&props.state.selected&&idCounts.value.get(props.state.selected)!==1)props.state.selected='';});
+watch(()=>page.value.items,()=>{connectionPage.value=1;});
+function summarize(){const task=selected.value?.task;if(task&&current.value&&!livePending.value)emit('summarize',task.id);}
+watch(()=>props.state.selected,()=>{documentExpanded.value=false;detailDependencyPage.value=1;});
+function detailVisibility(){if(document.hidden)cancelGraphDetail(false);}
+onMounted(async()=>{document.addEventListener('visibilitychange',detailVisibility);if(props.state.view==='dag'&&!legacyGraph.value)props.state.selected='';await nextTick();if(list.value)list.value.scrollTop=props.state.scroll;if(detail.value)detail.value.scrollTop=props.state.detailScroll;graphPane.value?.scrollTo?.({left:props.state.graphX,top:props.state.graphY});});
+// Polling replaces DAG objects; only changed identity values withdraw detail.
+watch([()=>props.workstream.id,()=>props.dag?.dagId,()=>props.dag?.sourceHash,current],()=>{cancelGraphDetail();});
+watch(()=>[props.active,props.state.view,legacyGraph.value] as const,()=>{if(!props.active||props.state.view!=='dag'||legacyGraph.value)cancelGraphDetail(false);});
+onBeforeUnmount(()=>{cancelGraphDetail();document.removeEventListener('visibilitychange',detailVisibility);});
+const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'검토 대기',done:'완료',unknown:'해석 미확인'};
+</script>
+<template>
+ <section class="task-workspace" :class="{'document-expanded':documentExpanded}" data-testid="task-workspace">
+  <nav v-show="!documentExpanded" class="workspace-view-nav" aria-label="작업 보기"><button :aria-pressed="state.view==='list'" @click="state.view='list'">작업 목록</button><button :aria-pressed="state.view==='dag'&&!legacyGraph" data-testid="task-dag-toggle" @click="state.view='dag';legacyGraph=false;state.selected=''">관계 그래프</button><button v-if="state.view==='dag'" :aria-pressed="legacyGraph" @click="legacyGraph=!legacyGraph">{{legacyGraph?'전체 그래프로 돌아가기':'기존 페이지 DAG'}}</button></nav>
+  <div v-show="!documentExpanded&&(state.view==='list'||legacyGraph)">
+  <h2>태스크·DAG</h2><p class="muted">원문 상태와 정책 해석을 함께 봅니다. 실행과 파견은 Orca에서 수행합니다.</p>
+  <p v-if="!current" class="notice warning">현재 근거를 재확인하지 못했습니다. 보존된 선언이며 최신 상태나 작업 없음으로 판단하지 않습니다.</p>
+  <div class="task-filters">
+   <label>상태<Select v-model="state.status" :options="[...TASK_STATUS_OPTIONS]" option-label="label" option-value="value" aria-label="태스크 상태" data-testid="task-status-filter"/></label>
+   <label>검색<InputText v-model="state.search" :maxlength="512" aria-label="태스크 검색" placeholder="ID·제목·원본 상태" data-testid="task-search"/></label>
+   <label>타입<Select v-model="state.type" :options="[{value:'all',label:'모든 타입'},...options.types.map(t=>({value:'type:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 타입"/></label>
+   <label>Phase<Select v-model="state.phase" :options="[{value:'all',label:'모든 Phase'},...options.phases]" option-label="label" option-value="value" aria-label="태스크 Phase"/></label>
+   <label>접두사<Select v-model="state.prefix" :options="[{value:'all',label:'모든 접두사'},...options.prefixes.map(t=>({value:'prefix:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 접두사"/></label>
+   <label>기능<Select v-model="state.feature" :options="[{value:'all',label:features.length?'모든 기능':'기능 선언 없음'},...features.map(t=>({value:'feature:'+t,label:t}))]" option-label="label" option-value="value" aria-label="태스크 기능" :disabled="!features.length"/></label>
+  </div>
+  <div class="section-heading"><p role="status" data-testid="task-count">필터 결과 {{visible.length}}개 · 현재 페이지 {{page.items.length}}개 · 수집된 {{tasks.length}}개 · 필터로 숨김 {{tasks.length-visible.length}}개<span v-if="(dag?.workspaceTaskCount??dag?.taskCount??0)>tasks.length"> · 표시 상한 밖 {{(dag?.workspaceTaskCount??dag?.taskCount??0)-tasks.length}}개</span></p><div class="filter-group"><button :aria-pressed="state.view==='list'" @click="state.view='list'">목록</button><button :aria-pressed="state.view==='dag'" @click="state.view='dag';legacyGraph=true">읽기 전용 DAG</button></div></div>
+  <nav class="task-pagination" aria-label="태스크 페이지" data-testid="task-pagination">
+   <span role="status" data-testid="task-page-range">{{visible.length?page.start+1:0}}–{{page.end}} / {{visible.length}}개 · {{page.page}} / {{page.count}}페이지</span>
+   <Button label="처음" outlined :disabled="page.page===1" aria-label="첫 태스크 페이지" @click="changePage(1)"/><Button label="이전" outlined :disabled="page.page===1" aria-label="이전 태스크 페이지" @click="changePage(page.page-1)"/>
+   <label>페이지<input type="number" :value="page.page" min="1" :max="page.count" aria-label="태스크 페이지 번호" @change="enterPage"/></label>
+   <Button label="다음" outlined :disabled="page.page===page.count" aria-label="다음 태스크 페이지" @click="changePage(page.page+1)"/><Button label="마지막" outlined :disabled="page.page===page.count" aria-label="마지막 태스크 페이지" @click="changePage(page.count)"/>
+   <label>페이지당<Select v-model="pagination.size" :options="[...TASK_PAGE_SIZES]" aria-label="페이지당 태스크 수"/></label>
+  </nav>
+  <p v-if="omittedDependencies" class="notice warning">의존 참조 {{omittedDependencies}}개가 표시 상한으로 생략됐습니다. 현재 그래프가 전체 연결을 보여 준다고 판단하지 않습니다.</p>
+  <div class="compact-help"><span class="muted">원본 상태 · 정책 해석</span><InfoDialog label="태스크 상태와 건수 해석" hint="상태·건수 기준"><p class="muted">논의·검증 필요는 완료 상태와 겹칠 수 있습니다. 필터별 수의 합은 전체 작업 수가 아닙니다. 검토 대기는 명시된 태스크 완료 리뷰와 실제 관측한 PR 리뷰를 포함합니다. 명시 상태 매핑 정책이 없으면 해석 미확인으로 남깁니다.</p></InfoDialog></div>
+  </div>
+  <div class="task-split" :class="{'task-selected':!!selected,'complete-graph-split':state.view==='dag'&&!legacyGraph,'document-expanded-split':documentExpanded}">
+   <div v-show="!documentExpanded" ref="list" class="task-list-scroll" :class="{'complete-graph-scroll':state.view==='dag'&&!legacyGraph}" @scroll="!documentExpanded&&(state.scroll=($event.target as HTMLElement).scrollTop)">
+    <TaskGraphWorkspace v-show="state.view==='dag'&&!legacyGraph" ref="completeGraph" :project-id="workstream.id" :dag-id="dag?.dagId" :source-key="JSON.stringify([dag?.dagId,dag?.sourceHash,dag?.observedAt,liveState?.observedAt,workstream.noteMapping])" :current="current" :active="active&&!documentExpanded&&state.view==='dag'&&!legacyGraph" :selected-id="state.selected||null" :detail-open="!!selected||graphDetailLoading" @selection-restore="restoreGraphSelection" @select="chooseGraph" @open-group="graphDetailUnavailable=''"/>
+    <p v-if="graphDetailLoading" role="status">선택 작업의 전체 상세를 읽고 있습니다…</p>
+    <p v-if="graphDetailUnavailable&&state.view==='dag'" role="status">{{graphDetailUnavailable}} <template v-if="graphDetailStale">그래프와 상세의 현재 근거가 일치하지 않습니다. 근거가 갱신된 뒤 다시 선택해 주세요.</template><template v-else>전체 소스의 작업 상세를 확인하지 못했습니다. 다시 선택해 주세요. 표시 상한 밖의 기존 상세로 대체하지 않습니다.</template></p>
+    <p v-if="!visible.length&&(state.view==='list'||legacyGraph)" class="empty-state">{{tasks.length?'현재 필터에 맞는 작업이 없습니다. 필터를 바꿔 주세요.':'표시할 작업 선언을 확인하지 못했습니다.'}}</p>
+    <ol v-if="state.view==='list'" class="phase2-task-list" aria-label="태스크 목록"><li v-for="(row,index) in page.items" :key="JSON.stringify([row.task.id,page.start+index])" :aria-posinset="page.start+index+1" :aria-setsize="visible.length"><button :data-task-id="row.task.id" :aria-pressed="state.selected===row.task.id" :disabled="idCounts.get(row.task.id)!==1" @keydown="rowKeyboard($event,row.task.id)" @click="choose(row.task.id)"><strong>{{row.task.id}}<span v-if="idCounts.get(row.task.id)!==1"> · 중복 ID · 상세 대상 미확인</span> · {{row.task.title??'제목 미선언'}}</strong><span>{{row.rawType??'타입 미선언'}} · {{row.rawStatus??'상태 미선언'}} → {{lifecycleLabels[row.lifecycle]}}</span><small>의존 {{row.task.dependencies.length}}개 · E2E {{row.task.e2e.coverage}} · 실행 검증 미수행</small></button></li></ol>
+    <section v-else-if="legacyGraph" data-testid="readonly-dag">
+     <div class="evidence-tools graph-tools"><Button label="페이지 맞춤" outlined @click="fitGraph"/><Button label="100%" outlined @click="graphZoom=1"/><Button label="−" outlined aria-label="DAG 축소" @click="graphZoom=Math.max(.05,graphZoom/1.4)"/><Button label="+" outlined aria-label="DAG 확대" @click="graphZoom=Math.min(2,Math.max(.1,graphZoom*1.4))"/><Button label="선택 작업으로" text :disabled="!selected||!pageIds.has(state.selected)" @click="centerGraphSelection"/><span data-testid="graph-zoom-status">{{Math.round(graphZoom*1000)/10}}%</span></div>
+     <p>현재 페이지의 노드와 페이지 안 연결을 표시합니다. 다른 페이지·필터 밖·외부 연결은 아래 연결 안내에서 확인합니다. 전체 관계가 사라진 것으로 판단하지 않습니다.</p><p v-if="graphZoom<.3" class="muted">관계 개요를 축소해 보고 있습니다. 제목·상태를 읽으려면 확대하거나 목록으로 바꿔 주세요.</p>
+     <div ref="graphPane" class="dag-scroll" @scroll="!documentExpanded&&(state.graphX=($event.target as HTMLElement).scrollLeft,state.graphY=($event.target as HTMLElement).scrollTop)"><svg :viewBox="`${graphBounds.left} 0 ${graphBounds.width} ${graphBounds.height}`" :style="{width:graphBounds.width*graphZoom+'px',height:graph.height*graphZoom+'px'}" role="group" aria-label="현재 페이지 태스크 의존 그래프"><g v-for="edge in graph.edges.filter(e=>e.path)" :key="edge.id"><path :d="edge.path??undefined" fill="none" stroke="currentColor" opacity=".4"/></g><g v-for="node in graph.nodes" :key="node.id" role="button" tabindex="0" :data-task-id="node.id" :aria-label="node.id+' '+(node.task.title??'제목 미선언')+' 원본 상태 '+(node.task.status??'미선언')+' 선택'" @keydown="rowKeyboard($event,node.id)" @click="choose(node.id)" @keydown.enter="choose(node.id)" @keydown.space.prevent="choose(node.id)"><rect :x="node.x" :y="node.y" :width="node.width" :height="node.height" rx="8" :class="['node-'+(rowById.get(node.id)?.lifecycle??'unknown'),{'selected-node':state.selected===node.id,'cyclic-node':node.cycle}]"/><text :x="node.x+12" :y="node.y+21">{{node.id}}</text><text class="node-description" :x="node.x+12" :y="node.y+43">{{(node.task.title??'제목 미선언').slice(0,16)}}{{(node.task.title?.length??0)>16?'…':''}}</text><text class="node-description" :x="node.x+12" :y="node.y+63">{{(node.task.status??'미선언').slice(0,14)}} · {{lifecycleLabels[rowById.get(node.id)?.lifecycle??'unknown']}}</text></g></svg></div>
+     <section class="page-connections" data-testid="page-connections" aria-label="페이지 밖 연결 안내"><h3>현재 페이지 밖 연결</h3><p role="status">{{connections.length}}개 · 이 중 {{connections.length?connectionSlice.start+1:0}}–{{connectionSlice.end}} 표시<span v-if="!connections.length"> (연결 선언 없음)</span>. 다른 페이지 참조도 원래 의존 관계에 포함됩니다.</p>
+      <ul><li v-for="edge in connectionSlice.items" :key="edge.id">{{edge.from}} → {{edge.to}} · {{edge.direction==='incoming'?'현재 페이지로 들어오는 연결':'현재 페이지에서 나가는 연결'}} · <template v-if="(edge.kind==='internal'||edge.kind==='cycle')&&visible.some(row=>row.task.id===(edge.direction==='incoming'?edge.from:edge.to))"><Button :label="'다른 페이지 작업 '+(edge.direction==='incoming'?edge.from:edge.to)+' 보기'" text @click="reveal(edge.direction==='incoming'?edge.from:edge.to)"/></template><span v-else>{{edge.kind==='external'?'외부 참조·충족 미확인':edge.kind==='unknown'?'연결 대상 미확인':'현재 필터 밖'}}</span></li></ul>
+      <Button label="이전 연결" text :disabled="connectionSlice.page===1" @click="connectionPage--"/><span>{{connectionSlice.page}} / {{connectionSlice.count}}</span><Button label="다음 연결" text :disabled="connectionSlice.page===connectionSlice.count" @click="connectionPage++"/>
+     </section>
+     <p class="muted">순환 {{fullGraph.diagnostics.cycles.length}}개 · 외부 의존 {{fullGraph.diagnostics.externalDependencies.length}}개 · 필터 밖 의존 {{fullGraph.diagnostics.hiddenDependencies.length}}개 · 연결 미확인 {{fullGraph.diagnostics.unknownDependencies.length}}개</p>
+     <details class="graph-diagnostics"><summary>연결 진단 상세</summary><p v-if="!fullGraph.diagnostics.cycles.length&&!fullGraph.diagnostics.externalDependencies.length&&!fullGraph.diagnostics.hiddenDependencies.length&&!fullGraph.diagnostics.unknownDependencies.length">현재 표시 범위에서 추가 연결 진단이 없습니다.</p><ul><li v-for="(cycle,i) in fullGraph.diagnostics.cycles.slice(0,20)" :key="'cycle-'+i">순환: {{cycle.join(' → ')}}</li><li v-for="(dep,i) in fullGraph.diagnostics.externalDependencies.slice(0,20)" :key="'external-'+i">{{dep.taskId}} → {{dep.dependencyId}} · 외부, 충족 미확인</li><li v-for="(dep,i) in fullGraph.diagnostics.hiddenDependencies.slice(0,20)" :key="'hidden-'+i">{{dep.taskId}} → {{dep.dependencyId}} · 현재 필터 밖</li><li v-for="(dep,i) in fullGraph.diagnostics.unknownDependencies.slice(0,20)" :key="'unknown-'+i">{{dep.taskId}} → {{dep.dependencyId}} · 연결 미확인</li></ul><p>각 진단은20개까지 표시합니다. 중복ID {{fullGraph.diagnostics.duplicateTaskIds.length}}개 · 숨긴 노드 {{fullGraph.diagnostics.hiddenNodeCount}}개</p></details>
+    </section>
+   </div>
+   <aside v-if="selected" ref="detail" class="task-detail" :class="{'document-expanded-detail':documentExpanded}" tabindex="-1" aria-label="선택 태스크 상세" data-testid="task-detail" @scroll="!documentExpanded&&(state.detailScroll=($event.target as HTMLElement).scrollTop)">
+    <header v-show="!documentExpanded" class="task-detail-header"><Button label="태스크 요약" text :disabled="!current||livePending" data-testid="task-summary-open" @click="summarize"/><span class="muted" title="태스크 단위 직접 이동은 지원하지 않습니다. 프로젝트 상단에서 검증된 DAG 파일 열기를 확인할 수 있습니다.">태스크 직접 이동 미지원</span><Button label="×" text aria-label="태스크 상세 닫기" title="닫기" data-testid="task-detail-close" @click="close"/></header>
+    <p v-if="detailRevalidating" class="detail-revalidation-status" role="status">선택 작업과 문서의 현재 근거를 다시 확인하고 있습니다…</p>
+    <div :style="{visibility:detailRevalidating?'hidden':undefined}" :inert="detailRevalidating" :aria-hidden="detailRevalidating||undefined" data-testid="validated-detail-content">
+    <div v-show="!documentExpanded">
+
+    <p v-if="(state.view==='list'||legacyGraph)&&!pageIds.has(state.selected)" class="notice warning" data-testid="task-selection-outside">선택한 작업은 {{visible.some(row=>row.task.id===state.selected)?'다른 페이지':'현재 필터 밖'}}에 있습니다. 상세는 선택한 작업을 유지합니다.<Button v-if="visible.some(row=>row.task.id===state.selected)" label="선택 작업 페이지 보기" text @click="reveal(state.selected)"/></p>
+    <h3>{{selected.task.id}} · {{selected.task.title}}</h3><p v-if="stale" class="notice warning">선택 후 근거가 변경되었습니다. 현재 원문을 다시 검토하고 요약을 갱신해 주세요.</p>
+    <dl><dt>원본 타입·상태</dt><dd>{{selected.rawType??'미선언'}} · {{selected.rawStatus??'미선언'}}</dd><dt>정책 해석</dt><dd>{{lifecycleLabels[selected.lifecycle]}}</dd><dt>Phase</dt><dd>{{selected.task.phase?.title??selected.task.phase?.id??'소속 미확인'}}</dd><dt>추가 이유·수행 설명 (선언)</dt><dd>{{selected.task.details?.description??'기록 미확인'}}</dd></dl>
+    <h4>수용 기준 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.acceptanceCriteria??[]" :key="i">{{value}}</li></ul><p v-if="!selected.task.details?.acceptanceCriteria.length">기록 미확인</p>
+    <h4>변경 대상 파일 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.targetFiles??[]" :key="i">{{value}}</li></ul><p>실제 파일 변경·커밋·검증 통과를 확인한 목록이 아닙니다.</p>
+    <h4>의존성 {{selected.task.dependencies.length}}개</h4><ul><li v-for="(dep,index) in detailDependencies" :key="index">{{dep.id}} · {{dep.scope==='external'?'외부·미확인':'DAG 내부'}}<span v-if="!visible.some(r=>r.task.id===dep.id)"> · 현재 목록 밖</span></li></ul>
+    <nav v-if="state.view==='dag'&&!legacyGraph&&selected.task.dependencies.length>20" aria-label="상세 의존성 페이지"><button :disabled="detailDependencyPage===1" @click="detailDependencyPage--">의존성 이전</button><span>{{detailDependencyPage}} / {{Math.ceil(selected.task.dependencies.length/20)}}</span><button :disabled="detailDependencyPage*20>=selected.task.dependencies.length" @click="detailDependencyPage++">의존성 다음</button></nav>
+    <p v-if="selected.task.displayOmissions.dependencies">추가 의존 참조 {{selected.task.displayOmissions.dependencies}}개 표시 생략</p><div class="verification-section-heading"><h4>검증·리뷰</h4><VerificationSourcesPopover :key="selected.task.id" :workstream-id="workstream.id" :task-id="selected.task.id" :source-hash="dag?.sourceHash??null" :current="current&&documentCurrent&&!liveState?.refreshing" :active="active&&!documentExpanded" @source="openVerificationSource"/></div><p>E2E {{selected.task.e2e.coverage}} · {{selected.task.e2e.coveredBy?.join(', ')||'참조 미확인'}}</p><p>커밋 {{selected.task.commitReferences.join(', ')||'참조 미확인'}} · 실제 실행 검증 미수행</p><p v-if="selected.task.displayOmissions.commitReferences||selected.task.displayOmissions.e2eReferences">표시 생략: 커밋 {{selected.task.displayOmissions.commitReferences}}개 · E2E {{selected.task.displayOmissions.e2eReferences}}개</p><p v-if="selected.task.details?.omissions">지원하지 않는 상세 필드 {{selected.task.details.omissions}}개 생략</p>
+    </div>
+    <EvidenceViewer ref="evidenceViewer" :key="selected.task.id" :workstream-id="workstream.id" :task-id="selected.task.id" :task-title="selected.task.title??'제목 미선언'" :source-hash="dag?.sourceHash??null" :current="documentCurrent" :active="active&&!liveState?.refreshing" :expanded="documentExpanded" @update:expanded="expandDocument" @browse="emit('documents')"/>
+    <details v-show="!documentExpanded"><summary>해석·출처 근거</summary><pre>{{JSON.stringify({reasons:selected.reasons,policy:selected.policy,provenance:selected.provenance},null,2)}}</pre></details>
+    </div>
+   </aside>
+  </div>
+
+ </section>
+</template>
+
+<style scoped>
+/* Conceal stale controls without shrinking the scroll range during revalidation. */
+.detail-revalidation-status{position:sticky;top:48px;z-index:2;height:0;margin:0;overflow:visible;color:var(--app-text)}
+.workspace-view-nav{display:flex;gap:8px;margin-bottom:20px}.workspace-view-nav button{border:1px solid var(--app-border);border-radius:8px;background:var(--app-surface);color:var(--app-text);padding:9px 14px}.workspace-view-nav button[aria-pressed=true]{background:var(--app-primary);color:var(--app-on-primary)}.task-list-scroll.complete-graph-scroll{max-height:none;overflow:visible}
+
+.verification-section-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:16px 0 8px}.verification-section-heading h4{margin:0}
+/* Keep the full-source canvas useful when the existing detail pane opens.
+   This applies only to the complete graph, never list/legacy or expanded evidence. */
+@media(min-width:1151px){.task-split.complete-graph-split.task-selected:not(.document-expanded-split){grid-template-columns:minmax(0,1fr) minmax(280px,340px)}}
+.task-split.document-expanded-split{grid-template-columns:minmax(0,1fr)}.task-detail.document-expanded-detail{max-height:none;overflow:visible;border:0;padding:0}.document-expanded-detail :deep(.task-evidence){margin:0;border-top:0;padding:0}
+@media(max-width:760px){.task-detail{max-height:none;overflow:visible}.task-list-scroll{max-height:42vh}}
+</style>

@@ -9,12 +9,11 @@ const directories: string[] = [];
 async function setup() {
   const test = await mockExecutable(); directories.push(test.directory); return test;
 }
-async function waitForPid(directory: string): Promise<number> {
-  const deadline = Date.now() + 2000;
-  while (Date.now() < deadline) {
-    try { return Number(await readFile(join(directory, 'pid'), 'utf8')); } catch { await new Promise(resolve => setTimeout(resolve, 10)); }
-  }
-  throw new Error('Synthetic process did not start.');
+async function completedPid(directory: string): Promise<number> {
+  // Call only after the runner settles: no startup polling is needed here.
+  const pid = Number(await readFile(join(directory, 'pid'), 'utf8'));
+  expect(Number.isSafeInteger(pid) && pid > 0).toBe(true);
+  return pid;
 }
 function expectExited(pid: number) { expect(() => process.kill(pid, 0)).toThrow(); }
 afterEach(async () => { await Promise.all(directories.splice(0).map(directory => rm(directory, {recursive:true,force:true}))); });
@@ -32,7 +31,7 @@ describe('bounded real-process Orca runner', () => {
     expect(result.value.complete).toBe(false);
     const calls = (await readFile(join(directory,'calls.jsonl'),'utf8')).trim().split('\n').map(line => JSON.parse(line));
     expect(calls).toEqual([['status','--json'],['project','list','--json'],['worktree','list','--limit','1000','--json'],['worktree','ps','--limit','1000','--json']]);
-    expectExited(await waitForPid(directory));
+    expectExited(await completedPid(directory));
   });
   it.each(['status --json; touch /tmp/not-allowed','__proto__','toString','agent','worktree run',{},null])('never spawns an unsupported query (%j)', async query => {
     const {directory,executablePath} = await setup();
@@ -61,18 +60,23 @@ describe('bounded real-process Orca runner', () => {
   });
   it('cancels an active process and blocks overlapping reads/collections until exit', async () => {
     const {directory,executablePath} = await setup(); await mode(directory,'ignore-term');
+    // Regress the old two-second PID wait as well as PID-before-handler races.
+    await delayFixtureStartup(executablePath, directory, 2300);
+    const deadline = gateOperationDeadline(3000);
     const adapter = createOrcaAdapter({executablePath,timeoutMs:3000});
     const controller = new AbortController();
     const pending = adapter.collect({signal:controller.signal});
-    const pid = await waitForPid(directory);
-    expect(await adapter.read('projects')).toMatchObject({ok:false,error:{kind:'busy'}});
-    expect(await adapter.collect()).toMatchObject({ok:false,error:{kind:'busy'}});
-    controller.abort();
-    expect(await pending).toMatchObject({ok:false,error:{kind:'cancelled'}});
-    expectExited(pid);
-    await mode(directory,'normal');
-    expect((await adapter.read('status')).ok).toBe(true);
-  });
+    try {
+      const pid = await waitForReadyPid(directory); deadline.start();
+      expect(await adapter.read('projects')).toMatchObject({ok:false,error:{kind:'busy'}});
+      expect(await adapter.collect()).toMatchObject({ok:false,error:{kind:'busy'}});
+      controller.abort();
+      expect(await pending).toMatchObject({ok:false,error:{kind:'cancelled'}});
+      expectExited(pid);
+      await mode(directory,'normal');
+      expect((await adapter.read('status')).ok).toBe(true);
+    } finally { deadline.dispose(); controller.abort(); await pending; }
+  }, 10_000);
   it('does not spawn when already cancelled', async () => {
     const {directory,executablePath} = await setup();
     const controller = new AbortController(); controller.abort();
@@ -84,7 +88,7 @@ describe('bounded real-process Orca runner', () => {
     const result = await createOrcaAdapter({executablePath,maxOutputBytes:1024}).read('status');
     expect(result).toMatchObject({ok:false,error:{kind:'output_limit'}});
     expect(JSON.stringify(result)).not.toContain('SYNTHETIC_DISCARDED_OUTPUT');
-    expectExited(await waitForPid(directory));
+    expectExited(await completedPid(directory));
   });
   it.each([['denied','access_denied'],['nonzero','command_failed'],['invalid-json','invalid_json'],['invalid-utf8','invalid_json']])('returns safe %s failure rather than empty success', async (kind,errorKind) => {
     const {directory,executablePath} = await setup(); await mode(directory,kind);

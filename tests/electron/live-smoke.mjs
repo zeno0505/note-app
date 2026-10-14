@@ -36,7 +36,7 @@ async function verifyCommands(){
   const history=await fixture.logs();
   for(const row of history.filter(row=>row.kind==='orca'))assert(ORCA_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)),'Unexpected Orca argv');
   for(const row of history.filter(row=>row.kind==='codeburn'))assert(CODEBURN_ARGV.some(args=>JSON.stringify(args)===JSON.stringify(row.args)),'Unexpected CodeBurn argv');
-  for(const row of history.filter(row=>row.kind==='dag')){assert.equal(row.args.length,11);assert.deepEqual(row.args.slice(0,3),['-I','-B','-c']);assert.equal(row.args[4],process.env.NOTE_APP_DAG_QUERY_PATH);assert.equal(row.args[5],fixture.dagPath);assert.equal(row.args[6],'done');assert(/^[a-f0-9]{64}$/.test(row.args[7]));assert(/^[a-f0-9]{64}$/.test(row.args[8]));}
+  for(const row of history.filter(row=>row.kind==='dag')){assert.equal(row.args.length,12);assert(['0','1'].includes(row.args[11]));assert(path.isAbsolute(row.args[10]));assert.deepEqual(row.args.slice(0,3),['-I','-B','-c']);assert.equal(row.args[4],process.env.NOTE_APP_DAG_QUERY_PATH);assert.equal(row.args[5],fixture.dagPath);assert.equal(row.args[6],'done');assert(/^[a-f0-9]{64}$/.test(row.args[7]));assert(/^[a-f0-9]{64}$/.test(row.args[8]));}
 }
 try{
   const initial=await launch();assert.equal(initial.configuration.state,'ready');assert.equal(initial.connection,'disconnected');assert.equal(initial.observedAt,null);assert.deepEqual(initial.workstreams,[]);assert.deepEqual(initial.codeburn.results,[]);

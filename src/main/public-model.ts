@@ -6,8 +6,12 @@ export interface PublicModelView {
 }
 /** One compiled public pack only. No renderer paths, prompts, project IDs or provider choices. */
 export function createPublicModelController(pack:PublicReadingPack,storage:ReturnType<typeof createModelReadingStorage>,adapter?:ModelAdapter,timeoutMs=120000){
-  const inputHash=publicInputHash(pack),harness=adapter?createPublicReadingHarness(adapter,storage.ledger(pack),timeoutMs):undefined;
-  let state:PublicModelView['state']=adapter?'idle':'disabled',message=adapter?'승인된 공개 note-app 입력만 수동으로 요약합니다.':'공개 note-app 수동 AI 실행이 설정되지 않았습니다.';
+  const syntheticExample=pack.sourceSha==='0'.repeat(40);
+  // The bundled example is inert: no provider, ledger reservation, or automatic migration.
+  const activeAdapter=syntheticExample?undefined:adapter;
+  const inputHash=publicInputHash(pack),harness=activeAdapter?createPublicReadingHarness(activeAdapter,storage.ledger(pack),timeoutMs):undefined;
+  const syntheticMessage='합성 예제만 포함되어 있습니다. 실제 커밋이나 모델 실행 결과가 아니며 AI를 호출하지 않습니다. 기존 저장 결과는 보존합니다.';
+  let state:PublicModelView['state']=activeAdapter?'idle':'disabled',message=syntheticExample?syntheticMessage:activeAdapter?'승인된 공개 note-app 입력만 수동으로 요약합니다.':'공개 note-app 수동 AI 실행이 설정되지 않았습니다.';
   let flight:Promise<PublicModelView>|undefined,generation=0,disposed=false;
   async function view():Promise<PublicModelView>{return {state,message,inputHash,sourceSha:pack.sourceSha,latest:await storage.readLatest(pack.project,inputHash)};}
   return {
@@ -19,7 +23,7 @@ export function createPublicModelController(pack:PublicReadingPack,storage:Retur
       const work=(async()=>{try{const result=await harness.summarize(pack);if(own===generation&&!disposed){state=result.status==='model'?'idle':result.status==='cancelled'?'cancelled':'failed';message=result.status==='model'?'최신 성공 요약을 저장했습니다. 같은 입력은 모델을 다시 호출하지 않습니다.':'요약을 완료하지 못했습니다. 이전 성공 결과를 보존합니다. 불확실한 요청은 자동 재전송하지 않습니다.';}}catch{if(own===generation&&!disposed){state='failed';message='요약 실행을 확인하지 못했습니다. 이전 결과와 호출 방지 기록을 보존합니다.';}}return view();})();flight=work;
       void work.finally(()=>{if(flight===work)flight=undefined;}).catch(()=>{});return work;
     },
-    cancel(){generation++;harness?.cancel();state=adapter?'cancelled':'disabled';message='현재 요청을 취소했습니다. 늦은 결과는 게시하지 않습니다.';return view();},
+    cancel(){generation++;harness?.cancel();state=activeAdapter?'cancelled':'disabled';message=syntheticExample?syntheticMessage:'현재 요청을 취소했습니다. 늦은 결과는 게시하지 않습니다.';return view();},
     dispose(){disposed=true;generation++;harness?.cancel();},
     settle(){return flight??Promise.resolve();},
   };

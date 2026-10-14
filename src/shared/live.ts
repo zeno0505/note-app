@@ -27,6 +27,8 @@ export interface LiveDagTaskView extends DagTask {
   displayOmissions: { dependencies: number; commitReferences: number; e2eReferences: number };
 }
 export interface LiveDagView {
+  readContractVersion?:2; policies?:Record<string,unknown>[];
+  workspaceTasks?:LiveDagTaskView[]; workspaceTaskCount?:number|null;
   summaryScope?:import('./summary-prefix').SummaryPrefixScope;
   readerRecovery?:import('../facts/dag-read-model/types').DagReaderRecovery|null;
   dagId: string;
@@ -78,5 +80,6 @@ export interface LiveWorkspaceView {
   coverage: null | {projects: 'complete' | 'partial' | 'unknown'; worktrees: 'complete' | 'partial' | 'unknown'; processes: 'complete' | 'partial' | 'unknown'; totalWorktrees: number | null};
   workstreams: LiveWorkstreamView[];
   dags: LiveDagView[];
+  repositoryUsage?:{capability:'configured'|'unconfigured';views:import('../phase2/repository-usage').RepositoryUsageView[];lastAttemptAt:number|null;durationMs:number|null;minimumIntervalMs:number};
   codeburn: { state: 'unconfigured' | 'idle' | 'observed'; results: CodeBurnResult[] };
 }

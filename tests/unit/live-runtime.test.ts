@@ -66,7 +66,7 @@ function persisted(model = dag()): SummaryCacheRecord<SummaryCachePayload> {
   return {revision:7,payload:summaryCacheCodec.parse({state:store.exportState(),projectionContexts:[projection]})};
 }
 const runtimes: ReturnType<typeof createLiveRuntime>[] = [];
-function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {},projectRegistry?:ReturnType<typeof createProjectRegistry>,readRoots?:Parameters<typeof createLiveRuntime>[0]['readRoots']) {
+function setup(config = configuration(), cacheAvailable = true, extraDependencies: Partial<LiveRuntimeDependencies> = {},projectRegistry?:ReturnType<typeof createProjectRegistry>,readRoots?:Parameters<typeof createLiveRuntime>[0]['readRoots'],runtimeOptions:Pick<Parameters<typeof createLiveRuntime>[0],'readGitActivity'>={}) {
   const collect = vi.fn<OrcaAdapter['collect']>(async()=>({ok:true,value:observation()}));
   const mapNotes = vi.fn<LiveRuntimeDependencies['mapNotes']>(async request=>mapping(request));
   const readDag = vi.fn<ReturnType<LiveRuntimeDependencies['dagReader']>['read']>(async()=>({ok:true,value:dag(),unchanged:false}));
@@ -76,7 +76,7 @@ function setup(config = configuration(), cacheAvailable = true, extraDependencie
   const summaryCache = vi.fn<LiveRuntimeDependencies['summaryCache']>(()=>({read:cacheRead}));
   const orca = vi.fn<LiveRuntimeDependencies['orca']>(()=>({collect,read:vi.fn()}));
   const codeburn = vi.fn<LiveRuntimeDependencies['codeburn']>(()=>({read:codeRead}));
-  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,projectRegistry,readRoots,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies}});
+  const runtime = createLiveRuntime({configuration:config,cacheRoot,cacheAvailable,projectRegistry,readRoots,dependencies:{orca,mapNotes,dagReader,codeburn,summaryCache,...extraDependencies},...runtimeOptions});
   runtimes.push(runtime);
   return {runtime,collect,mapNotes,readDag,dagReader,codeRead,cacheRead,summaryCache,orca,codeburn};
 }
@@ -150,6 +150,80 @@ describe('connected-project rule reading integration',()=>{
 });
 async function flush() { for(let i=0;i<50;i++)await Promise.resolve(); }
 
+describe('onboarding current Orca workspace selection integration',()=>{
+  it('exposes distinct current repository/worktree bindings without additional IO or registry writes',async()=>{
+    const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry);
+    f.collect.mockImplementation(async()=>{const value=observation();value.joined[1].worktree.repoId='second-repo';value.joined[1].project!.sourceRepoIds=['repo','second-repo'];return {ok:true,value};});
+    expect(f.runtime.getProjectWorkspaceOptions()).toMatchObject({state:'unavailable',reason:'disconnected',options:[]});
+    await f.runtime.connect();
+    const counts=[f.collect,f.mapNotes,f.readDag,f.codeRead,f.cacheRead].map(mock=>mock.mock.calls.length),records=registry.records();
+    const options=f.runtime.getProjectWorkspaceOptions();
+    expect(options.options).toHaveLength(2);expect(options.options.map(option=>option.repository.id)).toEqual(['repo','second-repo']);
+    expect(options.options.map(option=>option.branch)).toEqual([null,'topic']);
+    const selected=options.options[1];expect(f.runtime.resolveProjectWorkspace({optionId:selected.optionId,expectedFingerprint:selected.fingerprint})).toEqual(selected);
+    expect([f.collect,f.mapNotes,f.readDag,f.codeRead,f.cacheRead].map(mock=>mock.mock.calls.length)).toEqual(counts);
+    expect(registry.records()).toEqual(records);expect(JSON.stringify(f.runtime.getState())).not.toContain('currentWorktrees');
+  });
+  it('revalidates identical snapshots while rejecting refreshing, failed and disconnected observations',async()=>{
+    const f=setup();await f.runtime.connect();const option=f.runtime.getProjectWorkspaceOptions().options[0],request={optionId:option.optionId,expectedFingerprint:option.fingerprint};
+    let finish!:(result:OrcaResult<OrcaObservation>)=>void;f.collect.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    const pending=f.runtime.refresh();expect(f.runtime.getProjectWorkspaceOptions()).toMatchObject({state:'unavailable',reason:'refreshing'});expect(()=>f.runtime.resolveProjectWorkspace(request)).toThrow();
+    finish({ok:true,value:observation()});await pending;expect(f.runtime.resolveProjectWorkspace(request)).toEqual(option);
+    const current=f.runtime.getProjectWorkspaceOptions().options[0],currentRequest={optionId:current.optionId,expectedFingerprint:current.fingerprint};
+    f.collect.mockResolvedValueOnce({ok:false,error:{kind:'timeout',query:'status',runtimeId:null,message:'Failed'}});await f.runtime.refresh();
+    expect(f.runtime.getProjectWorkspaceOptions()).toMatchObject({state:'unavailable',reason:'stale',options:[]});expect(()=>f.runtime.resolveProjectWorkspace(currentRequest)).toThrow();
+    await f.runtime.disconnect();expect(f.runtime.getProjectWorkspaceOptions()).toMatchObject({state:'unavailable',reason:'disconnected',options:[]});
+    expect(()=>f.runtime.resolveProjectWorkspace(currentRequest)).toThrow();
+  });
+  it('never offers retained project history after its worktree disappears, or foreign/ambiguous raw IDs',async()=>{
+    const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry);await f.runtime.connect();expect(f.runtime.getProjectWorkspaceOptions().options).toHaveLength(2);
+    f.collect.mockResolvedValueOnce({ok:true,value:observation(0)});const retained=await f.runtime.refresh();expect(retained.workstreams.length).toBeGreaterThan(0);expect(f.runtime.getProjectWorkspaceOptions().options).toEqual([]);
+    const ambiguous=observation();ambiguous.joined[1].worktree.id=ambiguous.joined[0].worktree.id;ambiguous.joined[1].worktree.identity.hostId='remote-host';
+    f.collect.mockResolvedValueOnce({ok:true,value:ambiguous});await f.runtime.refresh();expect(f.runtime.getProjectWorkspaceOptions().options).toEqual([]);
+  });
+  it('fails closed once a current snapshot ages in the background',async()=>{
+    const f=setup();await f.runtime.connect();const option=f.runtime.getProjectWorkspaceOptions().options[0];
+    f.runtime.setActivity({visible:false,active:false});await vi.advanceTimersByTimeAsync(41000);
+    expect(f.runtime.getProjectWorkspaceOptions()).toMatchObject({state:'unavailable',reason:'stale'});
+    expect(()=>f.runtime.resolveProjectWorkspace({optionId:option.optionId,expectedFingerprint:option.fingerprint})).toThrow();
+  });
+  it('resolves a single current checkout and ready canonical DAG for the main-only Orca display boundary',async()=>{
+    const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry);f.collect.mockResolvedValue({ok:true,value:observation(1)});
+    const view=await f.runtime.connect(),id=view.workstreams[0].id,records=registry.records();
+    const reads=[f.collect,f.mapNotes,f.readDag,f.codeRead,f.cacheRead].map(mock=>mock.mock.calls.length);
+    expect(f.runtime.resolveProjectOrcaTarget(id)).toEqual({hostId:'local-host',worktreeId:'worktree-0',worktreePath:'/synthetic/worktree/0',
+      dagPath:'/synthetic/vault/project/dag.yaml',runtimeId:'PRIVATE_RUNTIME_INCARNATION',noteRootPath:'/synthetic/vault/project'});
+    expect(f.runtime.resolveProjectOrcaTarget('/renderer/entered/path')).toBeNull();expect(f.runtime.resolveProjectOrcaTarget('worktree-0')).toBeNull();
+    expect([f.collect,f.mapNotes,f.readDag,f.codeRead,f.cacheRead].map(mock=>mock.mock.calls.length)).toEqual(reads);expect(registry.records()).toEqual(records);
+    // Target metadata is main-only; the opener owns the further filesystem proof.
+    expect(JSON.stringify(f.runtime.getState())).not.toContain('PRIVATE_RUNTIME_INCARNATION');
+  });
+  it('rejects collapsed multi-worktree projects and retained-only Orca display targets',async()=>{
+    const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry),view=await f.runtime.connect(),id=view.workstreams[0].id;
+    expect(view.workstreams).toHaveLength(1);expect(f.runtime.resolveProjectOrcaTarget(id)).toBeNull();
+    f.collect.mockResolvedValueOnce({ok:true,value:observation(0)});await f.runtime.refresh();expect(f.runtime.resolveProjectOrcaTarget(id)).toBeNull();
+  });
+  it('keeps display bindings across failed/stale DAG content, rejects refreshing and disconnected source',async()=>{
+    const f=setup();f.collect.mockResolvedValue({ok:true,value:observation(1)});const view=await f.runtime.connect(),id=view.workstreams[0].id;
+    expect(f.runtime.resolveProjectOrcaTarget(id)).not.toBeNull();
+    let finish!:(result:OrcaResult<OrcaObservation>)=>void;f.collect.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    const pending=f.runtime.refresh();expect(f.runtime.resolveProjectOrcaTarget(id)).toBeNull();finish({ok:true,value:observation(1)});await pending;
+    f.readDag.mockResolvedValueOnce({ok:false,error:{kind:'command_failed',message:'Synthetic failure'}});await f.runtime.refresh();expect(f.runtime.resolveProjectOrcaTarget(id)).not.toBeNull();
+    await f.runtime.refresh();expect(f.runtime.resolveProjectOrcaTarget(id)).not.toBeNull();
+    f.runtime.setActivity({active:false,visible:false});await vi.advanceTimersByTimeAsync(41000);expect(f.runtime.resolveProjectOrcaTarget(id)).not.toBeNull();
+    await f.runtime.disconnect();expect(f.runtime.resolveProjectOrcaTarget(id)).toBeNull();
+  });
+  it('allows display of a mapped regular DAG even when the initial semantic reader is retired',async()=>{const f=setup();f.collect.mockResolvedValue({ok:true,value:observation(1)});f.readDag.mockResolvedValue({ok:false,error:{kind:'cleanup_unverified',message:'Synthetic retired reader'}});const v=await f.runtime.connect(),id=v.workstreams[0].id;expect(v.dags[0].state).toBe('error');expect(f.runtime.projectOrcaTargetState(id).reason).toBe('ready');expect(f.runtime.resolveProjectOrcaTarget(id)).not.toBeNull();});
+  it('rejects foreign or ambiguous raw worktree identities at the Orca display boundary',async()=>{
+    for(const duplicate of [false,true]){
+      const f=setup(),value=observation(duplicate?2:1);value.joined[value.joined.length-1].worktree.identity.hostId='remote';
+      if(duplicate)value.joined[1].worktree.id=value.joined[0].worktree.id;
+      f.collect.mockResolvedValue({ok:true,value});const view=await f.runtime.connect();
+      for(const workstream of view.workstreams)expect(f.runtime.resolveProjectOrcaTarget(workstream.id)).toBeNull();
+    }
+  });
+});
+
 describe('main-owned live read-only orchestration',()=>{
   it('revalidates an existing project binding when discovery adds an empty ancestor, but rejects retargeting and revoked grants',async()=>{
     const root=await realpath(await mkdtemp(path.join(tmpdir(),'note-binding-'))),vault=path.join(root,'vault'),parent=path.join(vault,'web'),note=path.join(parent,'ai'),tree=path.join(root,'tree'),other=path.join(note,'other');
@@ -179,7 +253,7 @@ describe('main-owned live read-only orchestration',()=>{
     expect(x.runtime.getState().freshness).toBe('stale');expect(x.runtime.modelSourceRevision(id)).toBe(revision);
     await expect(x.runtime.resolveSummarySource(id)).rejects.toThrow('current_source_unavailable');
     x.mapNotes.mockClear();x.readDag.mockClear();const source=await x.runtime.resolveSummarySource(id,new AbortController().signal,true);
-    expect(source.readingSummary).toBeDefined();expect(x.mapNotes).toHaveBeenCalledTimes(1);expect(x.readDag).toHaveBeenCalledTimes(1);
+    expect(source.readingSummary).toBeDefined();expect(x.mapNotes).toHaveBeenCalledTimes(2);expect(x.readDag).toHaveBeenCalledTimes(1);
     x.mapNotes.mockImplementation(async request=>{const result=mapping(request);const m=result.mappings[0];if(m.state==='resolved')m.canonicalDagPath='/synthetic/revoked';return result;});
     await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow('read_permission_or_mapping_changed');
     await x.runtime.disconnect();expect(x.runtime.modelSourceRevision(id)).toBeNull();await expect(x.runtime.resolveSummarySource(id,new AbortController().signal,true)).rejects.toThrow();
@@ -194,7 +268,7 @@ describe('main-owned live read-only orchestration',()=>{
     const x=setup();const view=await x.runtime.connect();x.mapNotes.mockClear();x.readDag.mockClear();
     const changed=dag();changed.tasks[0].status='done';changed.sourceHash='c'.repeat(64);x.readDag.mockResolvedValue({ok:true,value:changed,unchanged:false});
     const source=await x.runtime.resolveSummarySource(view.workstreams[0].id);
-    expect(source.dag.tasks[0].status).toBe('done');expect(x.mapNotes).toHaveBeenCalledTimes(1);
+    expect(source.dag.tasks[0].status).toBe('done');expect(x.mapNotes).toHaveBeenCalledTimes(2);
     expect(x.mapNotes.mock.calls[0][0].worktrees).toHaveLength(1);expect(x.readDag).toHaveBeenCalledTimes(1);
     expect(x.dagReader).toHaveBeenCalledTimes(1);expect(JSON.stringify(x.runtime.getState())).not.toContain('worktreeSources');
   });
@@ -559,4 +633,130 @@ it('defaults to absent T without selecting another prefix and persists explicit 
 it('manual prefix AI uses all selected tasks before its own cap, including tasks after display index 200',async()=>{
  const f=setup(),model=dag(251);model.tasks.forEach(t=>{t.status='done';});model.tasks[250].status='running';f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const view=await f.runtime.connect();const source=await f.runtime.resolveProjectModelSource(view.workstreams[0].id,new AbortController().signal);
  expect(source.summaryPrefix).toBe('T');expect(view.dags[0].tasks).toHaveLength(200);expect(source.dag.tasks).toHaveLength(251);expect(source.readingSummary.summaryPrefix).toBe('T');const {buildProjectModelPack}=await import('../../src/main/project-model');const pack=buildProjectModelPack(source);expect(pack.sources.find(s=>s.path==='dag/task-state.json')?.excerpt).toContain('T-250');expect(source).not.toHaveProperty('registeredExcerpts');
+});
+
+it('persists bounded explicit task choice and isolates identity, rules, model pack and restart state',async()=>{
+ const registry=createProjectRegistry(),f=setup(configuration(),true,{},registry),model=dag(251);model.tasks.forEach(t=>{t.status='done';});model.tasks[250].status='running';f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const first=await f.runtime.connect(),id=first.workstreams[0].id,autoKey=f.runtime.identifyModelProject(id);
+ const view=await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'T',taskIds:['T-250']});expect(view.dags[0].summaryScope?.taskSelection.taskIds).toEqual(['T-250']);expect(view.dags[0].tasks[0].id).toBe('T-250');expect(registry.records()[0].summaryTaskIds).toEqual(['T-250']);expect(f.runtime.identifyModelProject(id)).not.toBe(autoKey);
+ const selectedKey=f.runtime.identifyModelProject(id),source=await f.runtime.resolveProjectModelSource(id,new AbortController().signal);expect(source.readingSummary.summaryTaskIds).toEqual(['T-250']);const {buildProjectModelPack}=await import('../../src/main/project-model');expect(JSON.parse(buildProjectModelPack(source).sources.find(s=>s.path==='dag/task-state.json')!.excerpt).tasks.map((t:{id:string})=>t.id)).toEqual(['T-250']);
+ await f.runtime.disconnect();await f.runtime.connect();expect(f.runtime.getState().dags[0].summaryScope?.taskSelection.taskIds).toEqual(['T-250']);expect(f.runtime.identifyModelProject(id)).toBe(selectedKey);await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'T'});expect(f.runtime.identifyModelProject(id)).toBe(autoKey);expect(registry.records()[0].summaryTaskIds).toBeUndefined();
+});
+it('rejects empty, duplicate, unknown, cross-prefix and over-limit explicit task requests without changing selection',async()=>{
+ const f=setup(),model=dag(25);model.tasks.push({...model.tasks[0],id:'MP-1'});f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const first=await f.runtime.connect(),id=first.workstreams[0].id,prior=first.dags[0].summaryScope;
+ for(const taskIds of [[],['T-0','T-0'],['T-999'],['MP-1'],Array.from({length:21},(_,i)=>'T-'+i)])await expect(f.runtime.setSummaryPrefix({workstreamId:id,prefix:'T',taskIds})).rejects.toThrow();expect(f.runtime.getState().dags[0].summaryScope).toEqual(prior);
+});
+it('preserves missing explicit IDs without substitution and blocks AI until selection is corrected',async()=>{
+ const f=setup(),model=dag(3);f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});const first=await f.runtime.connect(),id=first.workstreams[0].id;await f.runtime.setSummaryPrefix({workstreamId:id,prefix:'T',taskIds:['T-2']});model.tasks=model.tasks.filter(t=>t.id!=='T-2');f.readDag.mockResolvedValue({ok:true,value:model,unchanged:false});await f.runtime.refresh();const scope=f.runtime.getState().dags[0].summaryScope!;expect(scope.taskSelection.missingIds).toEqual(['T-2']);expect(scope.taskSelection.taskIds).toEqual([]);await expect(f.runtime.resolveProjectModelSource(id,new AbortController().signal)).rejects.toThrow();
+});
+
+describe('joined summary DAG reads',()=>{
+ it('joins same project/source reads but independently checks both mappings and cancellation',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;f.readDag.mockClear();f.mapNotes.mockClear();
+  let release!:(r:DagReadResult)=>void,physical!:AbortSignal;const gate=new Promise<DagReadResult>(resolve=>release=resolve);
+  f.readDag.mockImplementationOnce(async(_id,request)=>{physical=request!.signal!;return gate;});
+  const a=new AbortController(),b=new AbortController();const x=f.runtime.resolveSummarySource(id,a.signal),y=f.runtime.resolveSummarySource(id,b.signal);const cancelled=expect(x).rejects.toMatchObject({code:'request_cancelled'});
+  await vi.waitFor(()=>expect(f.readDag).toHaveBeenCalledTimes(1));expect(f.mapNotes).toHaveBeenCalledTimes(2);a.abort();await cancelled;expect(physical.aborted).toBe(false);release({ok:true,value:dag(),unchanged:true});expect((await y).dag.tasks).toHaveLength(3);
+  expect((await f.runtime.getRecentSummaryTasks(id)).state).toBe('unknown');expect(f.readDag).toHaveBeenCalledTimes(2);
+ });
+ it('rejects stale responses after a new snapshot revision instead of reusing old read results',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;f.readDag.mockClear();let release!:(r:DagReadResult)=>void;
+  f.readDag.mockImplementationOnce(()=>new Promise(resolve=>release=resolve));const old=f.runtime.resolveSummarySource(id);const rejected=expect(old).rejects.toMatchObject({code:'source_changed'});
+  await vi.waitFor(()=>expect(f.readDag).toHaveBeenCalledTimes(1));const refreshing=f.runtime.refresh();expect(f.runtime.getState().refreshing).toBe(true);release({ok:true,value:dag(),unchanged:true});await rejected;await refreshing;const current=await f.runtime.resolveSummarySource(id);expect(current.dag.tasks).toHaveLength(3);expect(f.readDag).toHaveBeenCalledTimes(3);
+ });
+ it('does not let a newly denied mapping join an already authorized read',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;f.readDag.mockClear();let release!:(r:DagReadResult)=>void;
+  f.readDag.mockImplementationOnce(()=>new Promise(resolve=>release=resolve));const first=f.runtime.resolveSummarySource(id);await vi.waitFor(()=>expect(f.readDag).toHaveBeenCalledTimes(1));
+  f.mapNotes.mockImplementationOnce(async request=>({...mapping(request),mappings:[]}));await expect(f.runtime.resolveSummarySource(id)).rejects.toMatchObject({code:'read_permission_or_mapping_changed'});expect(f.readDag).toHaveBeenCalledTimes(1);release({ok:true,value:dag(),unchanged:true});await first;
+ });
+ it('classifies collector/different-project reader contention as bounded busy',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;f.readDag.mockResolvedValueOnce({ok:false,error:{kind:'busy',message:'PRIVATE'}});await expect(f.runtime.getRecentSummaryTasks(id)).rejects.toMatchObject({code:'dag_busy'});
+ });
+ it.each(['cancel','revision'])('rejects %s after activity lookup without publishing stale recent tasks',async reason=>{
+  let release!:()=>void,entered!:()=>void;const gate=new Promise<void>(resolve=>release=resolve),ready=new Promise<void>(resolve=>entered=resolve);
+  const readGitActivity=vi.fn(async()=>{entered();await gate;return {events:[],coverage:{state:'unavailable' as const,total:1,checked:0,resolved:0,unresolved:0,unsupported:0,pending:1}};});
+  const f=setup(configuration(),true,{},undefined,undefined,{readGitActivity});await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id,a=new AbortController();
+  const pending=f.runtime.getRecentSummaryTasks(id,a.signal),rejected=expect(pending).rejects.toMatchObject({code:reason==='cancel'?'request_cancelled':'source_changed'});await ready;
+  if(reason==='cancel')a.abort();else await f.runtime.refresh();release();await rejected;
+  expect((await f.runtime.getRecentSummaryTasks(id)).state).toBe('unknown');
+ });
+ it('rejects a provided source from an older revision before reading activities',async()=>{
+  const readGitActivity=vi.fn(async()=>({events:[],coverage:{state:'complete' as const,total:0,checked:0,resolved:0,unresolved:0,unsupported:0,pending:0}}));
+  const f=setup(configuration(),true,{},undefined,undefined,{readGitActivity});await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id,source=await f.runtime.resolveSummarySource(id);await f.runtime.refresh();
+  await expect(f.runtime.getRecentSummaryTasks(id,new AbortController().signal,false,source)).rejects.toMatchObject({code:'source_changed'});expect(readGitActivity).not.toHaveBeenCalled();
+ });
+ it('rejects a provided source from a different mapping even at the same revision',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id,source=await f.runtime.resolveSummarySource(id);
+  await expect(f.runtime.getRecentSummaryTasks(id,new AbortController().signal,false,{...source,mappingIdentity:'different-current-mapping'})).rejects.toMatchObject({code:'source_changed'});
+ });
+
+ it('rejects a mapping retargeted during the physical read without a snapshot revision change',async()=>{
+  const f=setup();await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;f.readDag.mockClear();let release!:(r:DagReadResult)=>void;
+  f.readDag.mockImplementationOnce(()=>new Promise(resolve=>release=resolve));const pending=f.runtime.resolveSummarySource(id),rejected=expect(pending).rejects.toMatchObject({code:'read_permission_or_mapping_changed'});await vi.waitFor(()=>expect(f.readDag).toHaveBeenCalledTimes(1));
+  f.mapNotes.mockImplementation(async request=>{const result=mapping(request),m=result.mappings[0];if(m.state==='resolved')m.canonicalDagPath='/synthetic/retargeted/dag.yaml';return result;});release({ok:true,value:dag(),unchanged:true});await rejected;
+  f.mapNotes.mockImplementation(async request=>mapping(request));expect((await f.runtime.resolveSummarySource(id)).dag.tasks).toHaveLength(3);
+ });
+
+});
+
+ describe('periodic collection with a pending source reader',()=>{
+  it('preserves a ready DAG through a scheduled poll overlapping a read-only consumer',async()=>{
+   const f=setup();f.runtime.setActivity({visible:true,active:true});await f.runtime.connect();const id=f.runtime.getState().workstreams[0].id;let release!:(r:DagReadResult)=>void,readerBusy=false,alreadyHeld=false;
+   f.readDag.mockImplementation(async()=>{if(readerBusy)return {ok:false,error:{kind:'busy',message:'reader in use'}};if(alreadyHeld)return {ok:true,value:dag(),unchanged:true};alreadyHeld=true;readerBusy=true;const result=await new Promise<DagReadResult>(resolve=>release=resolve);readerBusy=false;return result;});
+   await vi.advanceTimersByTimeAsync(19900);const consumer=f.runtime.getRecentSummaryTasks(id);const retiredConsumer=expect(consumer).rejects.toMatchObject({code:'source_changed'});await vi.waitFor(()=>expect(readerBusy).toBe(true));
+   await vi.advanceTimersByTimeAsync(150);release({ok:true,value:dag(),unchanged:true});await retiredConsumer;await vi.waitFor(()=>expect(f.runtime.getState().refreshing).toBe(false));
+   expect(f.runtime.getState().dags[0].state).toBe('ready');
+   f.readDag.mockImplementation(async()=>({ok:true,value:dag(),unchanged:true}));expect((await f.runtime.getRecentSummaryTasks(id)).state).toBe('unknown');
+  });
+ });
+
+
+describe('dedicated complete graph runtime transport',()=>{
+  it('reads >1000 nodes and >8 dependencies without changing bounded legacy views',async()=>{
+    const f=setup(),m=dag(1001);m.tasks[1000].dependencies=Array.from({length:12},(_,i)=>({id:`T-${i}`,scope:'internal' as const}));m.tasks[1000].commitReferences=Array.from({length:14},(_,i)=>`synthetic-commit-${i}`);f.readDag.mockResolvedValue({ok:true,value:m,unchanged:false});
+    const view=await f.runtime.connect(),id=view.workstreams[0].id;
+    expect(view.dags[0].tasks.length).toBeLessThanOrEqual(1000);
+    const session=f.runtime.getTaskGraphSession({projectId:id});expect(session).not.toBeNull();
+    const response=await f.runtime.readTaskGraph({...session!,requestId:'graph-read',expectedRevision:null});expect(response.state).toBe('snapshot');if(response.state!=='snapshot')return;
+    expect(response.metadata.coverage.counts?.uniqueNodes).toBe(1001);const chunks=[];
+    for(let index=0;index<response.metadata.chunkCount;index++){const c=await f.runtime.readTaskGraphChunk({requestId:'graph-read',identity:response.metadata.identity,index});expect(c.state).toBe('chunk');if(c.state==='chunk')chunks.push(c.chunk);}
+    expect(chunks.flatMap(c=>c.nodes)).toHaveLength(1001);expect(chunks.flatMap(c=>c.edges)).toHaveLength(12);
+    const detail=await f.runtime.readTaskGraphDetail({requestId:'detail',identity:response.metadata.identity,taskId:'T-1000'});expect(detail.state).toBe('detail');if(detail.state!=='detail')throw Error('detail');
+    expect(detail.task.dependencies).toHaveLength(12);expect(detail.task.commitReferences).toHaveLength(14);expect(detail.task.displayOmissions.dependencies).toBe(0);
+    f.readDag.mockResolvedValue({ok:true,value:{...m,sourceHash:'changed'},unchanged:false});
+    expect(await f.runtime.readTaskGraphDetail({requestId:'changed-detail',identity:response.metadata.identity,taskId:'T-1000'})).toMatchObject({reason:'source-changed'});
+    f.runtime.cancelTaskGraph({requestId:'graph-read'});
+  });
+  it('invalidates on background, revocation, disconnect and rejects stale source chunks',async()=>{
+    const f=setup();const view=await f.runtime.connect(),id=view.workstreams[0].id,session=f.runtime.getTaskGraphSession({projectId:id})!;
+    const r=await f.runtime.readTaskGraph({...session,requestId:'graph-r',expectedRevision:null});if(r.state!=='snapshot')throw Error('snapshot');
+    f.runtime.setActivity({active:false,visible:false});expect(f.runtime.getTaskGraphSession({projectId:id})).toBeNull();
+    expect(await f.runtime.readTaskGraphChunk({requestId:'graph-r',identity:r.metadata.identity,index:0})).toMatchObject({state:'unavailable'});
+    expect(await f.runtime.readTaskGraphDetail({requestId:'background-detail',identity:r.metadata.identity,taskId:'T-0'})).toMatchObject({state:'unavailable'});
+    f.runtime.setActivity({active:true,visible:true});expect(f.runtime.getTaskGraphSession({projectId:id})?.sessionKey).not.toBe(session.sessionKey);
+    expect(await f.runtime.readTaskGraphDetail({requestId:'old-generation-detail',identity:r.metadata.identity,taskId:'T-0'})).toMatchObject({reason:'stale-session'});
+    await f.runtime.disconnect();expect(f.runtime.getTaskGraphSession({projectId:id})).toBeNull();
+  });
+  it('revalidates read permission before and after one-task detail I/O',async()=>{
+    const config=configuration();let allowed=true;
+    const readRoots={scopesFor:async()=>allowed?config.configuration!.noteScopes:[],filterScopes:async(scopes:readonly import('../../src/collector/notes').AllowedNoteScope[])=>allowed?[...scopes]:[]};
+    const mapNotes=async(request:NoteMappingRequest):Promise<NoteMappingResult>=>request.scopes.length?mapping(request):{status:'partial',mappings:request.worktrees.map(w=>({state:'unresolved',hostId:w.hostId,worktreeId:w.worktreeId,reason:'no-allowed-scope',stage:'scope'})),dags:[],scopeIssues:[],filesystemOperations:0};
+    const f=setup(config,true,{mapNotes},undefined,readRoots),view=await f.runtime.connect(),projectId=view.workstreams[0].id;
+    const session=f.runtime.getTaskGraphSession({projectId})!,snapshot=await f.runtime.readTaskGraph({...session,requestId:'snapshot',expectedRevision:null});
+    if(snapshot.state!=='snapshot')throw Error('snapshot');f.runtime.cancelTaskGraph({requestId:'snapshot'});
+    allowed=false;f.readDag.mockClear();
+    expect(await f.runtime.readTaskGraphDetail({requestId:'denied-before',identity:snapshot.metadata.identity,taskId:'T-0'})).toMatchObject({state:'unavailable'});
+    expect(f.readDag).not.toHaveBeenCalled();
+    allowed=true;f.readDag.mockImplementation(async()=>{allowed=false;return {ok:true,value:dag(),unchanged:false};});
+    expect(await f.runtime.readTaskGraphDetail({requestId:'denied-after',identity:snapshot.metadata.identity,taskId:'T-0'})).toMatchObject({state:'unavailable'});
+    expect(f.readDag).toHaveBeenCalledOnce();
+  });
+  it('rejects a mapping retargeted while one-task detail is read',async()=>{
+    const f=setup(),view=await f.runtime.connect(),projectId=view.workstreams[0].id;
+    const session=f.runtime.getTaskGraphSession({projectId})!,snapshot=await f.runtime.readTaskGraph({...session,requestId:'snapshot',expectedRevision:null});
+    if(snapshot.state!=='snapshot')throw Error('snapshot');f.runtime.cancelTaskGraph({requestId:'snapshot'});
+    let retargeted=false;f.mapNotes.mockImplementation(async request=>{const result=mapping(request);if(retargeted)for(const item of result.mappings)if(item.state==='resolved')item.canonicalDagPath='/synthetic/vault/project/replaced.yaml';return result;});
+    f.readDag.mockImplementation(async()=>{retargeted=true;return {ok:true,value:dag(),unchanged:false};});
+    expect(await f.runtime.readTaskGraphDetail({requestId:'retargeted',identity:snapshot.metadata.identity,taskId:'T-0'})).toMatchObject({reason:'stale-session'});
+  });
+
 });

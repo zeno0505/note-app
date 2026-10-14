@@ -1,0 +1,20 @@
+import {afterEach,describe,expect,it,vi} from 'vitest';
+import {open,mkdtemp,writeFile,rm,realpath} from 'node:fs/promises';
+import {constants} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import path from 'node:path';
+import {tmpdir} from 'node:os';
+import {createLiveFixture,fixtureDagSnapshotPaths,inspectFixtureProcess} from '../electron/live-fixture/setup.mjs';
+
+const python=process.env.DAG_QUERY_PYTHON||process.env.NOTE_APP_PYTHON||'/usr/bin/python3';
+const fixtures=[],temporary=[];
+afterEach(async()=>{for(const fixture of fixtures.splice(0))await fixture.cleanup();for(const directory of temporary.splice(0))await rm(directory,{recursive:true,force:true});vi.unstubAllEnvs();});
+async function fixture(){const directory=await realpath(await mkdtemp(path.join(tmpdir(),'fixture-python-test-')));temporary.push(directory);const query=path.join(directory,'synthetic-query.py');await writeFile(query,'# synthetic path, never used as a real DAG query\n');vi.stubEnv('NOTE_APP_PYTHON',python);vi.stubEnv('NOTE_APP_DAG_QUERY_PATH',query);const value=await createLiveFixture();fixtures.push(value);return value;}
+const fdProbe='import os, json\ntry:\n s=os.fstat(3); result={"directory":__import__("stat").S_ISDIR(s.st_mode),"inode":str(s.st_ino)}\nexcept OSError:\n result={"directory":False}\nprint(json.dumps(result))';
+describe('synthetic Python wrapper preserves the real native transport contract',()=>{
+ it('forwards only the inherited metadata directory descriptor and classifies its log separately',async()=>{const f=await fixture(),handle=await open(f.scope??path.dirname(f.dagPath),constants.O_RDONLY|constants.O_DIRECTORY);try{const result=spawnSync(f.config.dagQuery.pythonPath,['-I','-B','-S','-c',fdProbe],{encoding:'utf8',stdio:['ignore','pipe','pipe',handle.fd],timeout:5000});expect(result.error).toBeUndefined();expect(result.status,result.stderr).toBe(0);expect(JSON.parse(result.stdout)).toEqual({directory:true,inode:String((await handle.stat()).ino)});const logs=await f.logs();expect(logs.filter(row=>row.kind==='metadata')).toHaveLength(1);expect(fixtureDagSnapshotPaths(logs)).toEqual([]);}finally{await handle.close();}});
+ it('rejects metadata execution when fd3 is missing instead of silently bypassing the descriptor',async()=>{const f=await fixture();const result=spawnSync(f.config.dagQuery.pythonPath,['-I','-B','-S','-c',fdProbe],{encoding:'utf8',timeout:5000});expect(result.status).toBe(92);expect(result.stderr).toContain('Inherited metadata directory descriptor unavailable');expect((await f.logs()).filter(row=>row.kind==='python-child')).toHaveLength(0);});
+ it('does not forward ambient fd3 to ordinary DAG queries and tracks the snapshot directory at argv10',async()=>{const f=await fixture(),handle=await open(path.dirname(f.dagPath),constants.O_RDONLY|constants.O_DIRECTORY);try{const snapshot=path.join(f.root,'already-removed-query-snapshot'),args=['-I','-B','-c',fdProbe,f.config.dagQuery.queryScriptPath,f.dagPath,'done','a'.repeat(64),'b'.repeat(64),'1024',snapshot,'0'];const result=spawnSync(f.config.dagQuery.pythonPath,args,{encoding:'utf8',stdio:['ignore','pipe','pipe',handle.fd],timeout:5000});expect(result.status,result.stderr).toBe(0);expect(JSON.parse(result.stdout)).toEqual({directory:false});expect(fixtureDagSnapshotPaths(await f.logs())).toEqual([snapshot]);}finally{await handle.close();}});
+ it('fails closed on malformed DAG cleanup arguments rather than checking a flag as a path',()=>{expect(()=>fixtureDagSnapshotPaths([{kind:'dag',args:['0']}])).toThrow('Unverified');});
+ it('never treats a live native process or failed inspection as exited',async()=>{expect(await inspectFixtureProcess(process.pid)).toEqual({pid:process.pid,state:'live'});expect(await inspectFixtureProcess(42,async()=> 'exited')).toEqual({pid:42,state:'gone'});expect(await inspectFixtureProcess(42,async()=> 'zombie')).toEqual({pid:42,state:'zombie'});await expect(inspectFixtureProcess(42,async()=>{throw Error('denied');})).rejects.toThrow('denied');await expect(inspectFixtureProcess(42,async()=> 'unknown')).rejects.toThrow('Unverified');});
+});
