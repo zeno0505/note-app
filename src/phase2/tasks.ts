@@ -79,6 +79,8 @@ export interface TaskInterpretation<T extends TaskInput = TaskInput> {
   lifecycle: TaskLifecycle;
   /** Independent flags, never an exclusive partition of the task count. */
   discussion: boolean;
+  /** Explicit policy meaning; the UI flag above is false for both false and unknown. */
+  discussionRequirement: boolean | null;
   verification: boolean;
   review: boolean;
   verificationState: 'not-performed';
@@ -234,7 +236,8 @@ export function interpretTasks<T extends TaskInput>(tasks: readonly T[], context
     if (awaitingReview) reasons.push({ kind: 'observed', code: 'pr-awaiting-review', message: '태스크에 연결하여 관측한 PR이 검토 대기' });
     if (context.partial) reasons.push({ kind: 'unknown', code: 'partial-observation', message: '부분 수집 결과이며 전체 태스크·의존·근거를 확정하지 않음' });
     return { task, rawType: task.rawType ?? null, rawStatus: task.status, lifecycle,
-      discussion: mapping?.discussion === true, verification: mapping?.verification === true || e2eMissing || e2eMalformed,
+      discussion: mapping?.discussion === true, discussionRequirement: mapping?.discussion ?? null,
+      verification: mapping?.verification === true || e2eMissing || e2eMalformed,
       review: lifecycle === 'review' || awaitingReview, verificationState: 'not-performed', policy: selected.policy, prReviews, reasons,
       provenance: { projectId: context.projectId, dagId: context.dagId, sourceHash: context.sourceHash, observedAt: context.observedAt,
         interpretationVersion: 'phase2-task-v1', partial: context.partial === true, omittedTaskCount: context.omittedTaskCount ?? 0 } };

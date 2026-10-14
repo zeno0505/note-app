@@ -5,6 +5,13 @@ import {parseResolveProjectWorkspaceRequest} from '../shared/project-workspaces'
 import { contextBridge, ipcRenderer } from 'electron';
 import type { NoteAppBridge } from '../shared/bridge';
 const bridge: NoteAppBridge = Object.freeze({
+  readTaskGraphDates:(request:Parameters<NoteAppBridge['readTaskGraphDates']>[0])=>ipcRenderer.invoke('note-app:graph-dates',request),
+  cancelTaskGraphDates:(request:Parameters<NoteAppBridge['cancelTaskGraphDates']>[0])=>ipcRenderer.invoke('note-app:graph-dates-cancel',request),
+  getTaskGraphSession:(request:Parameters<NoteAppBridge['getTaskGraphSession']>[0])=>ipcRenderer.invoke('note-app:graph-session',request),
+  readTaskGraph:(request:Parameters<NoteAppBridge['readTaskGraph']>[0])=>ipcRenderer.invoke('note-app:graph-read',request),
+  readTaskGraphChunk:(request:Parameters<NoteAppBridge['readTaskGraphChunk']>[0])=>ipcRenderer.invoke('note-app:graph-chunk',request),
+  readTaskGraphDetail:(request:Parameters<NoteAppBridge['readTaskGraphDetail']>[0])=>ipcRenderer.invoke('note-app:graph-detail',request),
+  cancelTaskGraph:(request:Parameters<NoteAppBridge['cancelTaskGraph']>[0])=>ipcRenderer.invoke('note-app:graph-cancel',request),
   getGitMetadataReadState:(request:Parameters<NoteAppBridge['getGitMetadataReadState']>[0])=>ipcRenderer.invoke('note-app:git-metadata-state',request),
   selectGitMetadataReadScope:(request:Parameters<NoteAppBridge['selectGitMetadataReadScope']>[0])=>ipcRenderer.invoke('note-app:git-metadata-select',request),
   confirmGitMetadataReadScope:(request:Parameters<NoteAppBridge['confirmGitMetadataReadScope']>[0])=>ipcRenderer.invoke('note-app:git-metadata-confirm',request),

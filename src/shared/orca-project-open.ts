@@ -11,7 +11,8 @@ export type OrcaProjectOpenResult =
       /** A failed receipt after dispatch cannot prove that Orca's display did not change. */
       attempted:boolean};
 
-export interface OrcaProjectOpenAvailability {available:boolean;reason:'ready'|'unavailable'|'external-note'}
+export type OrcaProjectOpenAvailabilityReason='ready'|'unavailable'|'external-note'|'disconnected'|'collecting'|'mapping-unverified'|'ambiguous-worktree'|'permission-denied'|'unsafe-path'|'binding-changed';
+export interface OrcaProjectOpenAvailability {available:boolean;reason:OrcaProjectOpenAvailabilityReason}
 export interface OrcaProjectOpenBridge {
   getOrcaProjectOpenAvailability(request:{workstreamId:string}):Promise<OrcaProjectOpenAvailability>;
   openProjectInOrca(request:{workstreamId:string}):Promise<OrcaProjectOpenResult>;

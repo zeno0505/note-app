@@ -1,7 +1,8 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {createProjectModelController,buildProjectModelPack,type ProjectModelSource} from './project-model';
 import {createSummaryAutomation,type SummaryRunGuards} from './summary-automation';
-import {parseModelSelection,type ProjectModelSelection,type RecentSummaryTasks} from '../summary/reading/recent-tasks';
+import {parseModelSelection,RECENT_SOURCE_ERRORS,type RecentSourceError,type ProjectModelSelection,type RecentSummaryTasks} from '../summary/reading/recent-tasks';
+import {ModelDiagnosticError} from './model-diagnostics';
 import {readingInputHash,type ModelAdapter} from '../summary/reading/model-harness';
 import type {SummaryConsentBinding} from '../shared/summary-automation';
 import type {SummarySelectionRequest,SummaryReviewView,SummaryRunAuthority,SummaryTransferProposal,SummaryRetryProposal} from '../shared/summary-review';
@@ -9,6 +10,12 @@ import type {createModelReadingStorage} from '../summary/reading/model-reading-s
 const digest=(value:unknown)=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const modelProject=(base:string,binding:SummaryConsentBinding)=>'project:'+digest([base,binding.projectIdentity,binding.provider,binding.accountId,binding.modelPolicy,binding.roots,binding.scopeRevision,binding.inputContract,binding.selectionPolicy]);
 const recent:ProjectModelSelection={purpose:'recent'};
+function unavailableRecent(error:unknown):RecentSummaryTasks{
+ const sourceError:RecentSourceError=error instanceof ModelDiagnosticError&&RECENT_SOURCE_ERRORS.includes(error.code as RecentSourceError)?error.code as RecentSourceError:'source_validation_failed';
+ const temporary=['request_busy','collection_refreshing','dag_busy','source_changed'].includes(sourceError);
+ const message=sourceError==='request_cancelled'?'활동 원천 조회가 취소됐습니다.':temporary?'활동 원천을 갱신하거나 조회 중입니다. 조회가 끝난 뒤 다시 확인해 주세요.':sourceError==='read_permission_or_mapping_changed'?'노트 읽기 범위 또는 연결이 변경됐습니다. 현재 연결을 확인해 주세요.':sourceError==='dag_cleanup_unverified'?'이전 DAG 조회의 정리를 확인해야 합니다. 소스 상태를 확인해 주세요.':'활동 원천을 확인하지 못했습니다. 소스 상태를 확인해 주세요.';
+ return {state:'unavailable',taskIds:[],activities:[],coverage:'bounded-records',omittedReferences:0,message,sourceError};
+}
 export function parseSummarySelectionRequest(value:unknown,run=false):SummarySelectionRequest{
  if(!value||typeof value!=='object'||Array.isArray(value)||!(run?['selection,transferConfirmed,transferTicketId,workstreamId','selection,transferConfirmed,useRememberedConsent,workstreamId']:['selection,workstreamId']).includes(Object.keys(value).sort().join(',')))throw Error('Invalid summary request');const r=value as SummarySelectionRequest&{transferConfirmed?:boolean};if(typeof r.workstreamId!=='string'||!r.workstreamId.length||r.workstreamId.length>1024||/[\u0000-\u001f\u007f]/u.test(r.workstreamId)||(run&&(r.transferConfirmed!==true||!('transferTicketId' in r)&&(!('useRememberedConsent' in r)||r.useRememberedConsent!==true))))throw Error('Explicit summary confirmation required');return {workstreamId:r.workstreamId,selection:parseModelSelection(r.selection)};
 }
@@ -40,7 +47,7 @@ export function createSummaryReview(options:{
   cancel:id=>controller.cancel(key({workstreamId:id,selection:recent})),
  });
  async function refresh(){dirty=true;if(refreshFlight)return refreshFlight;refreshFlight=(async()=>{while(dirty&&!disposed){dirty=false;const id=activeId;if(!id)continue;try{await automation.ready();if(!automation.view(id).remembered)continue;if(!await automation.validateRemembered(id))continue;const source=await options.source(id,recent,new AbortController().signal,false),binding=bindings.get(id);if(activeId!==id||!binding)continue;const projectKey=modelProject(source.projectKey,binding);automation.observe(id,readingInputHash(buildProjectModelPack({...source,projectKey})));}catch{if(activeId===id)automation.observe(id,null);}}})().finally(()=>refreshFlight=undefined);return refreshFlight;}
- async function view(request:SummarySelectionRequest):Promise<SummaryReviewView>{await automation.ready().catch(()=>{});if(!bindings.has(request.workstreamId))try{await bind(request.workstreamId,new AbortController().signal);}catch{}const k=key(request);let recency:RecentSummaryTasks;try{recency=await options.recent(request.workstreamId,new AbortController().signal);}catch{recency={state:'unavailable',taskIds:[],activities:[],coverage:'bounded-records',omittedReferences:0,message:'활동 기록에 접근하지 못했습니다.'};}return {model:await controller.view(k),automation:automation.view(request.workstreamId),recent:recency,tasks:options.tasks(request.workstreamId)};}
+ async function view(request:SummarySelectionRequest):Promise<SummaryReviewView>{await automation.ready().catch(()=>{});if(!bindings.has(request.workstreamId))try{await bind(request.workstreamId,new AbortController().signal);}catch{}const k=key(request);let recency:RecentSummaryTasks;try{recency=await options.recent(request.workstreamId,new AbortController().signal);}catch(error){recency=unavailableRecent(error);}return {model:await controller.view(k),automation:automation.view(request.workstreamId),recent:recency,tasks:options.tasks(request.workstreamId)};}
  return {automation,view,
   async prepareTransfer(request:SummarySelectionRequest):Promise<SummaryTransferProposal>{const binding=await bind(request.workstreamId,new AbortController().signal);if(disposed)throw Error('Summary retired');for(const [id,t]of transfers)if(t.proposal.expiresAt<=Date.now())transfers.delete(id);if(transfers.size>=64)throw Error('Transfer proposal limit');const proposal={ticketId:randomUUID(),expiresAt:Date.now()+120000,binding:structuredClone(binding),selection:structuredClone(request.selection)};transfers.set(proposal.ticketId,{proposal,request:structuredClone(request)});return proposal;},
   async cancelTransfer(request:{ticketId:string}){if(!request||Object.keys(request).join(',')!=='ticketId'||typeof request.ticketId!=='string')throw Error('Invalid transfer cancellation');transfers.delete(request.ticketId);},

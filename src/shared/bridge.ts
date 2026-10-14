@@ -1,3 +1,4 @@
+import type {TaskGraphBridge} from './task-graph-contract';
 import type {GitMetadataReadBridge} from './git-metadata-grants';
 import type {SummaryReviewBridge} from './summary-review';
 import type {ProjectDocumentRootsBridge} from './project-document-roots';
@@ -26,7 +27,9 @@ export interface AppEnvironment {
   summaryBackend: 'unconfigured';
   capabilities: {realOrca:boolean; noteWrites:boolean; remoteSummary:false};
 }
-export interface NoteAppBridge extends GitMetadataReadBridge, SummaryReviewBridge, ProjectDocumentRootsBridge, ProjectDocumentBridge, UpdateBridge, SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge, ProjectCreationBridge, OrcaProjectOpenBridge, ProjectWorkspaceBridge, ProjectDraftBridge {
+export interface NoteAppBridge extends TaskGraphBridge, GitMetadataReadBridge, SummaryReviewBridge, ProjectDocumentRootsBridge, ProjectDocumentBridge, UpdateBridge, SummaryWorkflowBridge, NoteLinkBridge, ReadRootsBridge, NoteReconnectBridge, ModelRetryBridge, ProjectCreationBridge, OrcaProjectOpenBridge, ProjectWorkspaceBridge, ProjectDraftBridge {
+  readTaskGraphDates(request: import('./task-graph-contract').GraphReadRequest): Promise<import('./task-graph-dates').GraphDateReadResult>;
+  cancelTaskGraphDates(request: {requestId: string}): Promise<void>;
   confirmAppBoot():Promise<void>;
   getAppMemory():Promise<import('./app-memory').AppMemoryView>;
   getWorkspaceState(request:{workstreamId:string}):Promise<import('./workspace-state').TaskWorkspaceState|null>;

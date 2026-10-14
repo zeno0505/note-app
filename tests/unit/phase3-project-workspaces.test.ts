@@ -16,6 +16,8 @@ function setup(rows:ObservedProjectWorkspace[]=[workspace()]) {
 }
 
 describe('main-owned existing Orca workspace choices',()=>{
+  it('permits stale bound metadata only for native display revalidation, never for creation resolution',()=>{const f=setup(),request=f.selection();f.snapshot.freshness='stale';expect(f.selector.getBoundWorkspacesForNativeRevalidation().options).toHaveLength(1);expect(f.selector.getProjectWorkspaceOptions().state).toBe('unavailable');expect(()=>f.selector.resolveProjectWorkspace(request)).toThrow();});
+  it.each(['id','path','instance','archived','unknown-archive'] as const)('retains structural rejection on stale display metadata: %s',mode=>{const a=workspace(),b=workspace('two');if(mode==='id'){b.hostId='foreign';b.worktreeId=a.worktreeId;}else if(mode==='path')b.path=a.path;else if(mode==='instance')b.instanceId=a.instanceId;else a.archived=mode==='archived'?true:null;const f=setup(mode==='archived'||mode==='unknown-archive'?[a]:[a,b]);f.snapshot.freshness='stale';expect(f.selector.getBoundWorkspacesForNativeRevalidation().options).toHaveLength(0);});
   it('retains separate repositories and workspaces with exact, detached observed metadata',()=>{
     const f=setup([workspace('one','frontend'),workspace('two','backend'),workspace('three','frontend')]);
     const view=f.selector.getProjectWorkspaceOptions();

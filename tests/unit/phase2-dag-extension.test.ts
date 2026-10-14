@@ -7,3 +7,10 @@ describe('explicit pinned DAG v2 projection',()=>{
  it('rejects missing or repeated phase linkage',()=>{const input=wire();input.phases[0].taskIds=[];expect(()=>projectDagQuery(input)).toThrow();input.phases[0].taskIds=['X-1','X-1'];expect(()=>projectDagQuery(input)).toThrow();});
  it('does not expose new fields through unversioned v1',()=>{const input=wire();delete (input as Partial<typeof input>).readContractVersion;const result=projectDagQuery(input);expect(result.tasks[0].details).toBeUndefined();expect(result.policies).toBeUndefined();});
 });
+
+it('records phase field loss without raising legacy phase text caps',()=>{
+ const input=wire();input.phases[0].id='p'.repeat(257);input.phases[0].title='t'.repeat(1500);
+ const projected=projectDagQuery(input);expect(projected.tasks[0]).toMatchObject({phase:{id:null,title:null,index:0},phaseProjectionOmissions:2});
+ const malformed=wire();malformed.phases[0].title={unsupported:true} as never;
+ expect(projectDagQuery(malformed).tasks[0].phaseProjectionOmissions).toBe(1);
+});

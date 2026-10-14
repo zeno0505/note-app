@@ -25,7 +25,7 @@ const parse=(raw:string)=>parseOrcaProjectOpenResponse(raw,binding,'docs/note/da
 const script=String.raw`
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const root=__dirname,args=process.argv.slice(2),settings=JSON.parse(fs.readFileSync(path.join(root,'settings.json'),'utf8'));
-const query=args[0]==='--version'?'version':args[0]==='status'?'status':'display';
+const query=args[0]==='--version'?'version':args[0]==='status'?'status':args[0]==='worktree'?'worktree':'display';
 Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,settings[query+'StartupMs']??0);
 fs.appendFileSync(path.join(root,'calls.jsonl'),JSON.stringify({args,environment:{orcaOpen:process.env.ORCA_OPEN_COMMAND??null,orcaApp:process.env.ORCA_APP_EXECUTABLE??null,nodeOptions:process.env.NODE_OPTIONS??null}})+'\n');
 const markReady=()=>fs.writeFileSync(path.join(root,'ready-'+query),String(process.pid));
@@ -36,10 +36,11 @@ else if(mode==='stdout-overflow'){process.stdout.write('SYNTHETIC_PRIVATE_CANARY
 else if(mode==='stderr-overflow'){process.stderr.write('SYNTHETIC_PRIVATE_CANARY'.repeat(10000));}
 else if(mode==='invalid-json'){process.stdout.write('SYNTHETIC_PRIVATE_CANARY');}
 else if(mode==='invalid-utf8'){process.stdout.write(Buffer.from([0xc3,0x28]));}
+else if(mode==='root-denied'){process.stdout.write(JSON.stringify({id:'error',ok:false,_meta:{runtimeId:settings.displayRuntime??settings.runtimeId},error:{code:'runtime_error',message:settings.denialMessage??'Access denied: path resolves outside allowed directories. If this blocks a legitimate workflow, please file a GitHub issue.'}}));process.exitCode=1;}
 else if(mode==='nonzero'){process.stderr.write('SYNTHETIC_PRIVATE_CANARY');process.exitCode=1;}
 else if(query==='version'){process.stdout.write((settings.cliVersion??settings.version)+'\n');}
 else {
-  const result=query==='status'?{target:{kind:settings.target??'local'},app:{running:settings.running??true},runtime:{runtimeId:settings.runtimeId,appVersion:settings.version,state:'ready',reachable:true,connectionState:'connected'}}:{worktree:args[5].slice(3),relativePath:path.relative(settings.worktreePath,args[3]).split(path.sep).join('/'),kind:'text',opened:settings.opened??true};
+  const result=query==='status'?{target:{kind:settings.target??'local'},app:{running:settings.running??true},runtime:{runtimeId:settings.runtimeId,appVersion:settings.version,state:'ready',reachable:true,connectionState:'connected'}}:query==='worktree'?{worktree:{id:settings.nativeWorktreeId??args[3].slice(3),path:settings.nativeWorktreePath??settings.worktreePath,hostId:settings.nativeHostId??'synthetic-local',isArchived:settings.nativeArchived??false}}:{worktree:args[5].slice(3),relativePath:path.relative(settings.worktreePath,args[3]).split(path.sep).join('/'),kind:'text',opened:settings.opened??true};
   const envelope={id:'synthetic-request',ok:true,_meta:{runtimeId:settings[query+'Runtime']??settings.runtimeId},result};
   if(query==='display'&&settings.displayRelative)result.relativePath=settings.displayRelative;
   const respond=()=>{markReady();process.stdout.write(JSON.stringify(envelope));};
@@ -104,13 +105,64 @@ describe('source-reviewed Orca 1.4.222 display receipt',()=>{
 });
 
 describe('bounded main-only existing-file display capability',()=>{
-  it('uses only version/status plus exact full-ID file open and strips execution overrides',async()=>{
+  it('uses version/status/exact native worktree then full-ID file open and strips execution overrides',async()=>{
     const test=await setup();vi.stubEnv('ORCA_OPEN_COMMAND','SYNTHETIC_PRIVATE_CANARY');vi.stubEnv('ORCA_APP_EXECUTABLE','SYNTHETIC_PRIVATE_CANARY');vi.stubEnv('NODE_OPTIONS','--require /missing-synthetic-module');
     const opener=test.create();expect(await opener.open('opaque-selection')).toEqual({ok:true,opened:true});
     expect(test.resolve).toHaveBeenCalledTimes(3);
-    expect((await test.calls()).map(call=>call.args)).toEqual([['--version'],['status','--json'],['file','open','--path',test.selected.dagPath,'--worktree','id:'+test.selected.worktreeId,'--focus','--json']]);
+    expect((await test.calls()).map(call=>call.args)).toEqual([['--version'],['status','--json'],['worktree','show','--worktree','id:'+test.selected.worktreeId,'--json'],['file','open','--path',test.selected.dagPath,'--worktree','id:'+test.selected.worktreeId,'--focus','--json']]);
     expect((await test.calls()).every(call=>Object.values(call.environment).every(value=>value===null))).toBe(true);
     expect(opener.cleanupState()).toBe('verified');await expectNotExecuting(await ready(test.directory));
+  });
+  async function centralFixture(settings:Record<string,unknown>={}){
+    const test=await setup(settings),central=await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(),'orca-central-')));rootDirectories.push(central);
+    const link=path.join(test.selected.worktreePath,'docs','note');await fs.rm(link,{recursive:true});await fs.writeFile(path.join(central,'dag.yaml'),'schema: 2\nphases: []\n');await fs.symlink(central,link);
+    const selected={...test.selected,dagPath:path.join(central,'dag.yaml'),noteRootPath:central};test.resolve.mockResolvedValue(selected);
+    return {...test,central,link,selected,displayPath:path.join(link,'dag.yaml')};
+  }
+  it('opens only the exact authorized central DAG through the fixed docs/note alias',async()=>{
+    const test=await centralFixture();const before=await fs.readFile(test.selected.dagPath);
+    const result=await test.create().open('opaque-selection');expect(result).toEqual({ok:true,opened:true});
+    expect((await test.calls()).at(-1).args).toEqual(['file','open','--path',test.displayPath,'--worktree','id:'+test.selected.worktreeId,'--focus','--json']);
+    expect(await fs.readFile(test.selected.dagPath)).toEqual(before);expect(await fs.realpath(test.link)).toBe(test.central);
+  });
+  it.each([{displayRuntime:'foreign',reason:'runtime_changed'},{denialMessage:'SYNTHETIC_PRIVATE_CANARY',reason:'command_failed'}])('sanitizes native error and binds runtime: %j',async settings=>{const test=await setup({...settings,displayMode:'root-denied'});const result=await test.create().open('opaque');expect(result).toEqual({ok:false,reason:settings.reason,attempted:true});expect(JSON.stringify(result)).not.toContain('SYNTHETIC_PRIVATE_CANARY');});
+  it('cancels during exact native worktree validation with verified cleanup and no file dispatch',async()=>{const test=await setup({worktreeMode:'hang'}),controller=new AbortController(),opener=test.create();const pending=opener.open('opaque',{signal:controller.signal});await ready(test.directory,'worktree');controller.abort();expect(await pending).toEqual({ok:false,reason:'cancelled',attempted:false});expect(opener.cleanupState()).toBe('verified');expect((await test.calls()).some(c=>c.args[0]==='file')).toBe(false);});
+  it('bounds exact native worktree validation without dispatch',async()=>{const test=await setup({worktreeMode:'hang'}),opener=test.create({timeoutMs:1000});expect(await opener.open('opaque')).toEqual({ok:false,reason:'timeout',attempted:false});expect(opener.cleanupState()).toBe('verified');expect((await test.calls()).some(c=>c.args[0]==='file')).toBe(false);});
+  it('classifies the reviewed nonzero native allowed-root denial without exposing raw messages',async()=>{const test=await setup({displayMode:'root-denied'});expect(await test.create().open('opaque')).toEqual({ok:false,reason:'access_denied',attempted:true});});
+  it.each([{nativeWorktreeId:'different'},{nativeWorktreePath:'/different'},{nativeHostId:'remote'},{nativeArchived:true},{worktreeRuntime:'different-runtime'}])('rejects changed native worktree before display: %j',async settings=>{
+    const test=await setup(settings);expect(await test.create().open('opaque')).toMatchObject({ok:false,attempted:false});expect((await test.calls()).some(c=>c.args[0]==='file')).toBe(false);
+  });
+  it('still supports the reviewed legacy version for internal files but rejects external routing on it',async()=>{
+    const internal=await setup({version:'1.4.222'});expect(await internal.create().open('opaque')).toEqual({ok:true,opened:true});
+    const external=await centralFixture({version:'1.4.222'});expect(await external.create().open('opaque')).toMatchObject({ok:false,reason:'unsupported_version',attempted:false});
+    expect((await external.calls()).map(c=>c.args[0])).toEqual(['--version']);
+  });
+  it.each(['missing-proof','wrong-note-root','unlinked-central','nested-symlink'])('rejects external central route %s before any command',async mode=>{
+    const test=await centralFixture();
+    if(mode==='missing-proof'){const {noteRootPath,...selected}=test.selected;test.resolve.mockResolvedValue(selected);}
+    if(mode==='wrong-note-root')test.resolve.mockResolvedValue({...test.selected,noteRootPath:test.selected.worktreePath});
+    if(mode==='unlinked-central'){await fs.unlink(test.link);await fs.mkdir(test.link);}
+    if(mode==='nested-symlink'){await fs.mkdir(path.join(test.central,'real'));await fs.writeFile(path.join(test.central,'real','dag.yaml'),'schema: 2');await fs.symlink(path.join(test.central,'real'),path.join(test.central,'alias'));test.resolve.mockResolvedValue({...test.selected,dagPath:path.join(test.central,'alias','dag.yaml')});}
+    expect(await test.create().open('opaque')).toMatchObject({ok:false,attempted:false});expect(await test.calls()).toEqual([]);
+  });
+  it.each(['different-target','same-target-new-link','mapping-change','permission-revoked'])('retires central route %s after status without display dispatch',async mode=>{
+    const test=await centralFixture();let calls=0;
+    test.resolve.mockImplementation(async()=>{calls++;if(calls===2){
+      if(mode==='permission-revoked')return null;
+      if(mode==='mapping-change')return {...test.selected,dagPath:path.join(test.central,'another.yaml')};
+      await fs.unlink(test.link);await fs.symlink(mode==='different-target'?test.selected.worktreePath:test.central,test.link);
+    }return test.selected;});
+    expect(await test.create().open('opaque')).toMatchObject({ok:false,attempted:false});expect((await test.calls()).map(c=>c.args[0])).toEqual(['--version','status','worktree']);
+  });
+  it('rechecks central link identity after the final awaited selection resolution',async()=>{
+    const test=await centralFixture();let calls=0;test.resolve.mockImplementation(async()=>{
+      if(++calls===3){await fs.unlink(test.link);await fs.symlink(test.central,test.link);}return test.selected;
+    });expect(await test.create().open('opaque')).toMatchObject({ok:false,reason:'selection_changed',attempted:false});expect((await test.calls()).map(c=>c.args[0])).toEqual(['--version','status','worktree']);
+  });
+  it('cancels a central route while status is pending and preserves its link and DAG',async()=>{
+    const test=await centralFixture({statusMode:'hang'}),signal=new AbortController(),opener=test.create();
+    const run=opener.open('opaque',{signal:signal.signal});await ready(test.directory,'status');signal.abort();
+    expect(await run).toMatchObject({ok:false,reason:'cancelled',attempted:false});expect(opener.cleanupState()).toBe('verified');expect(await fs.realpath(test.link)).toBe(test.central);
   });
   it.each(['unsupported','1.4.221','1.4.223'])('does not dispatch file open to unaccepted version %s',async version=>{
     const test=await setup({version});expect(await test.create().open('opaque')).toEqual({ok:false,reason:'unsupported_version',attempted:false});expect(await test.calls()).toHaveLength(1);
@@ -123,7 +175,7 @@ describe('bounded main-only existing-file display capability',()=>{
   });
   it('rejects a runtime change before dispatch and an uncertain changed receipt afterward without retry',async()=>{
     const before=await setup({statusRuntime:'foreign'});expect(await before.create().open('opaque')).toEqual({ok:false,reason:'runtime_changed',attempted:false});expect(await before.calls()).toHaveLength(2);
-    const after=await setup({displayRuntime:'foreign'});expect(await after.create().open('opaque')).toEqual({ok:false,reason:'runtime_changed',attempted:true});expect(await after.calls()).toHaveLength(3);
+    const after=await setup({displayRuntime:'foreign'});expect(await after.create().open('opaque')).toEqual({ok:false,reason:'runtime_changed',attempted:true});expect(await after.calls()).toHaveLength(4);
   });
   it('requires a current authorized main-owned local selection before any command',async()=>{
     for(const invalid of [null,{...binding,hostId:'foreign'},{...binding,dagPath:'/outside/dag.yaml'},{...binding,dagPath:'relative.yaml'}]){
@@ -138,19 +190,19 @@ describe('bounded main-only existing-file display capability',()=>{
   });
   it('rechecks selection and physical file identity after the status query',async()=>{
     const changed=await setup();changed.resolve.mockResolvedValueOnce({...changed.selected}).mockResolvedValueOnce({...changed.selected,runtimeId:'changed'});
-    expect(await changed.create().open('opaque')).toEqual({ok:false,reason:'selection_changed',attempted:false});expect(await changed.calls()).toHaveLength(2);
+    expect(await changed.create().open('opaque')).toEqual({ok:false,reason:'selection_changed',attempted:false});expect(await changed.calls()).toHaveLength(3);
     const replaced=await setup();let count=0;replaced.resolve.mockImplementation(async()=>{if(++count===2){await fs.rename(replaced.selected.dagPath,replaced.selected.dagPath+'.old');await fs.writeFile(replaced.selected.dagPath,'changed');}return {...replaced.selected};});
-    expect(await replaced.create().open('opaque')).toEqual({ok:false,reason:'selection_changed',attempted:false});expect(await replaced.calls()).toHaveLength(2);
+    expect(await replaced.create().open('opaque')).toEqual({ok:false,reason:'selection_changed',attempted:false});expect(await replaced.calls()).toHaveLength(3);
   });
   it('rechecks authorization immediately after the final filesystem proof',async()=>{
     const test=await setup();test.resolve.mockResolvedValueOnce({...test.selected}).mockResolvedValueOnce({...test.selected}).mockResolvedValueOnce(null);
-    expect(await test.create().open('opaque')).toEqual({ok:false,reason:'unavailable',attempted:false});expect(await test.calls()).toHaveLength(2);
+    expect(await test.create().open('opaque')).toEqual({ok:false,reason:'unavailable',attempted:false});expect(await test.calls()).toHaveLength(3);
   });
   it('uses a canonical in-tree symlink target but rejects a symlinked worktree root',async()=>{
     const test=await setup(),target=path.join(test.selected.worktreePath,'real-dag.yaml');await fs.rename(test.selected.dagPath,target);await fs.symlink(target,test.selected.dagPath);
-    expect(await test.create().open('opaque')).toEqual({ok:true,opened:true});expect((await test.calls())[2].args[3]).toBe(target);
+    expect(await test.create().open('opaque')).toEqual({ok:true,opened:true});expect((await test.calls()).find(c=>c.args[0]==='file').args[3]).toBe(target);
     const alias=test.directory+'-alias';rootDirectories.push(alias);await fs.symlink(test.directory,alias);test.resolve.mockResolvedValue({...test.selected,worktreePath:alias,dagPath:path.join(alias,'real-dag.yaml'),worktreeId:'synthetic-repo::'+alias});
-    expect(await test.create().open('opaque')).toEqual({ok:false,reason:'unsafe_path',attempted:false});expect(await test.calls()).toHaveLength(3);
+    expect(await test.create().open('opaque')).toEqual({ok:false,reason:'unsafe_path',attempted:false});expect(await test.calls()).toHaveLength(4);
   });
   it('reports opened false and wrong relative path as failures without leaking raw output',async()=>{
     const unopened=await setup({opened:false});expect(await unopened.create().open('opaque')).toEqual({ok:false,reason:'not_opened',attempted:true});

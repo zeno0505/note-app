@@ -1,3 +1,4 @@
+import {validateRegisteredExcerptContext} from '../summary/context/registered';
 import {interpretTasks} from '../phase2/tasks';
 import {selectSummaryTasks,SUMMARY_SELECTION_POLICY} from '../summary/reading/task-selection';
 import {taskPrefix} from '../shared/summary-prefix';
@@ -41,8 +42,10 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   // 선별 전에 검사하여 생략된 원문의 명백한 민감정보도 전송을 중단합니다.
   assertSafeProjectSource(source);
   for(const section of source.readingSummary.sections)for(const p of section.paragraphs)for(const s of p.sources)if(s.document)assertSafeModelInput('',s.document.relativePath);
-  for(const p of source.registeredExcerpts?.provenance??[])assertSafeModelInput('',p.registration.relativePath);
-  for(const e of source.registeredExcerpts?.excerpts??[])assertSafeModelInput(e.text);
+  const registered=source.registeredExcerpts?validateRegisteredExcerptContext(source.registeredExcerpts):undefined;
+  if(registered&&registered.scopeDagId!==source.dag.dagId)throw Error('Registered excerpt scope mismatch');
+  for(const p of registered?.provenance??[])assertSafeModelInput('',p.registration.relativePath);
+  for(const e of registered?.excerpts??[])assertSafeModelInput(e.text);
   const sources:ProjectReadingPack['sources']=[],facts:ProjectReadingPack['facts']=[];
   const add=(path:string,excerpt:string)=>{const id='S'+(sources.length+1);sources.push({id,path,excerpt,lineStart:1,lineEnd:excerpt.split('\n').length,sha256:hash(excerpt)});return id;};
   for(const id of SECTION_IDS){
@@ -58,7 +61,7 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   }
   const selection=source.taskSelection??selectSummaryTasks(source.dag.tasks,source.dag.tasks,source.dag.doneStatus);
   const tasks=selection.taskIds.map(id=>source.dag.tasks.find(t=>t.id===id)!);
-  const policyContext=source.dag.readContractVersion===2?interpretTasks(tasks,{projectId:source.policyProjectId??source.projectKey,dagId:source.dag.dagId,sourceHash:source.dag.sourceHash,observedAt:source.dag.observedAt,policies:source.dag.policies??[]}).map(row=>({id:row.task.id,lifecycle:row.lifecycle,discussion:row.discussion,verification:row.verification,verificationState:row.verificationState,policy:row.policy?{id:row.policy.id,revision:row.policy.revision,scope:row.policy.scope,mappingVersion:row.policy.mappingVersion}:null,interpretationVersion:row.provenance.interpretationVersion})):undefined;
+  const policyContext=source.dag.readContractVersion===2?interpretTasks(tasks,{projectId:source.policyProjectId??source.projectKey,dagId:source.dag.dagId,sourceHash:source.dag.sourceHash,observedAt:source.dag.observedAt,policies:source.dag.policies??[]}).map(row=>({id:row.task.id,lifecycle:row.lifecycle,discussion:row.discussionRequirement,verification:row.verification,verificationState:row.verificationState,policy:row.policy?{id:row.policy.id,revision:row.policy.revision,scope:row.policy.scope,mappingVersion:row.policy.mappingVersion}:null,interpretationVersion:row.provenance.interpretationVersion})):undefined;
   const v2=source.dag.readContractVersion===2;
   const coreTasks=v2?tasks.map(({details,...task})=>task):tasks;
   const dagText=JSON.stringify({tasks:coreTasks,summaryPrefix:source.summaryPrefix,dependencyObservations:source.dependencyObservations,tasksSelection:selection.mode==='explicit'?'사용자가 직접 선택한 작업':SUMMARY_SELECTION_POLICY,omitted:selection.omittedCount});
@@ -79,11 +82,20 @@ export function buildProjectModelPack(source:ProjectModelSource):ProjectReadingP
   facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:(source.recentActivity?'확인된 명시 연결 활동 기록 중 시각 순으로 최대 3개 작업을 선별합니다. 전체 프로젝트의 최신 작업을 보장하지 않습니다. ':'선택한 작업 범위에서 최대 20개를 선별합니다. 작업별 시각이 없어 최신 작업을 판단하지 않습니다. ')+'DAG 상태는 선언이며 테스트·배포의 증명이 아닙니다. 선별 태스크 '+tasks.length+'개, 생략 '+selection.omittedCount+'개입니다. 모든 섹션의 설명은 전체 완료 판정을 대신하지 않습니다.'+(v2?' 상세 excerpt의 complete=false와 omittedBytes는 내용 생략이며 자료 부재가 아닙니다.':''),sourceIds:dagSourceIds,anchors:['DAG','선언','생략']});
   const focus=tasks.filter(t=>['running','in_progress','blocked','in_review'].includes(t.status??'')).slice(0,3);
   if(focus.length)facts.push({id:'F'+facts.length,section:'implemented',state:'known',text:'현재 DAG의 우선 확인 작업은 '+focus.map(t=>t.id+' '+(t.title??'제목 미기재')+' ('+t.status+')').join(', ')+'입니다. 검토·진행 상태는 구현 완료 인증이 아닙니다.',sourceIds:[dagSource],anchors:[...focus.map(t=>t.id),'완료 인증이 아닙니다']});
-  for(const e of (source.registeredExcerpts?.excerpts??[]).slice(0,4)){
-    const sourceId=add('documents/'+hash(e.id).slice(0,16)+'.txt',e.text);let section:typeof SECTION_IDS[number]='decisions',text=e.text;
-    try{const record=JSON.parse(e.text);if(SECTION_IDS.includes(record.section)&&typeof record.text==='string'){section=record.section;text=record.text;}}catch{}
-    if(text.length>1000)text=text.slice(0,1000)+' … 문서 발췌 일부 생략';
-    facts.push({id:'F'+facts.length,section,state:'known',text:'등록된 문서 기록(현재 미대조): '+text,sourceIds:[sourceId],anchors:['문서 기록','현재 미대조']});
+  if(registered?.excerpts.length){
+    // Keep the content bound, but bind every selected/omitted excerpt to freshness.
+    // A single source reserves room for policy, details and recent activity sources.
+    // Never serialize the local provenance manifest (paths, timestamps, file hashes).
+    const selected=registered.excerpts.slice(0,4),omitted=registered.excerpts.slice(4);
+    const metadata=(e:typeof selected[number])=>({id:e.id,sourceHash:e.sourceHash,bytes:Buffer.byteLength(e.text)});
+    const sourceId=add('documents/registered-excerpts.json',JSON.stringify({contract:'bounded-registered-excerpts-v1',limit:4,total:registered.excerpts.length,selected:selected.map(e=>({...metadata(e),text:e.text})),omitted:omitted.map(metadata)}));
+    if(omitted.length)facts.push({id:'F'+facts.length,section:'evidence',state:'known',text:'입력 한도로 등록 문서 발췌 '+registered.excerpts.length+'개 중 '+omitted.length+'개 내용을 생략했습니다. 생략 목록의 ID·해시는 변경 감지용이며 내용 근거가 아닙니다. 생략된 범위의 차단·논의·완료 여부는 판단하지 않습니다.',sourceIds:[sourceId],anchors:['등록 문서 발췌',registered.excerpts.length+'개 중 '+omitted.length+'개','생략','내용 근거가 아닙니다','차단·논의·완료 여부는 판단하지 않습니다']});
+    for(const e of selected){
+      let section:typeof SECTION_IDS[number]='decisions',text=e.text;
+      try{const record=JSON.parse(e.text);if(SECTION_IDS.includes(record.section)&&typeof record.text==='string'){section=record.section;text=record.text;}}catch{}
+      if(text.length>1000)text=text.slice(0,1000)+' … 문서 발췌 일부 생략';
+      facts.push({id:'F'+facts.length,section,state:'known',text:'등록된 문서 기록(현재 미대조): '+text,sourceIds:[sourceId],anchors:['문서 기록','현재 미대조']});
+    }
   }
   if(source.recentActivity?.activities.length){
     const activities=source.recentActivity.activities.filter(event=>tasks.some(task=>task.id===event.taskId));

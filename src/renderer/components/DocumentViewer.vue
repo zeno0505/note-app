@@ -16,7 +16,7 @@ const emit=defineEmits<{
  close:[]; 'update:expanded':[value:boolean]; browse:[]; busy:[value:boolean];
  position:[value:{path:string;navigationKey?:string;scroll:number;anchor:string;mode:'formatted'|'raw'}];
 }>();
-type Entry={session:EvidenceList;id:string;hash:string|null;scroll:number;anchor:string;path:string;label:string;navigationRoot?:string};
+type Entry={session:EvidenceList;id:string;hash:string|null;scroll:number;expandedScroll?:number;anchor:string;path:string;label:string;navigationRoot?:string};
 const view=ref<EvidenceReadView|null>(null),transitionHeight=ref(0),busy=ref(false),checking=ref(false),error=ref(''),change=ref(''),anchorNotice=ref(''),hidden=ref(false);
 const anchorFeedback=ref<{anchor:string;message:string}|null>(null),anchorStatus=ref<HTMLElement|null>(null);
 let anchorFeedbackGeneration=0,anchorOrigin:{element:HTMLElement|null;bodyTop:number;parentTop:number;pageTop:number}|null=null;
@@ -51,7 +51,7 @@ function ownChildren(read:EvidenceReadView){for(const session of [read.images,re
 function releaseAll(){for(const sessionId of derivedSessions)void window.noteApp.releaseTaskEvidence({sessionId}).catch(()=>{});derivedSessions.clear();}
 function scrollContainer():HTMLElement|null{return props.expanded?body.value:root.value?.closest?.<HTMLElement>('.task-detail,.project-document-pane')??null;}
 function bodyOffset(container:HTMLElement){if(container===body.value)return 0;return body.value?.getBoundingClientRect&&container.getBoundingClientRect?body.value.getBoundingClientRect().top-container.getBoundingClientRect().top+container.scrollTop:0;}
-function position(){const entry=activeEntry.value;if(!entry)return;const container=scrollContainer();if(container)entry.scroll=Math.max(0,container.scrollTop-bodyOffset(container));emit('position',{path:entry.path,...(entry.navigationRoot?{navigationKey:entry.navigationRoot+'/'+entry.path}:{}),scroll:entry.scroll,anchor:entry.anchor,mode:plain.value?'raw':'formatted'});}
+function position(){const entry=activeEntry.value;if(!entry)return;const container=scrollContainer();if(container){entry.scroll=Math.max(0,container.scrollTop-bodyOffset(container));if(props.expanded)entry.expandedScroll=entry.scroll;}emit('position',{path:entry.path,...(entry.navigationRoot?{navigationKey:entry.navigationRoot+'/'+entry.path}:{}),scroll:entry.scroll,anchor:entry.anchor,mode:plain.value?'raw':'formatted'});}
 function revealReaderHeader(focus=false){root.value?.scrollIntoView?.({block:'start',behavior:'auto'});if(focus)root.value?.focus?.({preventScroll:true});}
 function restorePosition(entry:Entry){const container=scrollContainer();if(container)container.scrollTop=bodyOffset(container)+entry.scroll;}
 function rememberAnchor(anchor:string){if(activeEntry.value)activeEntry.value.anchor=anchor;position();}
@@ -89,7 +89,13 @@ async function navigate(session:EvidenceList,id:string,navigationRoot?:string){
  await show(entry,null,restore);
 }
 async function traverse(direction:number){if(navigationBusy.value)return;position();const next=historyIndex.value+direction;if(next<0||next>=history.value.length)return;historyIndex.value=next;const entry=history.value[next];await show(entry,entry.hash,true);}
-async function recheck(){
+let recheckPending:Promise<void>|null=null;
+function recheck(){
+ if(recheckPending)return recheckPending;
+ const pending=performRecheck();recheckPending=pending;
+ void pending.finally(()=>{if(recheckPending===pending)recheckPending=null;});return pending;
+}
+async function performRecheck(){
  const entry=activeEntry.value;if(!props.active||!props.current||!entry?.hash||busy.value||checking.value||hidden.value)return;
  const own=generation;checking.value=true;emit('busy',true);
  try{
@@ -103,7 +109,7 @@ async function recheck(){
  }catch{if(!disposed&&own===generation){hidden.value=true;view.value=null;releaseAll();error.value='프로젝트 연결 또는 읽기 허용을 재확인하지 못해 본문을 숨겼습니다. 목록에서 다시 열어 주세요.';}}
  finally{if(own===generation){checking.value=false;emit('busy',false);}}
 }
-async function reread(){const entry=activeEntry.value;if(!entry||!props.current||navigationBusy.value)return;const anchor=entry.anchor;entry.scroll=0;const located=await show(entry,null);await nextTick();if(anchor&&located===false){entry.anchor='';entry.scroll=0;restorePosition(entry);anchorNotice.value='이전에 보던 제목 위치를 찾지 못해 문서 시작으로 돌아왔습니다.';position();}}
+async function reread(){const entry=activeEntry.value;if(!entry||!props.current||navigationBusy.value)return;const anchor=entry.anchor;entry.scroll=0;entry.expandedScroll=undefined;const located=await show(entry,null);await nextTick();if(anchor&&located===false){entry.anchor='';entry.scroll=0;restorePosition(entry);anchorNotice.value='이전에 보던 제목 위치를 찾지 못해 문서 시작으로 돌아왔습니다.';position();}}
 function openReference(reference:DocumentReference){
  if(navigationBusy.value)return;
  const refs=view.value?.references,target=refs?.targets.find(target=>target.href===reference.href&&target.kind===reference.kind);
@@ -114,7 +120,17 @@ function openReference(reference:DocumentReference){
 }
 function openChosen(){if(navigationBusy.value)return;const issue=referenceIssue.value;if(issue?.session&&issue.candidates.some(candidate=>candidate.evidenceId===chosen.value))void navigate(issue.session,chosen.value);}
 function cancelReference(){referenceIssue.value=null;chosen.value='';}
-async function toggleExpanded(){position();const expand=!props.expanded;if(expand)outerReturnScroll=window.scrollY??0;emit('update:expanded',expand);await nextTick();if(expand){if(activeEntry.value)restorePosition(activeEntry.value);root.value?.scrollIntoView?.({block:'start',behavior:'auto'});}else window.scrollTo?.({top:outerReturnScroll,behavior:'auto'});root.value?.querySelector<HTMLElement>(expand?'[data-testid=document-return]':'[data-testid=document-expand]')?.focus?.({preventScroll:true});}
+async function toggleExpanded(){
+ const entry=activeEntry.value,own=generation;position();const expand=!props.expanded;
+ // Inline detail restores its own origin. Keep the last expanded offset on this
+ // exact history entry so that origin/queued inline scroll cannot overwrite it.
+ const expandedPosition=entry?.expandedScroll??entry?.scroll??0;
+ if(expand)outerReturnScroll=window.scrollY??0;emit('update:expanded',expand);await nextTick();
+ if(disposed||own!==generation||activeEntry.value!==entry||props.expanded!==expand)return;
+ if(expand){if(entry){entry.scroll=expandedPosition;restorePosition(entry);}root.value?.scrollIntoView?.({block:'start',behavior:'auto'});}
+ else window.scrollTo?.({top:outerReturnScroll,behavior:'auto'});
+ root.value?.querySelector<HTMLElement>(expand?'[data-testid=document-return]':'[data-testid=document-expand]')?.focus?.({preventScroll:true});
+}
 function dismiss(){generation++;transitionHeight.value=0;busy.value=false;checking.value=false;emit('busy',false);view.value=null;history.value=[];historyIndex.value=-1;releaseAll();emit('close');if(props.expanded)void nextTick(()=>window.scrollTo?.({top:outerReturnScroll,behavior:'auto'}));}
 async function toggleFind(){findOpen.value=!findOpen.value;if(findOpen.value){await nextTick();findInput.value?.focus();}else{findQuery.value='';findDraft.value='';}}
 function applyFind(event?:Event){if(typeof InputEvent!=='undefined'&&event instanceof InputEvent&&event.isComposing)return;findQuery.value=findDraft.value.slice(0,512);findIndex.value=0;}

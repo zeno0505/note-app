@@ -1,0 +1,70 @@
+import {_electron as electron} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {build as viteBuild} from 'vite';
+import vue from '@vitejs/plugin-vue';
+import {mkdir,writeFile,readFile,rm,readdir} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import path from 'node:path';
+import {createPhase1Fixture} from './phase1-fixture/setup.mjs';
+import {isolatedEntry} from './isolated-entry.mjs';
+import {waitUntil} from './wait-until.mjs';
+import {assertTrackedProcessesExit} from './evidence.mjs';
+
+const out=path.resolve(process.env.NOTE_APP_VERIFICATION_EVIDENCE??'reviews/evidence/verification-ui'),dist=path.join(out,'build');
+await mkdir(out,{recursive:true});
+const sourceFiles=['src/renderer/components/VerificationSourcesPopover.vue','src/renderer/components/TaskWorkspace.vue','src/renderer/components/EvidenceViewer.vue','src/phase2/verification-records.ts','tests/electron/verification-fixture/main.ts','tests/electron/verification-sources-smoke.mjs'];
+const hashes=async()=>Object.fromEntries(await Promise.all(sourceFiles.map(async file=>[file,createHash('sha256').update(await readFile(file)).digest('hex')])));
+const report={status:'running',category:'production app / sandboxed Linux Electron / synthetic local sources',provenance:'Selected-source baseline verified byte-equivalent to build35 c681389c7331cd3331e7fe548cee838cd8733468 via build34 plus exact eight-file delta; local verification UI changes included; not a Git checkout or installed app',sourceHashes:await hashes(),checks:[],screenshots:[],rendererErrors:[],externalRequests:[]};
+let app,page,fixture,child;
+const shot=async name=>{await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));const file=path.join(out,name+'.png');await page.screenshot({path:file,animations:'disabled'});report.screenshots.push({file,state:name,viewport:await page.evaluate(()=>({width:innerWidth,height:innerHeight,devicePixelRatio}))});};
+const sourceBody=claim=>'# T-042 Implementation\n\n## Verification\n'+claim+'\n';
+const claim='합성 기록: PASS라고 작성했지만 실제 실행 결과는 확인하지 않았습니다.\nReviewer: independent bot (source claim only)\nTarget SHA: deadbeef (source claim only)\n<script>globalThis.__verificationExecuted=true</script>';
+const pop=()=>page.getByTestId('verification-sources-popover');
+const open=async()=>{await page.getByTestId('verification-sources-open').click();await pop().waitFor({state:'visible'});await waitUntil(()=>page.getByTestId('verification-sources-loading').count(),n=>n===0,'source load settles');};
+try{
+ await viteBuild({configFile:false,root:path.resolve('src/renderer'),base:'./',plugins:[vue()],build:{outDir:path.join(dist,'renderer'),emptyOutDir:true}});
+ await build({entryPoints:['tests/electron/verification-fixture/main.ts'],outfile:path.join(dist,'main/index.cjs'),platform:'node',format:'cjs',bundle:true,external:['electron'],target:'node24'});
+ await build({entryPoints:['src/preload/index.ts'],outfile:path.join(dist,'preload/index.cjs'),platform:'node',format:'cjs',bundle:true,external:['electron'],target:'node24'});
+ fixture=await createPhase1Fixture();await mkdir(path.join(fixture.scope,'inbox/T-042'),{recursive:true});
+ const implementation=path.join(fixture.scope,'inbox/T-042/implementation.md'),review=path.join(fixture.scope,'inbox/T-042/review-1.md');
+ await writeFile(implementation,sourceBody(claim));await writeFile(review,'# T-042 Review\n\n합성 리뷰 기록입니다. 리뷰어의 신원과 독립성은 확인되지 않았습니다.\n');
+ const dag={project:{name:'Fictional Atlas'},phases:[{id:'verification',tasks:[{id:'T-042',title:'검증·리뷰 출처를 원문과 함께 확인',status:'done',description:'완료 선언과 검증 기록을 구분합니다.',acceptance_criteria:['출처를 확인하고 연결된 문서를 읽습니다.'],discussion:['[[inbox/T-042/review-1|Review declaration]]']},{id:'T-043',title:'기록이 없는 태스크',status:'pending'}]}]};
+ const dagBytes=JSON.stringify(dag);await writeFile(fixture.dagPath,dagBytes);
+ const entry=await isolatedEntry(fixture.root,path.join(fixture.profile,'verification'),path.join(dist,'main/index.cjs'));
+ app=await electron.launch({chromiumSandbox:true,args:[entry,'--ozone-platform=headless','--disable-gpu'],env:{...process.env,NOTE_APP_CONFIG:fixture.configPath},timeout:30000});child=app.process();child.stderr.on('data',bytes=>{report.electronStderr=(report.electronStderr??'')+bytes.toString();});page=await app.firstWindow();
+ page.on('pageerror',error=>report.rendererErrors.push(String(error)));page.on('request',request=>{if(/^https?:/.test(request.url()))report.externalRequests.push(request.url());});
+ report.sandbox=await app.evaluate(({BrowserWindow})=>{const p=BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences();return {sandbox:p.sandbox,nodeIntegration:p.nodeIntegration,contextIsolation:p.contextIsolation};});assert.deepEqual(report.sandbox,{sandbox:true,nodeIntegration:false,contextIsolation:true});
+ await page.evaluate(()=>window.noteApp.connectLive());await page.evaluate(()=>window.noteApp.refreshLive());
+ const ready=()=>waitUntil(()=>page.evaluate(()=>window.noteApp.getLiveState()),s=>s.connection==='connected'&&s.freshness==='current'&&!s.refreshing&&s.dags.some(d=>d.state==='ready'),'current synthetic source',20000);
+ const state=await ready(),id=state.workstreams.find(w=>w.title==='Fictional Atlas checkout').id;
+ await page.evaluate(id=>location.hash='/?project='+encodeURIComponent(id),id);await page.getByTestId('phase2-workspace').waitFor();await page.getByTestId('workspace-tab-tasks').click();await page.locator('[data-task-id="T-042"]').click();
+ await open();assert.equal(await page.getByTestId('verification-source-record').count(),2);assert.match(await pop().innerText(),/검증 미판정/);assert.match(await pop().innerText(),/리뷰어 신원·대상 커밋 SHA·독립성은 미확인/);assert.equal(await page.evaluate(()=>globalThis.__verificationExecuted),undefined);await shot('present-light');
+ await pop().getByText('출처 식별 정보',{exact:true}).first().click();assert.match(await pop().innerText(),/sha256:/);await shot('source-provenance');await pop().getByText('출처 식별 정보',{exact:true}).first().click();
+ await page.keyboard.press('Escape');await pop().waitFor({state:'hidden'});assert(await page.getByTestId('verification-sources-open').evaluate(e=>document.activeElement===e));
+ const releases=await app.evaluate(()=>globalThis.__verificationFixture.releases);
+ const prepares=await app.evaluate(()=>globalThis.__verificationFixture.prepareCalls);await page.keyboard.press('Enter');await pop().waitFor();await waitUntil(()=>page.getByTestId('verification-source-record').count(),n=>n===2,'keyboard reopen');assert((await app.evaluate(()=>globalThis.__verificationFixture.prepareCalls))>prepares);await page.getByTestId('verification-sources-close').click();await pop().waitFor({state:'hidden'});assert(await page.getByTestId('verification-sources-open').evaluate(e=>document.activeElement===e));
+ assert((await app.evaluate(()=>globalThis.__verificationFixture.releases))>releases,'close must retire capabilities');
+ report.checks.push('Open/Escape/Enter/close restore trigger focus and obtain fresh capability sessions; source claims are inert and labeled unassessed');
+ await writeFile(implementation,sourceBody('변경된 합성 검증 기록'));await open();assert.match(await pop().innerText(),/변경된 합성 검증 기록/);assert.doesNotMatch(await pop().innerText(),/Target SHA: deadbeef/);
+ await page.getByTestId('verification-source-open').first().click();await pop().waitFor({state:'hidden'});await page.getByTestId('document-viewer').waitFor();assert.match(await page.locator('.safe-markdown').innerText(),/변경된 합성 검증 기록/);await shot('inline-source-navigation');
+ await page.getByTestId('document-close').click();await page.getByTestId('document-viewer').waitFor({state:'hidden'});
+ report.checks.push('Changed Markdown rereads with fresh source hash on reopen; source action obtains a separate fresh capability and opens the existing inline reader');
+ await page.locator('[data-task-id="T-043"]').click();await open();await page.getByTestId('verification-sources-none').waitFor();await shot('none');await page.keyboard.press('Escape');
+ await page.locator('[data-task-id="T-042"]').click();await app.evaluate(()=>globalThis.__verificationFixture.prepareMode='error');await open();await page.getByTestId('verification-sources-unknown').waitFor();assert.equal(await page.getByTestId('verification-sources-none').count(),0);await shot('unknown');
+ await app.evaluate(()=>globalThis.__verificationFixture.prepareMode='normal');await page.getByTestId('verification-sources-refresh').click();await waitUntil(()=>page.getByTestId('verification-source-record').count(),n=>n===2,'retry succeeds');
+ report.checks.push('Successful empty discovery is none; discovery exception is unknown, never none; explicit retry recovers');
+ for(const theme of ['dark','light']){await page.emulateMedia({colorScheme:theme});await shot('present-'+theme+'-final');}
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.setMinimumSize(320,320);w.setSize(760,900);});await shot('present-760');assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(2));await shot('present-200percent');assert(await pop().evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1}));
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setZoomFactor(1);w.setSize(1280,900);});
+ await page.keyboard.press('Escape');await app.evaluate(()=>globalThis.__verificationFixture.readDelayMs=900);await page.getByTestId('verification-sources-open').click();await page.getByTestId('verification-sources-loading').waitFor();await shot('loading');await page.keyboard.press('Escape');await page.locator('[data-task-id="T-043"]').click();await open();await page.getByTestId('verification-sources-none').waitFor();await page.waitForTimeout(1100);assert.equal(await page.getByTestId('verification-source-record').count(),0);await app.evaluate(()=>globalThis.__verificationFixture.readDelayMs=0);await page.keyboard.press('Escape');
+ report.checks.push('Late previous-task read cannot paint into a newly selected task; narrow/200% zoom popover remains inside viewport');
+ await page.locator('[data-task-id="T-042"]').click();await open();await page.getByTestId('workspace-tab-summary').click();await pop().waitFor({state:'hidden'});await page.getByTestId('workspace-tab-tasks').click();await open();await waitUntil(()=>page.getByTestId('verification-source-record').count(),n=>n===2,'tab reopen reloads');
+ // A changed DAG basis invalidates the open source list; current recovery reloads it.
+ dag.phases[0].tasks[0].description='변경된 DAG 선택 기준';await writeFile(fixture.dagPath,JSON.stringify(dag));await page.evaluate(()=>window.noteApp.refreshLive());await ready();await waitUntil(()=>page.getByTestId('verification-source-record').count(),n=>n===2,'current source basis refreshes');
+ assert.equal(await readFile(implementation,'utf8'),sourceBody('변경된 합성 검증 기록'));report.checks.push('Tab departure closes the popover; return and DAG-basis refresh reread current capabilities without changing sources');
+ report.modelCalls=await app.evaluate(()=>globalThis.__verificationFixture.modelCalls);assert.equal(report.modelCalls,0);assert.deepEqual(report.externalRequests,[]);assert.deepEqual(report.rendererErrors,[]);assert.deepEqual(await hashes(),report.sourceHashes);report.status='passed';
+}catch(error){report.status='failed';report.error=String(error);console.error('VERIFICATION FAILURE',report.error,report.electronStderr??'');await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));if(page){await shot('failure').catch(()=>{});report.failureText=await page.locator('body').innerText().catch(()=>null);}}
+finally{if(app&&child?.exitCode===null&&child?.signalCode===null){const pids=await app.evaluate(({app})=>app.getAppMetrics().map(m=>m.pid)).catch(()=>[]);if(child?.pid)pids.push(child.pid);await app.close().catch(()=>{});report.processCleanup=await assertTrackedProcessesExit(pids).catch(error=>{report.status='failed';return {error:String(error)};});}if(fixture)report.fixtureCleanup=await fixture.cleanup();await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));}
+if(report.status!=='passed')process.exitCode=1;

@@ -9,7 +9,7 @@ export function exactTaskScope(dag:DagReadModel,ids:readonly string[]){
  const selected=new Set(ids),tasks=dag.tasks.filter(t=>selected.has(t.id)),index=new Map(dag.tasks.map(t=>[t.id,t]));
  const taskSelection:SummaryTaskSelection={mode:'explicit',taskIds:[...ids].sort(),omittedCount:dag.tasks.length-tasks.length,missingIds:[],reasons:tasks.map(t=>({id:t.id,reason:'명시한 작업 범위',waitingCount:0}))};
  const dependencies=[...new Map(tasks.flatMap(t=>t.dependencies.filter(d=>d.scope==='external'||!selected.has(d.id)).map(d=>[JSON.stringify([d.id,d.scope]),{id:d.id,scope:d.scope,status:d.scope==='internal'?index.get(d.id)?.status??null:null}] as const))).values()];
- const sourceHash='sha256:'+createHash('sha256').update(JSON.stringify({tasks,taskSelection,dependencies,policies:dag.policies??[]})).digest('hex');
+ const sourceHash='sha256:'+createHash('sha256').update(JSON.stringify({tasks,taskSelection,dependencies,readContractVersion:dag.readContractVersion,policies:dag.policies??[]})).digest('hex');
  return {tasks,taskSelection,dependencies,sourceHash};
 }
 /** Selection does not grant reads: intersect exact task links with already authorized bounded registrations. */

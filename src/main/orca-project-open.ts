@@ -5,10 +5,13 @@ import {finalizeQueryGroup} from '../collector/orca/process-group';
 import type {OrcaProjectOpenFailureReason,OrcaProjectOpenResult} from '../shared/orca-project-open';
 
 /** Source-reviewed CLI contract only. A different version needs fresh acceptance. */
-export const ORCA_PROJECT_OPEN_VERSION='1.4.222';
+export const ORCA_PROJECT_OPEN_VERSION='1.4.224';
+const ACCEPTED_VERSIONS=new Set(['1.4.222',ORCA_PROJECT_OPEN_VERSION]);
 const MAX_OUTPUT_BYTES=64*1024;
 export interface OrcaProjectOpenSelection {
   hostId:string;worktreeId:string;worktreePath:string;dagPath:string;runtimeId:string;
+  /** Canonical main-owned note mapping; external display requires its exact docs/note symlink. */
+  noteRootPath?:string;
 }
 export interface OrcaProjectOpenerOptions<Request> {
   /** Trusted startup configuration only. Never a renderer/request executable. */
@@ -40,18 +43,47 @@ function limit(value:number|undefined,fallback:number,maximum:number):number{
 function selection(value:OrcaProjectOpenSelection|null,localHostId:string):OrcaProjectOpenSelection{
   if(!value)return fail('unavailable');
   const row=record(value),keys=['hostId','worktreeId','worktreePath','dagPath','runtimeId'] as const;
-  if(Reflect.ownKeys(row).length!==keys.length)return fail('unavailable');
+  if(Reflect.ownKeys(row).length!==keys.length+(Object.hasOwn(row,'noteRootPath')?1:0))return fail('unavailable');
   const copied={} as OrcaProjectOpenSelection;
   for(const key of keys){const entry=Object.getOwnPropertyDescriptor(row,key);if(!entry||!('value' in entry))return fail('unavailable');copied[key]=text(entry.value);}
+  if(Object.hasOwn(row,'noteRootPath')){const entry=Object.getOwnPropertyDescriptor(row,'noteRootPath');if(!entry||!('value' in entry))return fail('unavailable');copied.noteRootPath=text(entry.value);}
   if(copied.hostId!==localHostId)return fail('unavailable');
-  for(const p of [copied.worktreePath,copied.dagPath])if(!path.isAbsolute(p)||path.normalize(p)!==p)return fail('unsafe_path');
+  for(const p of [copied.worktreePath,copied.dagPath,...(copied.noteRootPath?[copied.noteRootPath]:[])])if(!path.isAbsolute(p)||path.normalize(p)!==p)return fail('unsafe_path');
   if(!copied.worktreeId.endsWith('::'+copied.worktreePath)||copied.worktreeId.length<=copied.worktreePath.length+2)return fail('unavailable');
-  if(copied.worktreePath===path.parse(copied.worktreePath).root||!within(copied.worktreePath,copied.dagPath))return fail('unsafe_path');
+  if(copied.worktreePath===path.parse(copied.worktreePath).root||(!within(copied.worktreePath,copied.dagPath)&&(!copied.noteRootPath||!within(copied.noteRootPath,copied.dagPath))))return fail('unsafe_path');
   return copied;
 }
 function within(root:string,file:string):boolean{
   const relative=path.relative(root,file);
   return !!relative&&!path.isAbsolute(relative)&&relative!=='..'&&!relative.startsWith('..'+path.sep);
+}
+/** Shared metadata proof. External files require one exact, main-authorized central-note link.
+ * Orca independently enforces its own allowed roots; this proof does not grant Orca access.
+ */
+export async function inspectOrcaProjectOpenTarget(chosen:OrcaProjectOpenSelection,read:<T>(operation:()=>Promise<T>)=>Promise<T>=operation=>operation()){
+  const root=await read(()=>fs.realpath(chosen.worktreePath)),file=await read(()=>fs.realpath(chosen.dagPath));
+  if(root!==chosen.worktreePath)return fail('unsafe_path');
+  const tree=await read(()=>fs.lstat(root)),note=await read(()=>fs.lstat(file));
+  if(!tree.isDirectory()||!note.isFile()||note.isSymbolicLink())return fail('unsafe_path');
+  let displayPath=file;const proof:unknown[]=[];const external=!within(root,file);
+  if(external){
+    const noteRoot=chosen.noteRootPath;
+    if(file!==chosen.dagPath||!noteRoot||noteRoot===path.parse(noteRoot).root||await read(()=>fs.realpath(noteRoot))!==noteRoot||!within(noteRoot,file))return fail('unsafe_path');
+    const central=await read(()=>fs.lstat(noteRoot)),docs=path.join(root,'docs'),link=path.join(docs,'note');
+    const docsStat=await read(()=>fs.lstat(docs)),linkStat=await read(()=>fs.lstat(link));
+    if(!central.isDirectory()||central.isSymbolicLink()||!docsStat.isDirectory()||docsStat.isSymbolicLink()||!linkStat.isSymbolicLink()
+      ||await read(()=>fs.realpath(link))!==noteRoot)return fail('unsafe_path');
+    const linkValue=await read(()=>fs.readlink(link));
+    const relative=path.relative(noteRoot,file);displayPath=path.join(link,relative);
+    if(!within(root,displayPath)||await read(()=>fs.realpath(displayPath))!==file)return fail('unsafe_path');
+    // Nested symlinks cannot silently redirect the approved central-note subpath.
+    let nested=noteRoot;for(const segment of relative.split(path.sep)){nested=path.join(nested,segment);const stat=await read(()=>fs.lstat(nested));if(stat.isSymbolicLink())return fail('unsafe_path');proof.push([nested,stat.dev,stat.ino]);}
+    proof.push([noteRoot,central.dev,central.ino,docsStat.dev,docsStat.ino,linkStat.dev,linkStat.ino,linkValue]);
+    if(await read(()=>fs.realpath(link))!==noteRoot||await read(()=>fs.readlink(link))!==linkValue)return fail('selection_changed');
+  }
+  if(await read(()=>fs.realpath(root))!==root||await read(()=>fs.realpath(file))!==file||await read(()=>fs.realpath(displayPath))!==file)return fail('selection_changed');
+  return {root,file,displayPath,external,relativePath:path.relative(root,displayPath).split(path.sep).join('/'),
+    fingerprint:JSON.stringify([root,file,displayPath,tree.dev,tree.ino,note.dev,note.ino,note.size,note.mtimeMs,note.ctimeMs,proof])};
 }
 function envelope(json:string,expectedRuntime:string):Record<string,unknown>{
   if(typeof json!=='string'||Buffer.byteLength(json,'utf8')>MAX_OUTPUT_BYTES)return fail('output_limit');
@@ -59,17 +91,22 @@ function envelope(json:string,expectedRuntime:string):Record<string,unknown>{
   const body=record(parsed);text(body.id,512);
   if(body.ok===false){
     if(body._meta!==undefined){const meta=record(body._meta);if(meta.runtimeId!==null&&meta.runtimeId!==undefined&&text(meta.runtimeId)!==expectedRuntime)return fail('runtime_changed');}
-    const error=record(body.error);return fail(error.code==='runtime_access_denied'?'access_denied':'command_failed');
+    const error=record(body.error);const rootDenial=error.code==='runtime_error'&&error.message==='Access denied: path resolves outside allowed directories. If this blocks a legitimate workflow, please file a GitHub issue.';return fail(error.code==='runtime_access_denied'||rootDenial?'access_denied':'command_failed');
   }
   if(body.ok!==true)return fail('invalid_schema');
   const meta=record(body._meta);if(text(meta.runtimeId)!==expectedRuntime)return fail('runtime_changed');
   return record(body.result);
 }
-function verifyStatus(json:string,expected:OrcaProjectOpenSelection):void{
+function verifyStatus(json:string,expected:OrcaProjectOpenSelection,cliVersion:string):void{
   const result=envelope(json,expected.runtimeId),runtime=record(result.runtime),app=record(result.app),target=record(result.target);
   if(text(runtime.runtimeId)!==expected.runtimeId)return fail('runtime_changed');
-  if(runtime.appVersion!==ORCA_PROJECT_OPEN_VERSION)return fail('unsupported_version');
+  if(runtime.appVersion!==cliVersion)return fail('unsupported_version');
   if(target.kind!=='local'||app.running!==true||runtime.reachable!==true||runtime.state!=='ready'||runtime.connectionState!=='connected')return fail('unavailable');
+}
+
+function verifyCurrentWorktree(json:string,expected:OrcaProjectOpenSelection):void{
+  const worktree=record(envelope(json,expected.runtimeId).worktree);
+  if(text(worktree.id)!==expected.worktreeId||text(worktree.path)!==expected.worktreePath||text(worktree.hostId)!==expected.hostId||worktree.isArchived!==false)return fail('selection_changed');
 }
 
 /** Strict display-only receipt projection. Unknown payloads never leave main. */
@@ -126,17 +163,9 @@ export function createOrcaProjectOpener<Request>(options:OrcaProjectOpenerOption
       })]);}finally{if(onAbort)controller.signal.removeEventListener('abort',onAbort);}
     }
     async function inspect(chosen:OrcaProjectOpenSelection){
-      const root=await bounded(()=>fs.realpath(chosen.worktreePath)),file=await bounded(()=>fs.realpath(chosen.dagPath));
-      // The CLI computes its relative path against the registered worktree path.
-      // A symlinked root could produce a different destination, so fail closed.
-      if(root!==chosen.worktreePath||!within(root,file))return fail('unsafe_path');
-      const tree=await bounded(()=>fs.lstat(root)),note=await bounded(()=>fs.lstat(file));
-      if(!tree.isDirectory()||!note.isFile()||note.isSymbolicLink())return fail('unsafe_path');
-      if(await bounded(()=>fs.realpath(root))!==root||await bounded(()=>fs.realpath(file))!==file)return fail('selection_changed');
-      return {root,file,relativePath:path.relative(root,file).split(path.sep).join('/'),
-        fingerprint:JSON.stringify([root,file,tree.dev,tree.ino,note.dev,note.ino,note.size,note.mtimeMs,note.ctimeMs])};
+      return inspectOrcaProjectOpenTarget(chosen,bounded);
     }
-    async function run(args:readonly string[],display:boolean):Promise<string>{
+    async function run(args:readonly string[],display:boolean,expectedRuntime:string):Promise<string>{
       check();
       return new Promise((resolve,reject)=>{
         let chunks:Buffer[]=[],bytes=0,stopped:OrcaProjectOpenFailureReason|null=null,settled=false,cleanup:Promise<boolean>|null=null;
@@ -169,7 +198,8 @@ export function createOrcaProjectOpener<Request>(options:OrcaProjectOpenerOption
         child.once('close',async(code,signal)=>{
           const verified=await startCleanup();if(settled||!verified)return;
           if(stopped){finish(stopped);return;}
-          if(code!==0||signal!==null){finish('command_failed');return;}
+          if(signal!==null){finish('command_failed');return;}
+          if(code!==0){const buffer=Buffer.concat(chunks);wipe();try{envelope(new TextDecoder('utf-8',{fatal:true}).decode(buffer),expectedRuntime);finish('command_failed');}catch(error){finish(error instanceof OpenError&&['access_denied','runtime_changed'].includes(error.reason)?error.reason:'command_failed');}finally{buffer.fill(0);}return;}
           const buffer=Buffer.concat(chunks);wipe();
           try{finish(null,new TextDecoder('utf-8',{fatal:true}).decode(buffer));}catch{finish('invalid_json');}finally{buffer.fill(0);}
         });
@@ -180,18 +210,21 @@ export function createOrcaProjectOpener<Request>(options:OrcaProjectOpenerOption
       const initial=await inspect(chosen);
       // CLI and running app versions are separate evidence. Both must match the
       // reviewed contract; no help/version text is interpreted as a command.
-      if(await run(['--version'],false)!==ORCA_PROJECT_OPEN_VERSION+'\n')return fail('unsupported_version');
-      verifyStatus(await run(['status','--json'],false),chosen);
+      const cliVersion=(await run(['--version'],false,chosen.runtimeId)).replace(/\n$/u,'');
+      if(!ACCEPTED_VERSIONS.has(cliVersion)||(initial.external&&cliVersion!==ORCA_PROJECT_OPEN_VERSION))return fail('unsupported_version');
+      verifyStatus(await run(['status','--json'],false,chosen.runtimeId),chosen,cliVersion);
+      verifyCurrentWorktree(await run(['worktree','show','--worktree',`id:${chosen.worktreeId}`,'--json'],false,chosen.runtimeId),chosen);
       const current=selection(await bounded(()=>options.resolveSelection(request,controller.signal)),host);
       if(JSON.stringify(current)!==JSON.stringify(chosen))return fail('selection_changed');
       const verified=await inspect(current);if(verified.fingerprint!==initial.fingerprint)return fail('selection_changed');
       const finalSelection=selection(await bounded(()=>options.resolveSelection(request,controller.signal)),host);
       if(JSON.stringify(finalSelection)!==JSON.stringify(chosen))return fail('selection_changed');
+      const finalVerified=await inspect(finalSelection);if(finalVerified.fingerprint!==initial.fingerprint)return fail('selection_changed');
       check();
       // Orca accepts a pathname, not a transferred descriptor. These freshness
       // checks are not an atomic lock against an independent filesystem writer.
-      const json=await run(['file','open','--path',verified.file,'--worktree',`id:${chosen.worktreeId}`,'--focus','--json'],true);
-      return parseOrcaProjectOpenResponse(json,chosen,verified.relativePath);
+      const json=await run(['file','open','--path',finalVerified.displayPath,'--worktree',`id:${chosen.worktreeId}`,'--focus','--json'],true,chosen.runtimeId);
+      return parseOrcaProjectOpenResponse(json,chosen,finalVerified.relativePath);
     }catch(error){return {ok:false,reason:error instanceof OpenError?error.reason:'unavailable',attempted};}
     finally{clearTimeout(timer);requestOptions.signal?.removeEventListener('abort',cancel);active=null;activeCompletion=null;completed();}
   }

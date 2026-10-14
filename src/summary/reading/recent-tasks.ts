@@ -8,7 +8,9 @@ import type {RegisteredExcerptContext} from '../context/registered';
 export interface ProjectModelSelection {purpose:'recent'|'custom';taskIds?:string[]}
 export interface TaskActivity {taskId:string;kind:'code'|'discussion'|'verification';at:string;source:string;timeBasis:'git-commit-time'|'declared-record-time';sourceHash:string;declaredReference?:string;fullSha?:string}
 export interface ActivityCoverage {state:'complete'|'partial'|'unavailable';total:number;checked:number;resolved:number;unresolved:number;unsupported:number;pending:number}
-export interface RecentSummaryTasks {state:'ready'|'unknown'|'unavailable';taskIds:string[];activities:TaskActivity[];coverage:'bounded-records';omittedReferences:number;message:string;activityCoverage?:ActivityCoverage}
+export const RECENT_SOURCE_ERRORS=['request_cancelled','request_busy','collection_refreshing','current_source_unavailable','current_dag_unavailable','dag_busy','dag_cleanup_unverified','dag_timeout','dag_command_failed','dag_invalid_schema','dag_other_failure','project_mapping_unavailable','read_permission_or_mapping_changed','source_changed','source_validation_failed'] as const;
+export type RecentSourceError=typeof RECENT_SOURCE_ERRORS[number];
+export interface RecentSummaryTasks {state:'ready'|'unknown'|'unavailable';taskIds:string[];activities:TaskActivity[];coverage:'bounded-records';omittedReferences:number;message:string;activityCoverage?:ActivityCoverage;sourceError?:RecentSourceError}
 export const RECENT_ACTIVITY_POLICY='last-three-exact-task-activities-v1';
 export const ACTIVITY_REFERENCE_LIMIT=128;
 const digest=(text:string)=>createHash('sha256').update(text).digest('hex');

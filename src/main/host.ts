@@ -1,3 +1,5 @@
+import {createTaskGraphDateService,registerTaskGraphDatesIpc} from './task-graph-dates';
+import {registerTaskGraphIpc} from './task-graph-ipc';
 import {createGitMetadataReadGrants,gitMetadataReadGrantsCodec} from './git-metadata-grants';
 import {createGitActivityIndex,gitActivityIndexCodec,type GitActivityIndexInput} from './git-activity-index';
 import {gitActivityObjectRevision,readGitActivityReferences} from '../summary/reading/git-activity-metadata';
@@ -20,7 +22,7 @@ import {createProjectDagWriter} from './project-dag-writer';
 import {validateProjectDagSource} from './project-dag-source';
 import {parseProjectCreationRequest} from '../shared/project-creation';
 import {parseConfirmProjectDagRequest,parseCancelProjectDagRequest} from '../shared/project-dag';
-import {createOrcaProjectOpener} from './orca-project-open';
+import {createOrcaProjectOpener,inspectOrcaProjectOpenTarget} from './orca-project-open';
 import {parseOrcaProjectOpenRequest} from '../shared/orca-project-open';
 import {updateStartupAllowed} from './update-startup';
 import {createUpdateCleanupGate} from './update-cleanup';
@@ -81,6 +83,7 @@ let quitting=false;
 let updateQuiescing=false;
 let projectModel:ReturnType<typeof createProjectModelController>|undefined;
 let summaryReview:ReturnType<typeof createSummaryReview>|undefined;
+let taskGraphDates:ReturnType<typeof createTaskGraphDateService>|undefined;
 let gitMetadataGrants:ReturnType<typeof createGitMetadataReadGrants>|undefined;
 let gitActivityIndex:ReturnType<typeof createGitActivityIndex>|undefined;
 let nativeSummaryActivity={visible:false,active:false};
@@ -135,7 +138,9 @@ async function createWindow(): Promise<void> {
   window.webContents.on('will-attach-webview',event=>event.preventDefault());
   window.once('ready-to-show',()=>window.show());
   window.on('close',event=>{if(!quitting){event.preventDefault();window.hide();}});
-  window.on('closed',()=>{mainWindow=null;demoStore.clear();});
+  window.on('hide',()=>taskGraphDates?.cancel());
+  window.on('blur',()=>taskGraphDates?.cancel());
+  window.on('closed',()=>{taskGraphDates?.cancel();mainWindow=null;demoStore.clear();});
   await window.loadFile(rendererEntry);
 }
 async function showWindow():Promise<void>{if(quitting||updateQuiescing||!liveRuntime)return;if(!mainWindow||quitting){await createWindow();return;}if(mainWindow.isMinimized())mainWindow.restore();mainWindow.show();mainWindow.focus();}
@@ -199,8 +204,9 @@ app.whenReady().then(async()=>{
   liveRuntime=createLiveRuntime({configuration,cacheRoot,cacheAvailable:cacheLocation.available,projectRegistry,readRoots,gitActivityIdentity:async id=>{const state=await gitMetadataGrants?.view(id);return state?JSON.stringify([state.identity,state.state]):null;},readGitActivity:readSummaryGitActivity,extraDocumentRoots:async workstreamId=>(await documentRoots.rootsFor(workstreamId)).map(root=>({key:root.id,path:root.path,label:(root.kind==='review'?'연결한 검수 폴더':'연결한 소스 문서 폴더')+' · '+root.path.split(/[\\/]/u).at(-1),kind:'linked',authorize:()=>documentRoots.revalidate(root)}))});
   async function metadataPersistence<T>(name:string,codec:{parse(value:unknown):T}){if(!cacheLocation.available)return undefined;return startup((async()=>{const directory=join(cacheRoot,name);await mkdir(directory,{mode:0o700}).catch(error=>{if(error.code!=='EEXIST')throw error;});const stat=await lstat(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||await realpath(directory)!==directory||(process.platform!=='win32'&&((stat.mode&0o077)!==0||stat.uid!==process.geteuid?.())))throw Error('Unsafe Git metadata cache');return persistence(createLocalSummaryCache({directory,codec}));})(),undefined);}
   const gitGrantPersistence=await metadataPersistence('git-metadata-grants',gitMetadataReadGrantsCodec);
-  gitMetadataGrants=createGitMetadataReadGrants({persistence:gitGrantPersistence,unavailable:!gitGrantPersistence,existingAuthority:async(_id,project,signal)=>{if(signal?.aborted||!await readRoots.allowsDirectory(project.worktree))return null;const candidates=[join(project.worktree,'.git'),...(configuration.configuration?.noteLink?.allowedCommonGitDirs??[])],approvedCommonPaths:string[]=[];for(const directory of [...new Set(candidates)])if(await readRoots.allowsDirectory(directory))approvedCommonPaths.push(directory);if(!approvedCommonPaths.length)return null;const revision=(await readRoots.view()).revision;return {worktree:project.worktree,approvedCommonPaths,revision:revision??0,validate:async checkSignal=>!checkSignal?.aborted&&(await readRoots.view()).revision===revision&&await readRoots.allowsDirectory(project.worktree)&&(await Promise.all(approvedCommonPaths.map(directory=>readRoots.allowsDirectory(directory)))).every(Boolean)};},resolveProject:id=>liveRuntime.resolveGitMetadataProject(id),onInvalidate:id=>{summaryReview?.cancelAll(true);if(id)void gitActivityIndex?.invalidate(id).catch(()=>{});summaryReview?.invalidate();}});
+  gitMetadataGrants=createGitMetadataReadGrants({persistence:gitGrantPersistence,unavailable:!gitGrantPersistence,existingAuthority:async(_id,project,signal)=>{if(signal?.aborted||!await readRoots.allowsDirectory(project.worktree))return null;const candidates=[join(project.worktree,'.git'),...(configuration.configuration?.noteLink?.allowedCommonGitDirs??[])],approvedCommonPaths:string[]=[];for(const directory of [...new Set(candidates)])if(await readRoots.allowsDirectory(directory))approvedCommonPaths.push(directory);if(!approvedCommonPaths.length)return null;const revision=(await readRoots.view()).revision;return {worktree:project.worktree,approvedCommonPaths,revision:revision??0,validate:async checkSignal=>!checkSignal?.aborted&&(await readRoots.view()).revision===revision&&await readRoots.allowsDirectory(project.worktree)&&(await Promise.all(approvedCommonPaths.map(directory=>readRoots.allowsDirectory(directory)))).every(Boolean)};},resolveProject:id=>liveRuntime.resolveGitMetadataProject(id),onInvalidate:id=>{taskGraphDates?.cancel();summaryReview?.cancelAll(true);if(id)void gitActivityIndex?.invalidate(id).catch(()=>{});summaryReview?.invalidate();}});
   await gitMetadataGrants.load();
+  taskGraphDates=createTaskGraphDateService({source:liveRuntime.resolveTaskGraphSource,current:liveRuntime.taskGraphAuthority,repository:liveRuntime.verifiedTaskGraphRepository,authority:async(id,signal)=>await gitMetadataGrants?.resolve(id,signal)??null});
   const gitIndexPersistence=await metadataPersistence('git-activity-index',gitActivityIndexCodec);
   const authorityKey=(authority:NonNullable<Awaited<ReturnType<NonNullable<typeof gitMetadataGrants>['resolve']>>>)=>createHash('sha256').update(JSON.stringify([authority.descriptor.contract,authority.identity,authority.revision])).digest('hex');
   async function checkGitAuthority(input:GitActivityIndexInput,signal:AbortSignal){if(quitting||updateQuiescing||signal.aborted)return false;const authority=await gitMetadataGrants?.resolve(input.projectId,signal);if(!authority||authorityKey(authority)!==input.authorityKey||!await authority.validate(signal))return false;return await gitActivityObjectRevision(authority.descriptor,signal,input.declaredReferences)===input.objectRevision;}
@@ -248,7 +254,7 @@ app.whenReady().then(async()=>{
     },
     requestQuit:ready=>{updateQuitReady=ready;app.quit();},
   });
-  updateService.subscribe(state=>{updateQuiescing=state.status==='installing';if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:update-changed',state);});
+  updateService.subscribe(state=>{updateQuiescing=state.status==='installing';if(updateQuiescing)taskGraphDates?.cancel();if(mainWindow&&!mainWindow.webContents.isDestroyed())mainWindow.webContents.send('note-app:update-changed',state);});
   for(const [channel,action] of [
     ['state',()=>updateService!.getState()],['check',()=>updateService!.check()],['prepare',()=>updateService!.prepare()],
     ['cancel',()=>updateService!.cancel()],['defer',()=>updateService!.defer()],['install',()=>updateService!.install()],['dismiss-outcome',()=>updateService!.dismissOutcome()],
@@ -284,7 +290,7 @@ app.whenReady().then(async()=>{
     }finally{linkControllers.delete(controller);pickingReadRoot=false;}
   });
   ipcMain.handle('note-app:document-roots-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('문서 폴더 취소 요청 오류');return documentRoots.cancel(args[0]);});
-  async function changeDocumentRoots(action:()=>Promise<unknown>){if(changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('읽기 범위 변경이 진행 중입니다.');changingReadRoots=true;liveRuntime.invalidateProjectDocuments();try{return await action();}finally{changingReadRoots=false;}}
+  async function changeDocumentRoots(action:()=>Promise<unknown>){if(changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('읽기 범위 변경이 진행 중입니다.');changingReadRoots=true;taskGraphDates?.cancel();liveRuntime.invalidateProjectDocuments();try{return await action();}finally{changingReadRoots=false;}}
   ipcMain.handle('note-app:document-roots-confirm',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('문서 폴더 확인 요청 오류');return tracked(changeDocumentRoots(()=>documentRoots.confirm(args[0])));});
   ipcMain.handle('note-app:document-roots-revoke',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('문서 폴더 철회 요청 오류');return tracked(changeDocumentRoots(()=>documentRoots.revoke(args[0])));});
   ipcMain.handle('note-app:read-roots',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return owned('read-roots-view',()=>readRoots.view());});
@@ -293,7 +299,7 @@ app.whenReady().then(async()=>{
     try{const result=await dialog.showOpenDialog(mainWindow!,{title:'노트 읽기를 허용할 폴더 선택',properties:['openDirectory'],buttonLabel:'읽기 범위 검토'});if(result.canceled||result.filePaths.length!==1)return null;return await readRoots.prepare(result.filePaths[0]);}finally{pickingReadRoot=false;}
   });
   ipcMain.handle('note-app:read-root-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');readRoots.cancel(args[0]);});
-  async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;
+  async function changeReadRoots(action:()=>Promise<unknown>){if(changingReadRoots||reconnectBusy||pickingReadRoot)throw Error('권한 변경이 진행 중입니다.');changingReadRoots=true;taskGraphDates?.cancel();
     try{projectCreation?.dispose();orcaProjectOpener?.invalidate();for(const controller of linkControllers)controller.abort();await publicModel?.cancel();projectModel?.cancel();summaryReview?.cancelAll();summaryWorkflow.dispose();await liveRuntime.invalidateReadRoots();return await action();}
     finally{summaryWorkflow=makeSummaryWorkflow();changingReadRoots=false;}
   }
@@ -308,7 +314,7 @@ app.whenReady().then(async()=>{
     ['note-app:public-model-state',()=>publicModel!.view()],
     ['note-app:public-model-run',()=>publicModel!.run()],
     ['note-app:public-model-cancel',()=>publicModel!.cancel()],
-    ['note-app:live-disconnect',()=>{gitMetadataGrants?.invalidate();projectCreation?.dispose();orcaProjectOpener?.invalidate();projectModel?.cancel();summaryReview?.cancelAll();return liveRuntime.disconnect();}],
+    ['note-app:live-disconnect',()=>{taskGraphDates?.cancel();gitMetadataGrants?.invalidate();projectCreation?.dispose();orcaProjectOpener?.invalidate();projectModel?.cancel();summaryReview?.cancelAll();return liveRuntime.disconnect();}],
   ] as const) ipcMain.handle(channel,(event,...args)=>{
     if(!mainWindow||quitting||updateQuiescing) throw new Error('App window unavailable');
     assertTrustedSender(event,mainWindow.webContents,entryUrl);assertNoArguments(args);
@@ -344,6 +350,8 @@ app.whenReady().then(async()=>{
   ipcMain.handle('note-app:summary-consent-revoke',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Invalid consent request');const id=summaryProject(args[0],['workstreamId']).workstreamId;summaryReview!.cancelAll(true);return tracked(summaryReview!.automation.revoke(id));});
   ipcMain.handle('note-app:summary-auto-set',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('Summary unavailable');const r=summaryProject(args[0],['workstreamId','enabled']);if(typeof r.enabled!=='boolean')throw Error('Invalid auto state');return tracked(summaryReview!.automation.setAuto(r.workstreamId,r.enabled));});
   let appMemoryCache:ReturnType<typeof projectAppMemory>|null=null,appMemoryAt=0;
+  registerTaskGraphDatesIpc(ipcMain,taskGraphDates!,checkReadSender,()=>!changingReadRoots&&!reconnectBusy,tracked);
+  registerTaskGraphIpc(ipcMain,{getTaskGraphSession:async request=>liveRuntime.getTaskGraphSession(request),readTaskGraph:liveRuntime.readTaskGraph,readTaskGraphChunk:liveRuntime.readTaskGraphChunk,readTaskGraphDetail:liveRuntime.readTaskGraphDetail,cancelTaskGraph:async request=>liveRuntime.cancelTaskGraph(request)},checkReadSender,()=>!changingReadRoots&&!reconnectBusy,tracked);
   ipcMain.handle('note-app:app-memory',(event,...args)=>{checkReadSender(event);assertNoArguments(args);const at=Date.now();if(appMemoryCache&&at-appMemoryAt<1000)return appMemoryCache;let metrics:unknown=null;try{metrics=app.getAppMetrics();}catch{}appMemoryCache=projectAppMemory(metrics,process.platform,at);appMemoryAt=at;return appMemoryCache;});
   const projectCreationConfiguration=configuration.configuration;
   const creationConfigured=!!(projectCreationConfiguration?.localHostId&&projectCreationConfiguration.noteLink&&projectCreationConfiguration.dagQuery&&process.platform!=='win32');
@@ -358,7 +366,7 @@ app.whenReady().then(async()=>{
   });
   ipcMain.handle('note-app:project-creation-confirm',(event,...args)=>{checkReadSender(event);if(args.length!==1||projectCreationBusy||pickingReadRoot||changingReadRoots||reconnectBusy||!projectCreation)throw Error('프로젝트 생성 확인을 사용할 수 없습니다.');const request=parseConfirmProjectDagRequest(args[0]),session=projectCreation;projectCreationBusy=true;return tracked(hostCleanup.track('project-creation-write',()=>session.confirm(request),{fulfilled:result=>(result.state!=='unavailable'||result.outcome!=='uncertain')&&!session.cleanupState().unverified,rejected:()=>false}).finally(()=>{projectCreationBusy=false;}));});
   ipcMain.handle('note-app:project-creation-cancel',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one cancellation');const request=parseCancelProjectDagRequest(args[0]);projectCreation?.cancel(request);});
-  ipcMain.handle('note-app:orca-project-open-availability',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one Orca selection');const {workstreamId}=parseOrcaProjectOpenRequest(args[0]),target=liveRuntime.resolveProjectOrcaTarget(workstreamId);if(!orcaProjectOpener||!target)return {available:false,reason:'unavailable'};const rel=relative(target.worktreePath,target.dagPath);return !rel||isAbsolute(rel)||rel==='..'||rel.startsWith('../')?{available:false,reason:'external-note'}:{available:true,reason:'ready'};});
+  ipcMain.handle('note-app:orca-project-open-availability',async(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one Orca selection');const {workstreamId}=parseOrcaProjectOpenRequest(args[0]),state=liveRuntime.projectOrcaTargetState(workstreamId),target=state.target;if(!orcaProjectOpener)return {available:false,reason:'unavailable'};if(!target)return {available:false,reason:state.reason};try{await owned('Orca target availability',()=>inspectOrcaProjectOpenTarget(target));const current=liveRuntime.resolveProjectOrcaTarget(workstreamId);if(JSON.stringify(current)!==JSON.stringify(target))return {available:false,reason:'binding-changed'};if(!await readRoots.allowsDirectory(dirname(target.dagPath)))return {available:false,reason:'permission-denied'};return {available:true,reason:'ready'};}catch{return {available:false,reason:'unsafe-path'};}});
   ipcMain.handle('note-app:orca-project-open',(event,...args)=>{checkReadSender(event);if(args.length!==1||changingReadRoots||reconnectBusy)throw Error('Orca 이동 요청 불가');const {workstreamId}=parseOrcaProjectOpenRequest(args[0]);if(!orcaProjectOpener)return {ok:false,reason:'unavailable',attempted:false};return tracked(hostCleanup.track('Orca display',()=>orcaProjectOpener!.open(workstreamId),{fulfilled:result=>result.ok||result.reason!=='cleanup_unverified',rejected:()=>false}));});
   ipcMain.handle('note-app:project-workspaces',(event,...args)=>{checkReadSender(event);assertNoArguments(args);return liveRuntime.getProjectWorkspaceOptions();});
   ipcMain.handle('note-app:project-workspace-resolve',(event,...args)=>{checkReadSender(event);if(args.length!==1)throw Error('Expected one workspace selection');return liveRuntime.resolveProjectWorkspace(args[0]);});
@@ -438,7 +446,7 @@ app.whenReady().then(async()=>{
 });
 // A retained tray owns the app lifetime; only explicit quit terminates collection.
 app.on('window-all-closed',()=>{});
-app.on('before-quit',event=>{
+app.on('before-quit',event=>{taskGraphDates?.cancel();
   // Retire pending scope confirmation before disposal, then keep recovery controls alive
   // if a committed permission change could not be durably rolled back.
   if(!quitSettled&&!metadataQuitPrepared){event.preventDefault();if(metadataQuitPreparing)return;metadataQuitPreparing=true;gitMetadataGrants?.invalidate();void(async()=>{try{await gitMetadataGrants?.settle();}catch{/* Recovery state below decides whether ordinary quit is safe. */}metadataQuitPreparing=false;if(gitMetadataGrants?.hasUnresolvedRecovery()){await showWindow();if(mainWindow)await dialog.showMessageBox(mainWindow,{type:'warning',title:'로컬 읽기 허용 복구 필요',message:'읽기 허용이 저장됐을 수 있습니다. 앱을 다시 시작하기 전에 요약 설정에서 저장소 복구 후 허용 철회를 완료해 주세요.',buttons:['돌아가기']});return;}metadataQuitPrepared=true;app.quit();})();return;}

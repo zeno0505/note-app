@@ -1,3 +1,5 @@
+import {parseGraphSessionRequest} from '../shared/task-graph-transport';
+import {createTaskGraphService, type GraphAuthority} from './task-graph';
 import * as fs from 'node:fs/promises';
 import {exactTaskScope,selectedTaskExcerpts} from '../summary/reading/scoped-project';
 import {parseModelSelection,selectRecentTaskActivities,registeredTaskActivities,readTaskCommitActivities,type ProjectModelSelection,type RecentSummaryTasks,type TaskActivity,type ActivityCoverage} from '../summary/reading/recent-tasks';
@@ -12,6 +14,7 @@ import {createEvidenceReader,parseEvidenceTarget,type EvidenceRegistration} from
 import type {EvidenceList,EvidenceReadView} from '../shared/evidence';
 import {prefixSelection,scopedDagView,prefixReading} from '../summary/reading/prefix';
 import {ModelDiagnosticError} from './model-diagnostics';
+import {createJoinedRead} from './joined-read';
 import type {createReadRoots} from './read-roots';
 import {parseWikiTarget,resolveWikiUri} from './projects/wikilinks';
 import {projectId,lifecycleView,type ProjectRegistry,type RegisteredProject} from './projects/registry';
@@ -69,7 +72,7 @@ export interface LiveRuntimeDependencies {
   publicGitHubObserver: typeof createPublicGitHubObserver;
 }
 interface WorktreeSource {id: string; worktreeId: string; hostId: string | null; worktreePath: string | null; present?:boolean}
-interface CurrentWorktree {viewId?:string;worktreeId:string;hostId:string|null;instanceId:string|null;path:string|null;branch:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
+interface CurrentWorktree {verifiedRepository?:{host:string;owner:string;name:string};viewId?:string;worktreeId:string;hostId:string|null;instanceId:string|null;path:string|null;branch:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[];currentWorktrees:CurrentWorktree[] }
 interface DagSession {
   canonicalPath: string;
@@ -99,6 +102,7 @@ export function createLiveRuntime(options: {
 }) {
   const updateCleanup=createUpdateCleanupGate();
   let updateShutdown=false;
+  const dagReads=createJoinedRead<import('../facts/dag-read-model').DagReadResult>();
   const cleanupFailure=()=>false;
   const processClean=(result:{ok:boolean;error?:{kind:string}})=>result.ok||!['cleanup_unverified','cleanup-unverified'].includes(result.error?.kind??'');
   const registrySource=options.projectRegistry;
@@ -135,7 +139,25 @@ export function createLiveRuntime(options: {
     const stopped=new Promise<boolean>(resolve=>{onAbort=()=>resolve(false);signal.addEventListener('abort',onAbort,{once:true});timer=setTimeout(onAbort,5000);});
     try{return await Promise.race([work,stopped]);}finally{if(timer)clearTimeout(timer);signal.removeEventListener('abort',onAbort);}
   }
-  function clearEvidence(){for(const item of documentCatalogs.values())item.catalog.release();documentCatalogs.clear();evidenceEpoch++;evidenceLifetime.abort();evidenceLifetime=new AbortController();for(const session of evidenceSessions.values()){session.controller.abort();session.reader.retire();}evidenceSessions.clear();}
+  let graphGeneration=0,graphSuspended=false;
+  const graphService=createTaskGraphService({current:graphAuthority,read:readGraphSource});
+  function graphAuthority(projectId:string):GraphAuthority|null {
+    const snapshot=store.getState(),workstream=snapshot.value?.workstreams.find(w=>w.id===projectId),dagId=workstream?.noteMapping.dagId;
+    if(disposed||updateShutdown||graphSuspended||!connected||!activity.visible||!activity.active||snapshot.refreshing||snapshot.freshness!=='current'||['error','cancelled'].includes(snapshot.lastAttempt?.outcome??'')||!dagId||workstream?.noteMapping.state!=='resolved'||workstream.noteMapping.context?.state!=='verified'||snapshot.value?.dags.find(d=>d.dagId===dagId)?.state!=='ready'||!dagSessions.get(dagId)?.model)return null;
+    return {projectId,dagId,sessionKey:digest(JSON.stringify([snapshot.runtimeId,snapshot.revision,graphGeneration,evidenceEpoch,workstream.noteMapping]))};
+  }
+  async function readGraphSource(authority:GraphAuthority,signal:AbortSignal):Promise<DagReadModel>{
+    const before=graphAuthority(authority.projectId);if(JSON.stringify(before)!==JSON.stringify(authority))throw Error('stale-session');
+    const snapshot=store.getState(),source=snapshot.value?.worktreeSources.find(w=>w.id===authority.projectId),session=dagSessions.get(authority.dagId),project=registry?.records().find(p=>p.id===authority.projectId);
+    if(!source?.hostId||source.hostId!==config?.localHostId||!source.worktreePath||!session?.reader)throw Error('source-unavailable');
+    const selected=project&&project.hostId===source.hostId&&project.dagId===authority.dagId&&project.canonicalDagPath===session.canonicalPath?{selectedScopeId:project.scopeId,selectedDagRelativePath:path.relative(project.canonicalNotePath,project.canonicalDagPath)}:{};
+    const verify=async()=>{const result=await readMapping({localHostId:config!.localHostId!,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId!,worktreePath:source.worktreePath!,...selected}],signal});const mapping=result.mappings[0];if(signal.aborted)throw Error('cancelled');if(mapping?.state!=='resolved'||mapping.dagId!==authority.dagId||mapping.canonicalDagPath!==session.canonicalPath)throw Error('stale-session');return JSON.stringify(mapping);};
+    const binding=await verify();const result=await readDagForUpdate(session.reader,authority.dagId,signal,JSON.stringify(['graph',authority]));
+    if(!result.ok)throw Error(result.error.kind==='source_changed'?'source-changed':result.error.kind==='timeout'?'timeout':result.error.kind==='cancelled'?'cancelled':['source_limit','output_limit','invalid_schema'].includes(result.error.kind)?'unsupported':'source-unavailable');
+    if(binding!==await verify()||JSON.stringify(graphAuthority(authority.projectId))!==JSON.stringify(authority))throw Error('stale-session');
+    return result.value;
+  }
+  function clearEvidence(){graphGeneration++;graphService.invalidate();for(const item of documentCatalogs.values())item.catalog.release();documentCatalogs.clear();evidenceEpoch++;evidenceLifetime.abort();evidenceLifetime=new AbortController();for(const session of evidenceSessions.values()){session.controller.abort();session.reader.retire();}evidenceSessions.clear();}
   function releaseEvidenceSession(id:string){
     const affected=[...evidenceSessions].filter(([key,session])=>key===id||session.proofs.some(proof=>proof.sessionId===id)).map(([key])=>key);
     for(const key of affected){const session=evidenceSessions.get(key);session?.controller.abort();session?.reader.retire();evidenceSessions.delete(key);}
@@ -433,6 +455,7 @@ export function createLiveRuntime(options: {
       const bound=!!w.repoId&&project?.sourceRepoIds?.includes(w.repoId)===true;
       const provider=bound?project?.providerIdentity:undefined;
       return {worktreeId:w.id,hostId:w.identity.hostId,instanceId:w.identity.instanceId,path:w.path,branch:w.branch,archived:w.isArchived,
+        ...(provider?.provider==='github'?{verifiedRepository:{host:'github.com',owner:provider.owner,name:provider.repo}}:{}),
         repository:{key:JSON.stringify([w.identity.hostId,w.repoId]),id:w.repoId,hostId:w.identity.hostId,projectId:bound?project?.id??null:null,label:provider?`${provider.owner}/${provider.repo}`:bound?project?.displayName??'저장소 이름 미확인':w.repoId??'저장소 미확인'},
         observation:{worktree:'observed',sidebarActivity:process?.hasHostSidebarActivity??null,selected:process?.isActive??null,workspaceStatus:w.workspaceStatus??'unknown'}};
     });
@@ -592,11 +615,16 @@ export function createLiveRuntime(options: {
     return { workstreams, dags, worktreeSources,currentWorktrees };
   }
 
-  function readDagForUpdate(reader:NonNullable<DagSession['reader']>,dagId:string,signal:AbortSignal){
-    return updateCleanup.track('DAG query',()=>reader.read(dagId,{signal}),{
+  function readDagForUpdate(reader:NonNullable<DagSession['reader']>,dagId:string,signal:AbortSignal,sourceKey?:string){
+    const read=(querySignal:AbortSignal)=>updateCleanup.track('DAG query',()=>reader.read(dagId,{signal:querySignal}),{
       fulfilled:result=>result.ok||!!reader.recoveryState||!['timeout','cancelled','cleanup_unverified'].includes(result.error.kind),
       rejected:cleanupFailure,
     });
+    const snapshot=store.getState();
+    const key=sourceKey??JSON.stringify(['collection',dagId,snapshot.runtimeId,snapshot.revision,snapshot.lastAttempt?.id]);
+    // A collector starts a distinct fresh read after existing consumers drain;
+    // it never borrows an old revision's result or races the reader's busy guard.
+    return dagReads.read(reader,key,signal,read);
   }
 
   const store = createSnapshotStore<CollectedView, LiveWorkspaceView['coverage'], {kind: string; message: string}>({
@@ -697,28 +725,32 @@ export function createLiveRuntime(options: {
     resolveProjectWorkspace:projectWorkspaces.resolveProjectWorkspace,
     /** Main-only display target. The opener must separately prove filesystem containment
      * and revalidate this current observation before issuing its fixed Orca command. */
-    resolveProjectOrcaTarget(workstreamId:string):{hostId:string;worktreeId:string;worktreePath:string;dagPath:string;runtimeId:string}|null {
+    projectOrcaTargetState(workstreamId:string){
+      const blocked=(reason:import('../shared/orca-project-open').OrcaProjectOpenAvailabilityReason)=>({reason,target:null as {hostId:string;worktreeId:string;worktreePath:string;dagPath:string;runtimeId:string;noteRootPath:string}|null});
       const snapshot=store.getState();
-      if(typeof workstreamId!=='string'||workstreamId.length>128||disposed||updateShutdown||!connected||snapshot.refreshing
-        ||snapshot.freshness!=='current'||!snapshot.runtimeId||!snapshot.value||!config?.localHostId||registryError||mappingRetired)return null;
+      if(disposed||updateShutdown||!connected)return blocked('disconnected');
+      if(snapshot.refreshing)return blocked('collecting');
+      if(typeof workstreamId!=='string'||workstreamId.length>128||!snapshot.runtimeId||!snapshot.value||!config?.localHostId||registryError||mappingRetired)return blocked('unavailable');
       const workstreams=snapshot.value.workstreams.filter(workstream=>workstream.id===workstreamId);
-      if(workstreams.length!==1)return null;
-      const mapping=workstreams[0].noteMapping,session=mapping.dagId?dagSessions.get(mapping.dagId):undefined;
-      const dag=snapshot.value.dags.find(dag=>dag.dagId===mapping.dagId);
-      if(mapping.state!=='resolved'||mapping.context?.state!=='verified'||dag?.state!=='ready'||!session?.reader||!session.model
-        ||mapping.context.dagPath!==session.canonicalPath||dag.sourceHash!==session.model.sourceHash
-        ||!Number.isFinite(Date.parse(session.model.observedAt))||now()-Date.parse(session.model.observedAt)>=STALE_MS)return null;
+      if(workstreams.length!==1||workstreams[0].archived===true)return blocked('unavailable');
+      const mapping=workstreams[0].noteMapping;
+      // File display needs a verified binding, not a parsed DAG model or its age.
+      // The opener proves this file/link and current native worktree on every click.
+      if(mapping.state!=='resolved'||mapping.context?.state!=='verified'||!mapping.context.dagPath||!mapping.context.noteRootPath)return blocked('mapping-unverified');
+      const dagPath=mapping.context.dagPath;
       const registered=registry?.records().find(project=>project.id===workstreamId);
       if(registered&&(registered.hostId!==config.localHostId||registered.dagId!==mapping.dagId
-        ||registered.canonicalDagPath!==session.canonicalPath||registered.canonicalNotePath!==mapping.context.noteRootPath||!retainedAllowed(registered)))return null;
+        ||registered.canonicalDagPath!==dagPath||registered.canonicalNotePath!==mapping.context.noteRootPath||!retainedAllowed(registered)))return blocked('binding-changed');
       const candidates=snapshot.value.currentWorktrees.filter(row=>row.viewId===workstreamId||!row.viewId&&registered
         &&row.hostId===registered.hostId&&registered.worktrees.some(tree=>tree.id===row.worktreeId&&tree.path===row.path));
-      if(candidates.length!==1)return null;
-      const candidate=candidates[0],eligible=projectWorkspaces.getProjectWorkspaceOptions();
-      if(eligible.state!=='ready'||!eligible.options.some(option=>option.worktreeId===candidate.worktreeId
-        &&option.hostId===candidate.hostId&&option.path===candidate.path))return null;
-      return {hostId:config.localHostId,worktreeId:candidate.worktreeId,worktreePath:candidate.path!,dagPath:session.canonicalPath,runtimeId:snapshot.runtimeId};
+      if(candidates.length!==1)return blocked('ambiguous-worktree');
+      const candidate=candidates[0];
+      if(candidate.hostId!==config.localHostId||!candidate.path)return blocked('binding-changed');
+      const structural=projectWorkspaces.getBoundWorkspacesForNativeRevalidation();
+      if(structural.state!=='ready'||!structural.options.some(option=>option.worktreeId===candidate.worktreeId&&option.hostId===candidate.hostId&&option.path===candidate.path))return blocked('ambiguous-worktree');
+      return {reason:'ready' as const,target:{hostId:config.localHostId,worktreeId:candidate.worktreeId,worktreePath:candidate.path,dagPath,runtimeId:snapshot.runtimeId,noteRootPath:mapping.context.noteRootPath}};
     },
+    resolveProjectOrcaTarget(workstreamId:string){return runtime.projectOrcaTargetState(workstreamId).target;},
     async setSummaryPrefix(request:unknown){
       if(!request||typeof request!=='object'||Array.isArray(request)||!['prefix,workstreamId','prefix,taskIds,workstreamId'].includes(Object.keys(request).sort().join(',')))throw Error('접두사 선택 요청 오류');
       const r=request as {prefix:string;workstreamId:string;taskIds?:string[]};const snapshot=store.getState(),w=snapshot.value?.workstreams.find(w=>w.id===r.workstreamId),id=w?.noteMapping.dagId,model=id?dagSessions.get(id)?.model:undefined;
@@ -727,6 +759,14 @@ export function createLiveRuntime(options: {
       const ids=r.taskIds?[...r.taskIds].sort():undefined;
       if(registry)await registry.chooseSummaryPrefix(r.workstreamId,r.prefix,ids);summaryPrefixes.set(id,r.prefix);if(ids)summaryTaskIds.set(id,ids);else summaryTaskIds.delete(id);publish();return getState();
     },
+    taskGraphAuthority:graphAuthority,
+    verifiedTaskGraphRepository(projectId:string){if(!graphAuthority(projectId))return null;const snapshot=store.getState(),source=snapshot.value?.worktreeSources.find(w=>w.id===projectId);const matches=snapshot.value?.currentWorktrees.filter(w=>w.hostId===source?.hostId&&w.path===source?.worktreePath)??[];return matches.length===1&&matches[0].verifiedRepository?{...matches[0].verifiedRepository}:null;},
+    async resolveTaskGraphSource(projectId:string,signal:AbortSignal){const authority=graphAuthority(projectId);if(!authority)throw Error('stale-session');const dag=await readGraphSource(authority,signal);return {authority,dag};},
+    getTaskGraphSession(request:unknown){return graphAuthority(parseGraphSessionRequest(request).projectId);},
+    readTaskGraph:(request:unknown)=>graphService.read(request),
+    readTaskGraphChunk:(request:unknown)=>graphService.chunk(request),
+    readTaskGraphDetail:(request:unknown)=>graphService.detail(request),
+    cancelTaskGraph:(request:unknown)=>graphService.cancel(request),
     /** Main-only authority resolution. These raw paths/models never cross the live view IPC. */
     // A running manual request may outlive the display freshness window. Only
     // time ageing is relaxed on revalidation: mapping, root grants, DAG bytes,
@@ -738,7 +778,7 @@ export function createLiveRuntime(options: {
       const mapping=workstream?.noteMapping;
       const dagView=mapping?.dagId?snapshot.value.dags.find(d=>d.dagId===mapping.dagId):undefined;
       const session=mapping?.dagId?dagSessions.get(mapping.dagId):undefined;
-      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind?'dag_other_failure':'current_dag_unavailable');}
+      if(registry?.records().find(p=>p.id===workstreamId)?.status==='completed'||mapping?.state!=='resolved'||dagView?.state!=='ready'||!session?.model || (!revalidateSnapshot&&now()-Date.parse(session.model.observedAt)>=STALE_MS)) {const kind=dagView?.reason?.match(/^DAG observation could not be refreshed \((\w+)\)\.$/)?.[1];throw new ModelDiagnosticError(kind==='cleanup_unverified'?'dag_cleanup_unverified':kind==='timeout'?'dag_timeout':kind==='command_failed'?'dag_command_failed':kind==='invalid_schema'?'dag_invalid_schema':kind==='busy'?'dag_busy':kind?'dag_other_failure':'current_dag_unavailable');}
       const source=snapshot.value.worktreeSources.find(w=>w.id===workstreamId);
       if(!source?.hostId||source.hostId!==config.localHostId||!source.worktreePath||!session.reader)throw new ModelDiagnosticError('project_mapping_unavailable');
       // Revalidate the existing project binding, rather than asking an unrelated
@@ -751,21 +791,37 @@ export function createLiveRuntime(options: {
         worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath,...selected}],signal});
       const currentMapping=verified.mappings[0];
       if(signal.aborted||currentMapping?.state!=='resolved'||currentMapping.dagId!==mapping.dagId||currentMapping.canonicalDagPath!==session.canonicalPath)throw new ModelDiagnosticError('read_permission_or_mapping_changed');
-      const currentDag=await readDagForUpdate(session.reader,mapping.dagId!,signal);
-      if(!currentDag.ok||signal.aborted)throw new ModelDiagnosticError(currentDag.ok?'source_changed':currentDag.error.kind==='cleanup_unverified'?'dag_cleanup_unverified':currentDag.error.kind==='timeout'?'dag_timeout':currentDag.error.kind==='command_failed'?'dag_command_failed':'dag_other_failure');
+      const sourceKey=JSON.stringify([workstreamId,snapshot.runtimeId,snapshot.revision,mapping.dagId,session.canonicalPath,currentMapping,revalidateSnapshot]);
+      const currentDag=await readDagForUpdate(session.reader,mapping.dagId!,signal,sourceKey);
+      if(!currentDag.ok||signal.aborted)throw new ModelDiagnosticError(signal.aborted?'request_cancelled':currentDag.ok?'source_changed':currentDag.error.kind==='busy'?'dag_busy':currentDag.error.kind==='cleanup_unverified'?'dag_cleanup_unverified':currentDag.error.kind==='timeout'?'dag_timeout':currentDag.error.kind==='command_failed'?'dag_command_failed':currentDag.error.kind==='invalid_schema'?'dag_invalid_schema':'dag_other_failure');
       const registeredExcerpts=await readRegistered(currentMapping,signal);
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      // A shared read cannot substitute for each consumer's final authority proof.
+      const finalMapping=await readMapping({localHostId:config.localHostId,scopes:options.readRoots?await options.readRoots.filterScopes(noteScopes,signal):noteScopes,
+        worktrees:[{worktreeId:source.worktreeId,hostId:source.hostId,worktreePath:source.worktreePath,...selected}],signal});
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      if(JSON.stringify(finalMapping.mappings[0])!==JSON.stringify(currentMapping))throw new ModelDiagnosticError('read_permission_or_mapping_changed');
       const after=store.getState();
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
       if(disposed||!connected||after.refreshing||(!revalidateSnapshot&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision)throw new ModelDiagnosticError('source_changed');
       session.model=currentDag.value;
-      return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
+      return {projectKey:'project:'+digest(JSON.stringify([config.localHostId,session.canonicalPath])).replace(/^sha256:/,''),readingSummary:structuredClone(workstream?.readingSummary),dag:structuredClone(currentDag.value),mappingIdentity:JSON.stringify([snapshot.runtimeId,workstreamId,mapping.dagId,session.canonicalPath]),sourceRevision:snapshot.revision,codeburn:structuredClone(codeburnResults),...(registeredExcerpts?{registeredExcerpts}:{})};
     },
     async summaryActivityIdentity(workstreamId:string){if(options.gitActivityIdentity)return options.gitActivityIdentity(workstreamId);const repository=store.getState().value?.worktreeSources.find(w=>w.id===workstreamId)?.worktreePath;if(!repository||!options.readRoots?.allowsDirectory||!await options.readRoots.allowsDirectory(repository))return null;try{const stat=await fs.lstat(repository);if(stat.isSymbolicLink()||!stat.isDirectory()||await fs.realpath(repository)!==repository)return null;return JSON.stringify([repository,stat.dev,stat.ino]);}catch{return null;}},
-    async getRecentSummaryTasks(workstreamId:string,signal:AbortSignal=new AbortController().signal,revalidate=false,provided?:{dag:import('../facts/dag-read-model').DagReadModel;registeredExcerpts?:import('../summary/context/registered').RegisteredExcerptContext}):Promise<RecentSummaryTasks>{
+    async getRecentSummaryTasks(workstreamId:string,signal:AbortSignal=new AbortController().signal,revalidate=false,provided?:{dag:import('../facts/dag-read-model').DagReadModel;registeredExcerpts?:import('../summary/context/registered').RegisteredExcerptContext;sourceRevision:number|null;mappingIdentity:string}):Promise<RecentSummaryTasks>{
+      const snapshot=store.getState();
       const source=provided??await this.resolveSummarySource(workstreamId,signal,revalidate);
-      const snapshot=store.getState(),repository=snapshot.value?.worktreeSources.find(w=>w.id===workstreamId)?.worktreePath;
+      const current=store.getState();
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      const currentMappingIdentity=JSON.stringify([current.runtimeId,workstreamId,current.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping.dagId,current.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping.context?.dagPath]);
+      if(current.revision!==snapshot.revision||current.runtimeId!==snapshot.runtimeId||source.sourceRevision!==snapshot.revision||source.mappingIdentity!==currentMappingIdentity)throw new ModelDiagnosticError('source_changed');
+      const repository=snapshot.value?.worktreeSources.find(w=>w.id===workstreamId)?.worktreePath;
       let events=registeredTaskActivities(source.registeredExcerpts,source.dag.tasks),omitted=0;let activityCoverage:ActivityCoverage|undefined;
       if(options.readGitActivity){const result=await options.readGitActivity(workstreamId,source.dag.tasks,signal,revalidate);events=[...events,...result.events];activityCoverage=result.coverage;omitted=result.coverage.pending+result.coverage.unresolved;}
       else if(repository&&options.readRoots?.allowsDirectory&&await options.readRoots.allowsDirectory(repository)){try{const result=await readTaskCommitActivities(source.dag.tasks,repository,signal);events=[...events,...result.events];omitted=result.omitted;}catch{if(signal.aborted)throw Error('Activity read cancelled');omitted=source.dag.tasks.reduce((sum,t)=>sum+t.commitReferences.length,0);}}
+      if(signal.aborted)throw new ModelDiagnosticError('request_cancelled');
+      const after=store.getState();
+      if(disposed||!connected||after.refreshing||(!revalidate&&after.freshness!=='current')||['error','cancelled'].includes(after.lastAttempt?.outcome??'')||after.runtimeId!==snapshot.runtimeId||after.revision!==snapshot.revision||JSON.stringify(after.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping)!==JSON.stringify(snapshot.value?.workstreams.find(w=>w.id===workstreamId)?.noteMapping))throw new ModelDiagnosticError('source_changed');
       const result=selectRecentTaskActivities(source.dag.tasks,events,now(),omitted);if(activityCoverage){result.activityCoverage=activityCoverage;if(activityCoverage.state!=='complete')result.message='확인된 기록 중 최근 작업입니다. 커밋 참조 '+activityCoverage.checked+'/'+activityCoverage.total+'개 확인, 미확인 '+(activityCoverage.pending+activityCoverage.unresolved)+'개입니다. 전체 프로젝트의 최신 활동을 뜻하지 않습니다.';}recentTaskIds.set(workstreamId,result.taskIds);return result;
     },
     getSummaryTaskChoices(workstreamId:string){const w=this.getState().workstreams.find(w=>w.id===workstreamId),model=w?.noteMapping.dagId?dagSessions.get(w.noteMapping.dagId)?.model:undefined;return model?.tasks.map(t=>({id:t.id,title:t.title,status:t.status}))??[];},
@@ -776,7 +832,7 @@ export function createLiveRuntime(options: {
       const selected=exactTaskScope(source.dag,ids),w=this.getState().workstreams.find(w=>w.id===workstreamId)!;
       const base=this.getState().dags.find(d=>d.dagId===source.dag.dagId)!;
       const scope={sourceHash:selected.sourceHash,selected:choice.purpose==='recent'?'최근 활동':'직접 선택',available:[],total:source.dag.tasks.length,selectedCount:ids.length,otherCount:0,unparsedCount:0,taskSelection:selected.taskSelection,dependencies:selected.dependencies};
-      const readingSummary=prefixReading(w,{...base,tasks:selected.tasks.map(t=>({...t,displayOmissions:{dependencies:0,commitReferences:0,e2eReferences:0}})),taskCount:ids.length,displayedTaskCount:ids.length,summaryScope:scope});
+      const readingSummary=prefixReading(w,{...base,readContractVersion:source.dag.readContractVersion,policies:source.dag.policies,tasks:selected.tasks.map(t=>({...t,displayOmissions:{dependencies:0,commitReferences:0,e2eReferences:0}})),taskCount:ids.length,displayedTaskCount:ids.length,summaryScope:scope});
       delete readingSummary.summaryPrefix;
       const evidence=readingSummary.sections.find(section=>section.id==='evidence');if(evidence?.paragraphs.length)evidence.paragraphs[0]={text:choice.purpose==='recent'?'명시 연결된 코드·논의·검증 활동 기록에서 최근 최대 3개 태스크를 선택했습니다. 기록 시각은 상태 변경·완료 인증이 아닙니다.':'사용자가 직접 선택한 '+ids.length+'개 태스크입니다. 선택 밖의 태스크 본문은 포함하지 않습니다.',basis:'declaration',sources:[]};
       return {policyProjectId:workstreamId,observedDagHash:source.dag.sourceHash,taskSelection:selected.taskSelection,dependencyObservations:selected.dependencies,projectKey:this.identifySelectedModelProject(workstreamId,choice)!,readingSummary,dag:{...source.dag,sourceHash:selected.sourceHash,tasks:selected.tasks},mappingIdentity:JSON.stringify([source.mappingIdentity,choice]),codeburn:source.codeburn,registeredExcerpts:selectedTaskExcerpts(source.registeredExcerpts,source.dag,ids,w.noteMapping.context!.noteRootPath),...(recent?{recentActivity:recent}:{})};
@@ -834,6 +890,7 @@ export function createLiveRuntime(options: {
       return getState();
     },
     async disconnect(): Promise<LiveWorkspaceView> {
+      dagReads.abortAll();
       connected = false;clearEvidence();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel();
@@ -998,8 +1055,9 @@ export function createLiveRuntime(options: {
     async setProjectStatus(request:unknown):Promise<LiveWorkspaceView>{if(!registry||disposed)throw new Error('앱 프로젝트 상태가 준비되지 않았습니다.');await registry.setStatus(request);publish();return getState();},
     async invalidateReadRoots(){await this.disconnect();noteScopes=[];publish();},
     settleRegistry:()=>registry?.settle()??Promise.resolve(),
-    setSuspended(suspended:boolean):void{if(!disposed&&!updateShutdown)store.setSuspended(suspended);},
+    setSuspended(suspended:boolean):void{graphSuspended=suspended;if(suspended){graphGeneration++;graphService.invalidate();}if(!disposed&&!updateShutdown)store.setSuspended(suspended);},
     setActivity(next: {visible: boolean; active: boolean}): void {
+      if(!next.visible||!next.active){graphGeneration++;graphService.invalidate();}
       activity = {...next};
       if (!disposed&&!updateShutdown) store.setActivity(activity);
     },
@@ -1024,7 +1082,7 @@ export function createLiveRuntime(options: {
     },
     dispose(): void {
       if (disposed) return;
-      connected = false; disposed = true;clearEvidence();documentMetadata?.dispose();
+      connected = false; disposed = true;dagReads.abortAll();clearEvidence();documentMetadata?.dispose();
       connectionChoices.clear();documentLinks.clear();for(const controller of connectionConfirmations)controller.abort();
       reading.cancel(true);
       unsubscribe(); store.dispose(); listeners.clear();
@@ -1039,6 +1097,10 @@ export function createLiveRuntime(options: {
     };
   }
   return {...runtime,
+    resolveTaskGraphSource:entry(runtime.resolveTaskGraphSource),
+    readTaskGraph:entry(runtime.readTaskGraph),
+    readTaskGraphChunk:entry(runtime.readTaskGraphChunk),
+    readTaskGraphDetail:entry(runtime.readTaskGraphDetail),
     setSummaryPrefix:entry(runtime.setSummaryPrefix),
     resolveSummarySource:entry(runtime.resolveSummarySource),
     resolveProjectModelSource:entry(runtime.resolveProjectModelSource),

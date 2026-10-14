@@ -18,7 +18,9 @@ export function projectDagExtensions(raw:Record<string,unknown>,tasks:DagTask[])
  const assigned=new Set<string>();
  for(const phase of raw.phases){
   if(!object(phase)||!Number.isSafeInteger(phase.index)||(phase.index as number)<0||!Array.isArray(phase.taskIds)||phase.taskIds.length>10000)return fail();
-  for(const id of phase.taskIds){if(typeof id!=='string'||!byId.has(id)||assigned.has(id))return fail();assigned.add(id);byId.get(id)!.phase={id:text(phase.id,256),title:text(phase.title,1024),index:phase.index as number};}
+  const phaseId=text(phase.id,256),phaseTitle=text(phase.title,1024);
+  const phaseProjectionOmissions=Number(phase.id!=null&&phaseId===null)+Number(phase.title!=null&&phaseTitle===null);
+  for(const id of phase.taskIds){if(typeof id!=='string'||!byId.has(id)||assigned.has(id))return fail();assigned.add(id);const task=byId.get(id)!;task.phase={id:phaseId,title:phaseTitle,index:phase.index as number};if(phaseProjectionOmissions)task.phaseProjectionOmissions=phaseProjectionOmissions;}
  }
  if(assigned.size!==tasks.length)return fail();
  // bounded detached raw declarations; mapping is a separate explicit interpretation contract

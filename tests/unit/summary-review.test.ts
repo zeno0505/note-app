@@ -3,7 +3,7 @@ import {mkdtemp,realpath,rm} from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {createSummaryReview} from '../../src/main/summary-review';
-import {createModelDiagnostics} from '../../src/main/model-diagnostics';
+import {ModelDiagnosticError,createModelDiagnostics} from '../../src/main/model-diagnostics';
 import type {SummaryAutomationPayload} from '../../src/main/summary-automation';
 import {createModelReadingStorage} from '../../src/summary/reading/model-reading-storage';
 import {createModelRetryStorage} from '../../src/summary/reading/model-retry-storage';
@@ -12,7 +12,7 @@ import type {ProjectModelSelection} from '../../src/summary/reading/recent-tasks
 import {runSummaryReviewScenario,binding,project,source} from '../electron/summary-review-fixture/scenarios';
 it('isolates custom results, restores saved manual output, cancels preflight, and tolerates unavailable automatic cache',async()=>{expect((await runSummaryReviewScenario()).status).toBe('passed');});
 
-async function fixture(){
+async function fixture(recentRead?:Parameters<typeof createSummaryReview>[0]['recent']){
  const root=await realpath(await mkdtemp(path.join(os.tmpdir(),'summary-ticket-test-')));
  let data:{revision:number;payload:SummaryAutomationPayload}|null=null;
  let currentBinding=structuredClone(binding);
@@ -23,7 +23,7 @@ async function fixture(){
  const onModelRun=vi.fn();
  const storage=createModelReadingStorage(path.join(root,'model'));
  const retryStorage=createModelRetryStorage(path.join(root,'retry'),storage.lockModelSlot,async(project,inputHash,runId)=>(await storage.failedReservation(project,inputHash))?.runId===runId);
- const review=createSummaryReview({storage,diagnostics:createModelDiagnostics(path.join(root,'diagnostics'),null),retryStorage,autoStorage:{read:async()=>structuredClone(data),write:async(payload,revision)=>{if(revision!==(data?.revision??null))throw Error('Synthetic conflict');data={payload:structuredClone(payload),revision:(revision??0)+1};return structuredClone(data);}},adapter:{generate},onModelRun,binding:async()=>structuredClone(currentBinding),source:async(_id:string,selection:ProjectModelSelection)=>source(selection),identify:(_id:string,selection:ProjectModelSelection)=>project(selection),revision:()=> 'synthetic-revision',recent:async()=>({state:'unknown',taskIds:[],activities:[],coverage:'bounded-records',omittedReferences:0,message:'Synthetic selection'}),tasks:()=>[]});
+ const review=createSummaryReview({storage,diagnostics:createModelDiagnostics(path.join(root,'diagnostics'),null),retryStorage,autoStorage:{read:async()=>structuredClone(data),write:async(payload,revision)=>{if(revision!==(data?.revision??null))throw Error('Synthetic conflict');data={payload:structuredClone(payload),revision:(revision??0)+1};return structuredClone(data);}},adapter:{generate},onModelRun,binding:async()=>structuredClone(currentBinding),source:async(_id:string,selection:ProjectModelSelection)=>source(selection),identify:(_id:string,selection:ProjectModelSelection)=>project(selection),revision:()=> 'synthetic-revision',recent:recentRead??(async()=>({state:'unknown',taskIds:[],activities:[],coverage:'bounded-records',omittedReferences:0,message:'Synthetic selection'})),tasks:()=>[]});
  return {review,generate,onModelRun,retryStorage,setBinding:(next:typeof binding)=>{currentBinding=structuredClone(next);},async clean(){review.dispose();await review.settle();await rm(root,{recursive:true,force:true});}};
 }
 const recent={workstreamId:'synthetic',selection:{purpose:'recent' as const}};
@@ -85,3 +85,11 @@ it('rejects cancelled, expired, consumed, and changed-recipient retry tickets wi
   expect(f.generate).toHaveBeenCalledTimes(2);await expect(run(valid.ticketId)).rejects.toThrow();
  }finally{now.mockRestore();await f.clean();}
 });
+
+ it.each(['dag_busy','dag_invalid_schema','read_permission_or_mapping_changed','source_changed'] as const)('preserves bounded %s in read-only recent state without calls',async code=>{
+  const f=await fixture(async()=>{throw new ModelDiagnosticError(code);});try{const r=await f.review.view(recent);expect(r.recent.state).toBe('unavailable');expect(r.recent.sourceError).toBe(code);expect(f.generate).not.toHaveBeenCalled();expect(f.onModelRun).not.toHaveBeenCalled();}finally{await f.clean();}
+ });
+ it('distinguishes absent activities from source errors and never serializes arbitrary exception data',async()=>{
+  const known=await fixture();try{const r=await known.review.view(recent);expect(r.recent.state).toBe('unknown');expect(r.recent.sourceError).toBeUndefined();}finally{await known.clean();}
+  const unknown=await fixture(async()=>{throw Error('PRIVATE_DOCUMENT_BODY /private/path');});try{const r=await unknown.review.view(recent);expect(r.recent.state).toBe('unavailable');expect(r.recent.sourceError).toBe('source_validation_failed');expect(JSON.stringify(r.recent)).not.toContain('PRIVATE');expect(unknown.generate).not.toHaveBeenCalled();}finally{await unknown.clean();}
+ });

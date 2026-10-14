@@ -4,6 +4,8 @@ export interface DagTask {
   rawType?: string | null;
   rawFeature?: string | null;
   phase?: {id:string|null;title:string|null;index:number}|null;
+  /** Non-null phase declarations omitted by legacy display validation; graph reads fail closed. */
+  phaseProjectionOmissions?: number;
   details?: {description:string|null;acceptanceCriteria:string[];targetFiles:string[];discussion:string[];design:string[];omissions:number};
   id: string; title: string | null;
   /** Declared vocabulary, not inferred agent/runtime state. */

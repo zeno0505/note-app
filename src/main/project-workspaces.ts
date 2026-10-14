@@ -25,14 +25,14 @@ function text(value:unknown,limit:number):value is string {
  */
 export function createProjectWorkspaceSelector(readSnapshot:()=>ProjectWorkspaceSnapshot) {
   const incarnation=randomUUID();
-  function getProjectWorkspaceOptions():ProjectWorkspaceOptions {
+  function getOptions(nativeRevalidation=false):ProjectWorkspaceOptions {
     const snapshot=readSnapshot();
     const observedAt=snapshot.observedAt&&snapshot.observedAt.length<=32&&Number.isFinite(Date.parse(snapshot.observedAt))
       &&new Date(snapshot.observedAt).toISOString()===snapshot.observedAt?snapshot.observedAt:null;
     const unavailable=(reason:ProjectWorkspaceOptions['reason']):ProjectWorkspaceOptions=>({state:'unavailable',reason,observedAt,options:[],omittedCount:0});
     if(snapshot.disposed||!snapshot.connected)return unavailable('disconnected');
     if(snapshot.refreshing)return unavailable('refreshing');
-    if(snapshot.freshness!=='current')return unavailable('stale');
+    if(snapshot.freshness!=='current'&&!nativeRevalidation)return unavailable('stale');
     if(!text(snapshot.localHostId,PROJECT_WORKSPACE_LIMITS.id)||!text(snapshot.runtimeId,PROJECT_WORKSPACE_LIMITS.id)
       ||!Number.isSafeInteger(snapshot.revision)||snapshot.revision<1||!observedAt
       ||snapshot.currentWorktrees.length>PROJECT_WORKSPACE_LIMITS.observations)return unavailable('unavailable');
@@ -69,9 +69,12 @@ export function createProjectWorkspaceSelector(readSnapshot:()=>ProjectWorkspace
     return result;
   }
   return {
-    getProjectWorkspaceOptions,
+    getProjectWorkspaceOptions:()=>getOptions(),
+    // Main-only file display: retain all structural identity guards; native status/show
+    // must freshly validate this binding before use. Never used by creation resolution.
+    getBoundWorkspacesForNativeRevalidation:()=>getOptions(true),
     resolveProjectWorkspace(request:unknown):ProjectWorkspaceOption {
-      const selection=parseResolveProjectWorkspaceRequest(request),current=getProjectWorkspaceOptions();
+      const selection=parseResolveProjectWorkspaceRequest(request),current=getOptions();
       const matches=current.options.filter(option=>option.optionId===selection.optionId&&option.fingerprint===selection.expectedFingerprint);
       if(current.state!=='ready'||matches.length!==1)throw Error('Orca 작업공간 관찰이 변경되었거나 확인할 수 없습니다. 목록을 새로 불러와 선택해 주세요.');
       return structuredClone(matches[0]);

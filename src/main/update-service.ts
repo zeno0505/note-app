@@ -69,14 +69,17 @@ export function createUpdateService(options:{home:string;installation:Installati
           child.once('error',reject);child.once('exit',()=>{installerExited=true;});child.once('spawn',()=>{child.unref();resolve();});
         });
         const validationDeadline=Date.now()+120_000;let validated=false;
+        // Awaited journal/cleanup work can outlive either the helper or this
+        // handoff deadline. A previously validated journal is not fresh proof.
+        const helperContinuing=()=>{continuing();if(installerExited||Date.now()>=validationDeadline)throw Error('Installer did not validate the transaction');};
         while(!validated){
-          continuing();
-          if(installerExited||Date.now()>=validationDeadline)throw Error('Installer did not validate the transaction');
+          helperContinuing();
           try{const journal=await readPrivateUpdateJson(path.join(directory,'journal.json')) as Record<string,unknown>;validated=journal.schemaVersion===1&&journal.transactionId===transactionId&&journal.phase==='validated';if(journal.phase==='failed'||journal.phase==='recovery-needed')throw Error('Installer rejected the transaction');}
           catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}
+          helperContinuing();
           if(!validated)await new Promise(resolve=>setTimeout(resolve,100));
         }
-        continuing();await options.cleanup();continuing();
+        helperContinuing();await options.cleanup();helperContinuing();
         quitting=true;installing('준비된 업데이트를 설치하기 위해 앱을 정상 종료하고 다시 엽니다.');
         options.requestQuit(()=>writePrivateUpdateJson(path.join(directory,'quit-ready.json'),{schemaVersion:1,transactionId,nonce,currentPid:process.pid,sourceSha:options.installation.buildSha,buildNumber:options.installation.buildNumber,quitSettled:true}));
         return getState();
