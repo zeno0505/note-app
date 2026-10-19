@@ -1,0 +1,480 @@
+{
+  "about": "링크 해석 계약 사례 (설계 §6.6, references/link-contract.md). tree 를 빈 디렉토리에 만들고, 각 사례의 link 를 from 문서에서 해석한 결과가 expect 와 같아야 한다. expect 는 결과의 부분 집합이다(적힌 키만 비교). 다른 언어의 열람 도구도 이 파일로 동작을 맞춘다.",
+  "tree": {
+    "MIG.DEV/dag.yaml": "schema: 3\nprofile: v3\nfeatures: []\nledger_key: MIG.DEV\nphases:\n- name: feature\n  tasks:\n  - id: MIG.DEV-0045\n    title: 가입 코드 화면 이관\n    status: running\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-090\n    acceptance:\n    - {id: AC-1, expect: 행 20개}\n  - id: MIG.DEV-0046\n    title: 목록 이관\n    status: pending\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-091\n  - id: MIG.DEV-0047\n    title: 상세 이관\n    status: pending\n    legacy_ref: other-note/dag.yaml@abc1234#T-091\n",
+    "MIG.DEV/archive/index.yaml": "- {id: MIG.DEV-0010, folded_at: '2026-09-30', retention: 요약 + 원문 보관, summary: archive/2026-09.md, inbox: inbox/MIG.DEV-0010}\n",
+    "MIG.DEV/inbox/MIG.DEV-0045/plan.md": "---\ntask: \"[[dag#MIG.DEV-0045]]\"\n---\n# 계획\n",
+    "MIG.DEV/inbox/MIG.DEV-0045/review/review-1.md": "---\ntask: \"[[dag#MIG.DEV-0045]]\"\n---\n# 리뷰\n",
+    "MIG.DEV/decisions/D-0001.md": "---\nid: D-0001\n---\n# 결정\n",
+    "MIG.DEV/notes/a.md": "---\nid: D-0002\n---\n# a\n",
+    "MIG.DEV/old/b.md": "---\nid: D-0002\n---\n# b\n",
+    "MIG.QA/dag.yaml": "schema: 3\nledger_key: MIG.QA\nphases:\n- name: f\n  tasks:\n  - {id: MIG.QA-0003, title: 추출, status: done}\n",
+    "MIG.QA/notes/x.md": "# QA 메모\n",
+    "MIG.QA/decisions/D-0100.md": "---\nid: D-0100\n---\n# QA 결정\n",
+    "README.md": "# 저장소\n"
+  },
+  "cases": [
+    {
+      "name": "ID만의 링크",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "중첩 inbox 에서도 dag 는 장부 키 디렉토리",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/review/review-1.md",
+      "link": "[[dag#MIG.DEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "제목 붙은 heading 앵커는 ID 링크가 아님",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045 가입 코드 화면 이관]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "ID/AC-n",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045/AC-1]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045",
+          "ac": "AC-1"
+        }
+      }
+    },
+    {
+      "name": "없는 AC",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045/AC-9]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "접혀서 보관된 ID",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0010]]",
+      "expect": {
+        "result": "resolved(archived)",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0010",
+          "summary": "archive/2026-09.md"
+        }
+      }
+    },
+    {
+      "name": "제목이 바뀐 뒤의 같은 ID",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      },
+      "tree_patch": {
+        "MIG.DEV/dag.yaml": "schema: 3\nprofile: v3\nfeatures: []\nledger_key: MIG.DEV\nphases:\n- name: feature\n  tasks:\n  - id: MIG.DEV-0045\n    title: 이름을 바꾼 이관\n    status: running\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-090\n    acceptance:\n    - {id: AC-1, expect: 행 20개}\n  - id: MIG.DEV-0046\n    title: 목록 이관\n    status: pending\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-091\n  - id: MIG.DEV-0047\n    title: 상세 이관\n    status: pending\n    legacy_ref: other-note/dag.yaml@abc1234#T-091\n"
+      }
+    },
+    {
+      "name": "대소문자가 다르면 다른 ID",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#mig.dev-0045]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "퍼센트 인코딩은 풀어서 해석",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG%2EDEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "확장자 .md 를 붙여도 같은 장부",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag.md#MIG.DEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "확장자 .yaml 을 붙여도 같은 장부",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag.yaml#MIG.DEV-0045]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "옛 ID 는 legacy_ref 로",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#T-090]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045",
+          "via": "legacy_ref"
+        }
+      }
+    },
+    {
+      "name": "같은 옛 ID 가 둘이면 모호",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#T-091]]",
+      "expect": {
+        "result": "ambiguous"
+      }
+    },
+    {
+      "name": "없는 ID",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-9999]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "중복 ID 는 모호",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045]]",
+      "expect": {
+        "result": "ambiguous"
+      },
+      "tree_patch": {
+        "MIG.DEV/dag.yaml": "schema: 3\nprofile: v3\nfeatures: []\nledger_key: MIG.DEV\nphases:\n- name: feature\n  tasks:\n  - id: MIG.DEV-0045\n    title: 가입 코드 화면 이관\n    status: running\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-090\n    acceptance:\n    - {id: AC-1, expect: 행 20개}\n  - id: MIG.DEV-0046\n    title: 목록 이관\n    status: pending\n    legacy_ref: web-migration-note/dag.yaml@e64a755#T-091\n  - id: MIG.DEV-0047\n    title: 상세 이관\n    status: pending\n    legacy_ref: other-note/dag.yaml@abc1234#T-091\n  - {id: MIG.DEV-0045, title: 겹침, status: pending}\n"
+      }
+    },
+    {
+      "name": "inbox 경로",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[inbox/MIG.DEV-0045/plan]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.DEV/inbox/MIG.DEV-0045/plan.md"
+        }
+      }
+    },
+    {
+      "name": "inbox 경로의 앵커·별칭",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[inbox/MIG.DEV-0045/plan#계획|계획]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.DEV/inbox/MIG.DEV-0045/plan.md"
+        }
+      }
+    },
+    {
+      "name": "없는 inbox 파일",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[inbox/MIG.DEV-0045/nope]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "저장소 밖으로 나가는 경로",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[../../../../etc/hosts]]",
+      "expect": {
+        "result": "out-of-scope"
+      }
+    },
+    {
+      "name": "앞머리 id 로 옮길 수 있는 문서",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[D-0001]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.DEV/decisions/D-0001.md"
+        }
+      }
+    },
+    {
+      "name": "앞머리 id 가 둘이면 모호",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[D-0002]]",
+      "expect": {
+        "result": "ambiguous"
+      }
+    },
+    {
+      "name": "다른 장부 키, 고정 안 됨 → 경고",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[../MIG.QA/dag#MIG.QA-0003]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.QA",
+          "task": "MIG.QA-0003"
+        },
+        "warnings": [
+          "unpinned"
+        ]
+      }
+    },
+    {
+      "name": "다른 장부 키, 커밋 고정 주소",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "https://github.com/zeno0505/note/blob/0123abc/zeno0505/agent-skills/MIG.QA/dag.md#MIG.QA-0003",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "repo": "zeno0505/note",
+          "commit": "0123abc",
+          "path": "zeno0505/agent-skills/MIG.QA/dag.md",
+          "anchor": "MIG.QA-0003"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "커밋이 아닌 브랜치 주소 → 경고",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "https://github.com/zeno0505/note/blob/main/zeno0505/agent-skills/MIG.QA/dag.md",
+      "expect": {
+        "result": "resolved",
+        "warnings": [
+          "unpinned"
+        ]
+      }
+    },
+    {
+      "name": "모르는 형식",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "notion://www.notion.so/abc",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "빈 링크",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "스크립트를 가리키는 링크는 실행하지 않음",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[run:./evil.sh]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "옛 ID 에 붙은 없는 AC 는 없음",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#T-090/AC-9]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "옛 ID 에 붙은 AC",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#T-090/AC-1]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045",
+          "ac": "AC-1",
+          "via": "legacy_ref"
+        }
+      }
+    },
+    {
+      "name": "보관된 ID 의 AC 는 AC 를 남김(확인 불가 경고)",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0010/AC-1]]",
+      "expect": {
+        "result": "resolved(archived)",
+        "target": {
+          "task": "MIG.DEV-0010",
+          "ac": "AC-1"
+        },
+        "warnings": [
+          "ac-unverified"
+        ]
+      }
+    },
+    {
+      "name": "dag 만 가리키면 장부 자체",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "file": "MIG.DEV/dag.yaml"
+        }
+      }
+    },
+    {
+      "name": "빈 앵커",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "빈 AC",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045/]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "태스크 없는 AC",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#/AC-1]]",
+      "expect": {
+        "result": "unsupported"
+      }
+    },
+    {
+      "name": "표 안의 이스케이프된 별칭",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[dag#MIG.DEV-0045\\|가입]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "ledger": "MIG.DEV",
+          "task": "MIG.DEV-0045"
+        }
+      }
+    },
+    {
+      "name": "문서 ID 링크의 앵커는 남김",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[D-0001#근거]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.DEV/decisions/D-0001.md",
+          "anchor": "근거"
+        }
+      }
+    },
+    {
+      "name": "다른 장부 키로 가는 경로 링크도 경고",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[../MIG.QA/notes/x]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.QA/notes/x.md"
+        },
+        "warnings": [
+          "unpinned"
+        ]
+      }
+    },
+    {
+      "name": "다른 장부 키의 문서 ID 도 경고",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[D-0100]]",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "file": "MIG.QA/decisions/D-0100.md"
+        },
+        "warnings": [
+          "unpinned"
+        ]
+      }
+    },
+    {
+      "name": "장부 밖 문서에서는 다른 장부 키 경고가 없음",
+      "from": "README.md",
+      "link": "[[MIG.QA/dag#MIG.QA-0003]]",
+      "expect": {
+        "result": "resolved",
+        "warnings": []
+      }
+    },
+    {
+      "name": "경로의 대소문자는 구별",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[inbox/mig.dev-0045/plan]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "확장자 대소문자도 구별",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "[[inbox/MIG.DEV-0045/plan.MD]]",
+      "expect": {
+        "result": "missing"
+      }
+    },
+    {
+      "name": "대문자 커밋 해시도 고정",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "https://github.com/zeno0505/note/blob/0123ABC/a.md",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "commit": "0123ABC"
+        },
+        "warnings": []
+      }
+    },
+    {
+      "name": "URL 의 질의 문자열은 버림",
+      "from": "MIG.DEV/inbox/MIG.DEV-0045/plan.md",
+      "link": "https://github.com/zeno0505/note/blob/0123abc/a.md?plain=1#L3",
+      "expect": {
+        "result": "resolved",
+        "target": {
+          "path": "a.md",
+          "anchor": "L3",
+          "commit": "0123abc"
+        }
+      }
+    }
+  ]
+}
