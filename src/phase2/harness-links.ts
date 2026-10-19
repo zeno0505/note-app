@@ -6,6 +6,7 @@ export interface HarnessLinkResult {
   result: 'resolved' | 'resolved(archived)' | 'missing' | 'ambiguous' | 'out-of-scope' | 'unsupported';
   target?: Record<string, string>;
   warnings?: string[];
+  hint?: string[];
 }
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 function relative(value: string): string | null {
@@ -84,11 +85,14 @@ export function resolveHarnessLink(files: HarnessFiles, from: string, link: stri
         if (ac) target.ac=ac;
         return result('resolved(archived)',target,[...warn(file),...(ac?['ac-unverified']:[])]);
       }
-      matches = tasks.filter(t=>typeof t.legacy_ref==='string' && /(?:^|\/)dag(?:\.yaml|\.md)?@[0-9a-f]{7,40}#/i.test(t.legacy_ref) && t.legacy_ref.split('#').at(-1)===id);
+      matches = tasks.filter(t=>typeof t.legacy_ref==='string' && /(?:^|\/)dag(?:\.yaml|\.md)?@[0-9a-fA-F]{7,40}#/.test(t.legacy_ref) && t.legacy_ref.split('#').at(-1)===id);
       legacy=true;
     }
     if (matches.length>1) return result('ambiguous');
-    if (!matches.length) return result('missing');
+    if (!matches.length) {
+      const hint=tasks.flatMap(t=>typeof t.id==='string'&&t.id.toLowerCase()===id.toLowerCase()?[t.id]:[]).slice(0,8);
+      return {...result('missing'),...(hint.length?{hint}:{} )};
+    }
     if (ac && !rows(matches[0].acceptance).some(item=>item.id===ac)) return result('missing');
     return result('resolved',{ledger,task:String(matches[0].id),...(ac?{ac}:{}),...(legacy?{via:'legacy_ref'}:{})},warn(file));
   }

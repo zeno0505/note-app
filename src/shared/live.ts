@@ -27,6 +27,8 @@ export interface LiveDagTaskView extends DagTask {
   displayOmissions: { dependencies: number; commitReferences: number; e2eReferences: number };
 }
 export interface LiveDagView {
+  sharedMain?:import('../main/harness-main').HarnessMainObservation & {refreshFailure?:string};
+  ledger?:import('../phase2/harness-ledger').HarnessLedgerHeader;
   readContractVersion?:2; policies?:Record<string,unknown>[];
   workspaceTasks?:LiveDagTaskView[]; workspaceTaskCount?:number|null;
   summaryScope?:import('./summary-prefix').SummaryPrefixScope;

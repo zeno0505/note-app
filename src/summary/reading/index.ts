@@ -151,7 +151,7 @@ export function explainReading(input: ReadingInput, pulls: PullState): {sections
 function semantics(input: ReadingInput, pulls: PullState): unknown {
   const {workstream: w, dag: d} = input;
   return {workstreamId: w.id, mapping: w.noteMapping, dag: d ? {dagId: d.dagId, state: d.state,
-    doneStatus: d.doneStatus, readContractVersion: d.readContractVersion, policies: d.policies,
+    ...(d.ledger?{ledger:d.ledger}:{}), doneStatus: d.doneStatus, readContractVersion: d.readContractVersion, policies: d.policies,
     tasks: d.tasks, taskCount: d.taskCount, displayedTaskCount: d.displayedTaskCount} : null,
     documents:input.documents?.state==='ready'?{...input.documents,records:input.documents.records.map(r=>({...r,source:{...r.source,observedAt:undefined}}))}:input.documents,
     pulls: pulls.state === 'observed' ? {state: pulls.state, ...pulls.value, observedAt: undefined,

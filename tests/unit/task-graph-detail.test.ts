@@ -124,6 +124,11 @@ describe('strict graph-detail wire decoders',()=>{
       const malformed=structuredClone(value);mutate(malformed);expect(()=>parseGraphDetailResult(malformed)).toThrow();
     }
   });
+  it('preserves v3 declarations through the strict detail decoder and rejects claims or getters',async()=>{
+    const value=await sample();value.task.harness={acceptance:[{id:'AC-1',verify_by:[{repo:'a',path:'t.py'},{check:{repo:'b',path:'t.py',made_by:'agent'}}]}],judgment:{verdict:'met'},verification:[{verdict:'unobserved',observes:['AC-1']}],block:null,who:'zeno',question:'q',omissions:0,verificationState:'검사 결과 연결 미확인'};
+    const result=parseGraphDetailResult(value);expect(result).toEqual(value);
+    const getter=vi.fn();Object.defineProperty(value.task.harness,'judgment',{get:getter,enumerable:true});expect(()=>parseGraphDetailResult(value)).toThrow();expect(getter).not.toHaveBeenCalled();
+  });
   it('bounds nested policies, rejects dangerous descriptors and preserves __proto__ as inert declaration data',async()=>{
     const value=await sample(),getter=vi.fn();Object.defineProperty(value.task.details!,'description',{get:getter,enumerable:true});
     expect(()=>parseGraphDetailResult(value)).toThrow();expect(getter).not.toHaveBeenCalled();

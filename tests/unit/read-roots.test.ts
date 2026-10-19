@@ -13,6 +13,14 @@ function service(initialScopes=[scope],now?:()=>number){return createReadRoots({
 const worktree=()=>[{worktreeId:'one',hostId:'host',worktreePath:tree}];
 async function allow(s:ReturnType<typeof service>,p=vault){const proposal=await s.prepare(p);return s.confirm({proposalId:proposal.proposalId,readOnlyConfirmed:true});}
 describe('explicit read roots',()=>{
+  it('distinguishes read containment from note registration at a confirmed vault root',async()=>{
+    const s=service([]);await mkdir(path.join(vault,'.git'));await allow(s);
+    expect(await s.allowsDirectory(vault)).toBe(false);
+    expect(await s.allowsReadDirectory(vault)).toBe(true);expect(await s.allowsReadDirectory(path.join(vault,'.git'))).toBe(true);
+    expect(await s.allowsReadDirectory(root)).toBe(false);
+    const view=await s.view();await s.revoke({rootId:view.roots[0].id,expectedRevision:view.revision,confirmed:true});
+    expect(await s.allowsReadDirectory(vault)).toBe(false);
+  });
   it('does not authorize a selected or cancelled folder and rejects forged renderer paths',async()=>{
     const s=service([]),p=await s.prepare(vault);expect((await s.view()).roots).toEqual([]);expect(await s.scopesFor(worktree())).toEqual([]);
     expect(()=>s.cancel({proposalId:p.proposalId,path:vault})).toThrow();s.cancel({proposalId:p.proposalId});await expect(s.confirm({proposalId:p.proposalId,readOnlyConfirmed:true})).rejects.toThrow();

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { createDagReader, type DagReadModel, type DagCoverage, type DagError } from '../../src/facts/dag-read-model';
 import { projectDagQuery } from '../../src/facts/dag-read-model/projection';
-import { QUERY_SHA256 } from '../../src/facts/dag-read-model/process';
+import { SUPPORTED_QUERY_SHA256, QUERY_SHA256 } from '../../src/facts/dag-read-model/process';
 import {delayFixtureStartup,waitForReadyPid} from './helpers/process-startup';
 import { createSnapshotStore } from '../../src/collector/snapshot';
 import * as ownedGroups from '../../src/collector/orca/process-group';
@@ -256,7 +256,7 @@ describe.skipIf(!pythonPath || !queryScriptPath)('actual external authoritative 
     const result = await reader.read('dag-test');
     expect(result).toMatchObject({ ok: true, unchanged: false, value: { coverage: { tasksTotal: 3, declared: 2, required: 2, uncoveredDone: ['T-001'] }, tasks: [{ e2e: { coverage: 'unmet' } }, { e2e: { coverage: 'undeclared' } }, { e2e: { coverage: 'references-declared' } }] } });
     expect(await readFile(t.source)).toEqual(before); expect((await stat(t.source)).mtimeMs).toBe(beforeStat.mtimeMs);
-    expect(createHash('sha256').update(await readFile(queryScriptPath!)).digest('hex')).toBe(QUERY_SHA256);
+    expect(SUPPORTED_QUERY_SHA256).toContain(createHash('sha256').update(await readFile(queryScriptPath!)).digest('hex'));
     expect(await reader.read('dag-test')).toMatchObject({ ok: true, unchanged: true });
   });
   it('runs a 1000-task YAML parse outside the event loop and rejects invalid YAML', async () => {

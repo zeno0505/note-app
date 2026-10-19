@@ -3,9 +3,9 @@ import { computed, defineComponent, h, nextTick, onUnmounted, ref, watch, type C
 import SafeMermaid from './SafeMermaid.vue';
 import { findTextOffsets, MARKDOWN_FIND_LIMIT, markdownHeadingAnchor, parseSafeMarkdown, type MarkdownHeading, type MarkdownFindResult, type DocumentReference, type MarkdownBlock, type MarkdownInline, type MarkdownIssue, type MarkdownReference } from '../../phase2/markdown';
 
-const props = withDefaults(defineProps<{ text: string; anchor?: string | null; disabled?: boolean; findQuery?: string; findIndex?: number }>(), { anchor: null, disabled: false, findQuery: '', findIndex: 0 });
+const props = withDefaults(defineProps<{ text: string; harnessReferences?:boolean; anchor?: string | null; disabled?: boolean; findQuery?: string; findIndex?: number }>(), { anchor: null, disabled: false, findQuery: '', findIndex: 0 });
 const emit = defineEmits<{ 'open-reference': [reference: DocumentReference]; 'anchor-change': [anchor: string]; 'anchor-result': [result: {anchor:string;found:boolean;message:string}]; outline: [headings: MarkdownHeading[]]; 'find-results': [result: MarkdownFindResult] }>();
-const document = computed(() => parseSafeMarkdown(props.text));
+const document = computed(() => parseSafeMarkdown(props.text,{harnessReferences:props.harnessReferences}));
 const anchorMessage = ref('');
 const headingElements = new Map<string, HTMLElement>();
 const matchElements = new Map<number, HTMLElement>();
@@ -42,6 +42,7 @@ function scrollToAnchor(anchor: string): boolean {
 }
 function activate(item: MarkdownReference): void {
   if (props.disabled || item.disposition === 'blocked') return;
+  if(item.disposition==='harness'){emit('open-reference',{href:item.href,relativePath:'',anchor:null,label:item.label,kind:item.kind});return;}
   if (item.disposition === 'anchor' && item.anchor !== null) { if (scrollToAnchor(item.anchor)) emit('anchor-change', item.anchor); return; }
   if (item.disposition === 'local' && item.relativePath !== null) emit('open-reference', { href: item.href, relativePath: item.relativePath, anchor: item.anchor, label: item.label, kind: item.kind });
 }

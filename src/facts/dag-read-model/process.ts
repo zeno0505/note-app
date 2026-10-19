@@ -8,10 +8,12 @@ import type { DagFailureKind } from './types';
 /** Version-bound transport only: original external main executes with fixed CLI modes.
  * No DAG semantics are implemented here. Original bytes are verified before execution. */
 export const QUERY_SHA256 = '23d00c96beb0661bb7da064d7dd83566ea754f75165bb9790831dabc25887d47';
+export const HARNESS_QUERY_SHA256 = 'f75690f800fe4354a5b9b37f1672d2ad824c941baa94186fd134b4898d7fe2b0';
+export const SUPPORTED_QUERY_SHA256 = Object.freeze([QUERY_SHA256,HARNESS_QUERY_SHA256]);
 const TRANSPORT = `import sys, json, hashlib, pathlib, os, stat, copy
 script, source, done, expected, source_hash, maximum, directory, require_shape = sys.argv[1:]
 with open(script, 'rb') as stream: code = stream.read(1024 * 1024 + 1)
-if hashlib.sha256(code).hexdigest() != expected: raise RuntimeError('unsupported query version')
+if hashlib.sha256(code).hexdigest() not in (expected, '${HARNESS_QUERY_SHA256}'): raise RuntimeError('unsupported query version')
 namespace = {'__name__': '__dag_query_transport__', '__file__': script}
 exec(compile(code, script, 'exec'), namespace)
 if not callable(namespace.get('main')) or not callable(namespace.get('emit')): raise RuntimeError('unsupported query contract')
@@ -73,9 +75,21 @@ for number, phase in enumerate(phases):
     if not isinstance(phase, dict) or not isinstance(phase.get('tasks'), list): raise RuntimeError('unsupported phase shape')
     result['phases'].append({'index': number, 'id': phase.get('id'), 'title': phase.get('title', phase.get('name')), 'taskIds': [task.get('id') for task in phase['tasks']]})
 result['readContractVersion'] = 2
+# Additive declaration transport: schema/profile are independent of wire version.
+if hashlib.sha256(code).hexdigest() == '${HARNESS_QUERY_SHA256}':
+    result['ledger'] = {key: document.get(key) for key in ('schema', 'profile', 'features', 'ledger_key')}
+    result['ledgerTasks'] = [
+        {key: task.get(key) for key in ('id', 'type', 'acceptance', 'judgment', 'verification', 'block', 'who', 'question', 'depends_kind', 'legacy_ref', 'supersedes')}
+        for phase in phases for task in phase['tasks']
+    ]
+def json_value(value):
+    import datetime
+    if hashlib.sha256(code).hexdigest() == '${HARNESS_QUERY_SHA256}' and isinstance(value, (datetime.date, datetime.datetime)): return value.isoformat()
+    raise TypeError('Unsupported declaration value')
+
 # UTF-8 preserves the same fields without expanding Korean prose into six-byte escapes.
 # The parent still enforces the unchanged combined stdout/stderr byte limit.
-sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False, allow_nan=False).encode('utf-8') + bytes([10]))
+sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False, allow_nan=False, default=json_value).encode('utf-8') + bytes([10]))
 `;
 export type ProcessResult = { ok: true; data: unknown } | { ok: false; kind: DagFailureKind };
 /** Same-group cleanup is shared with Orca; query argv is independently fixed here. */
