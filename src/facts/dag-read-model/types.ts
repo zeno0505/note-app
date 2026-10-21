@@ -1,6 +1,8 @@
+import type {HarnessLedgerHeader,HarnessTaskDeclaration} from '../../phase2/harness-ledger';
 export type DagFailureKind = 'invalid_request' | 'busy' | 'cancelled' | 'timeout' | 'source_unavailable' | 'source_changed' | 'source_limit' | 'command_failed' | 'output_limit' | 'invalid_schema' | 'document_shape_invalid' | 'cleanup_unverified';
 export interface DagError { kind: DagFailureKind; message: string }
 export interface DagTask {
+  harness?: HarnessTaskDeclaration;
   rawType?: string | null;
   rawFeature?: string | null;
   phase?: {id:string|null;title:string|null;index:number}|null;
@@ -23,6 +25,7 @@ export interface DagCoverage {
   uncoveredDone: string[]; uncoveredOpen: string[]; malformed: string[];
 }
 export interface DagReadModel {
+  ledger?: HarnessLedgerHeader;
   readContractVersion?: 2; policies?: Record<string,unknown>[];
   dagId: string; sourceHash: string; sourceMtimeMs: number; observedAt: string;
   doneStatus: string; tasks: DagTask[]; statusCounts: { status: string | null; count: number }[];

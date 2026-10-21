@@ -82,7 +82,7 @@ export function createTaskGraphService(options:{current:(projectId:string)=>Grap
         if(matches.length!==1)throw Error('unsupported');
         const task=matches[0];
         const result:GraphDetailSnapshot={state:'detail',requestId,identity:snapshot.metadata.identity,observedAt:model.observedAt,
-          task:{id:task.id,title:task.title,status:task.status,rawType:task.rawType??null,rawFeature:task.rawFeature??null,phase:task.phase??null,
+          task:{...(task.harness?{harness:task.harness}:{}),id:task.id,title:task.title,status:task.status,rawType:task.rawType??null,rawFeature:task.rawFeature??null,phase:task.phase??null,
             details:task.details??{description:null,acceptanceCriteria:[],targetFiles:[],discussion:[],design:[],omissions:0},
             dependencies:task.dependencies,e2e:task.e2e,commitReferences:task.commitReferences,
             commitReferencesUnsupported:task.commitReferencesUnsupported??0,commitVerification:task.commitVerification,

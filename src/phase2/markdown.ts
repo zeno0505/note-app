@@ -10,7 +10,7 @@ export interface DocumentReference { href: string; relativePath: string; anchor:
 export interface DocumentReferences { targets: DocumentReference[]; unsupportedCount: number }
 export interface MarkdownReference {
   type: 'reference'; kind: 'link' | 'image'; href: string; label: string;
-  disposition: 'local' | 'anchor' | 'blocked'; relativePath: string | null; anchor: string | null; reason: string | null;
+  disposition: 'local' | 'anchor' | 'blocked' | 'harness'; relativePath: string | null; anchor: string | null; reason: string | null;
 }
 export type MarkdownInline = { type: 'text' | 'code'; text: string } | { type: 'strong' | 'emphasis'; children: MarkdownInline[] } | MarkdownReference;
 export interface MarkdownListItem { children: MarkdownBlock[] }
@@ -33,7 +33,7 @@ const evidenceExtensions = new Set([...textExtensions, ...imageExtensions]);
 class Limit extends Error { constructor(readonly issue: MarkdownIssue) { super(issue); } }
 interface Context {
   nodes: number; work: number; issues: Set<MarkdownIssue>; references: Map<string, DocumentReference>;
-  unsupportedCount: number; headings: Map<string, number>; headingCount: number;
+  unsupportedCount: number; headings: Map<string, number>; headingCount: number; harnessReferences:boolean;
 }
 function consume(context: Context, count = 1): void { if ((context.work += count) > MARKDOWN_LIMITS.workUnits) throw new Limit('work-limit'); }
 function node<T>(context: Context, value: T): T { if (++context.nodes > MARKDOWN_LIMITS.nodes) throw new Limit('node-limit'); return value; }
@@ -70,6 +70,12 @@ function reference(href: string, label: string, kind: 'link' | 'image', context:
   const result: MarkdownReference = { type: 'reference', kind, href, label, disposition: 'blocked', relativePath: null, anchor: null, reason: null };
   const blocked = (reason: string) => { result.reason = reason; context.unsupportedCount++; return node(context, result); };
   if (!validText(label, MARKDOWN_LIMITS.labelBytes)) return blocked('연결 이름이 길이·문자 제한을 벗어났습니다');
+  if(context.harnessReferences&&kind==='link'&&(href.startsWith('[[')||href.startsWith('https://github.com/'))){
+    const key=kind+'\u0000'+href;
+    if(!validText(href,MARKDOWN_LIMITS.referenceBytes)||!context.references.has(key)&&context.references.size>=MARKDOWN_LIMITS.references)return blocked('문서 연결 한도를 넘었습니다');
+    context.references.set(key,{href,relativePath:'',anchor:null,label,kind});
+    return node(context,{...result,disposition:'harness',reason:href.startsWith('https://')?'고정 URL 메타데이터만 확인 · 네트워크 요청 없음':null});
+  }
   if (/^(?:https?:|\/\/)/iu.test(href)) return blocked('외부 연결은 열거나 요청하지 않습니다');
   let target: ParsedDocumentTarget;
   try { target = parseDocumentTarget(href); } catch { return blocked('안전한 로컬 문서 연결 형식만 지원합니다'); }
@@ -335,21 +341,21 @@ function blocks(lines: string[], context: Context, depth = 0, listDepth = 0): Ma
   }
   return result;
 }
-export function parseSafeMarkdown(input: string): MarkdownDocument {
+export function parseSafeMarkdown(input: string, options:{harnessReferences?:boolean}={}): MarkdownDocument {
   const failure = (issue: MarkdownIssue, text = ''): MarkdownDocument => ({ blocks: text ? [{ type: 'code', text, language: null }] : [], headings: [], targets: [], unsupportedCount: 0, issues: [issue], limited: true });
   if (typeof input !== 'string') return failure('invalid-source');
   if (input.length > MARKDOWN_LIMITS.sourceBytes || byteLength(input) > MARKDOWN_LIMITS.sourceBytes) return failure('source-limit');
   const source = input.replace(/\r\n?/gu, '\n'), lines = source.split('\n');
   if (lines.length > MARKDOWN_LIMITS.lines) return failure('line-limit', source);
-  const context: Context = { nodes: 0, work: 0, issues: new Set(), references: new Map(), unsupportedCount: 0, headings: new Map(), headingCount: 0 };
+  const context: Context = { nodes: 0, work: 0, issues: new Set(), references: new Map(), unsupportedCount: 0, headings: new Map(), headingCount: 0, harnessReferences:options.harnessReferences===true };
   try {
     const parsed = blocks(lines, context);
     return { blocks: parsed, headings: collectMarkdownHeadings(parsed), targets: [...context.references.values()], unsupportedCount: context.unsupportedCount, issues: [...context.issues], limited: context.issues.size > 0 };
   } catch (error) { if (error instanceof Limit) return failure(error.issue, source); throw error; }
 }
 /** Declarations from rendered syntax only; excludes code, unknown syntax, same-document anchors and blocked destinations. */
-export function extractDocumentReferences(text: string): DocumentReferences {
-  const document = parseSafeMarkdown(text);
+export function extractDocumentReferences(text: string, options:{harnessReferences?:boolean}={}): DocumentReferences {
+  const document = parseSafeMarkdown(text,options);
   return { targets: document.targets, unsupportedCount: document.unsupportedCount };
 }
 

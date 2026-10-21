@@ -1,3 +1,5 @@
+import {observeHarnessMain,type HarnessMainObservation} from './harness-main';
+import {readRegisteredHarnessSnapshot} from './phase4/harness-references';
 import {parseGraphSessionRequest} from '../shared/task-graph-transport';
 import {createTaskGraphService, type GraphAuthority} from './task-graph';
 import * as fs from 'node:fs/promises';
@@ -75,6 +77,7 @@ interface WorktreeSource {id: string; worktreeId: string; hostId: string | null;
 interface CurrentWorktree {verifiedRepository?:{host:string;owner:string;name:string};viewId?:string;worktreeId:string;hostId:string|null;instanceId:string|null;path:string|null;branch:string|null;archived:boolean|null;repository:NonNullable<LiveWorkstreamView['repository']>;observation:NonNullable<LiveWorkstreamView['observation']>}
 interface CollectedView { workstreams: LiveWorkstreamView[]; dags: LiveDagView[]; worktreeSources: WorktreeSource[];currentWorktrees:CurrentWorktree[] }
 interface DagSession {
+  sharedMain?:HarnessMainObservation & {refreshFailure?:string};
   canonicalPath: string;
   reader: ReturnType<typeof createDagReader> | null;
   model: DagReadModel | null;
@@ -98,7 +101,7 @@ export function createLiveRuntime(options: {
   gitActivityIdentity?:(workstreamId:string)=>Promise<string|null>;
   readGitActivity?:(workstreamId:string,tasks:readonly import('../facts/dag-read-model/types').DagTask[],signal:AbortSignal,revalidate:boolean)=>Promise<{events:TaskActivity[];coverage:ActivityCoverage}>;
   extraDocumentRoots?:(workstreamId:string)=>Promise<DocumentRoot[]>;
-  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>&Partial<Pick<ReturnType<typeof createReadRoots>,'scopeForDirectory'|'allowsDirectory'>>;
+  readRoots?:Pick<ReturnType<typeof createReadRoots>,'filterScopes'|'scopesFor'>&Partial<Pick<ReturnType<typeof createReadRoots>,'scopeForDirectory'|'allowsDirectory'|'allowsReadDirectory'>>;
 }) {
   const updateCleanup=createUpdateCleanupGate();
   let updateShutdown=false;
@@ -572,9 +575,19 @@ export function createLiveRuntime(options: {
           else if (!result.ok) reason = `DAG observation could not be refreshed (${result.error.kind}).`;
         } catch { reason = 'DAG observation could not be refreshed.'; }
       } else if (!reason) reason = 'DAG reader could not be initialized.';
+      if(session?.model?.ledger&&session.model.ledger.state!=='supported'){state='unavailable';reason='장부 형식 또는 schema 미지원';session.summary=summaryUnavailable(reason);}
       if (session?.model && state === 'ready' && !signal.aborted) session.summary = await readSummary(session.model, session, selections.get(mapping.dagId), signal, mappings.find((m): m is ResolvedNoteMapping => m.state === 'resolved' && m.dagId === mapping.dagId));
       const model = session?.model;
-      dags.push({ ...(model?.readContractVersion?{readContractVersion:model.readContractVersion,policies:model.policies??[]} : {}), readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
+      if(model?.ledger&&session&&(!session.sharedMain||manual)&&!signal.aborted){
+        const observation=config?.noteLink?await observeHarnessMain({
+          roots:[...new Set((config.noteScopes??[]).flatMap(scope=>[scope.scopePath,scope.vaultRootPath]))],dagPath:session.canonicalPath,
+          gitExecutable:config.noteLink.gitExecutablePath,allowedCommonGitDirs:config.noteLink.allowedCommonGitDirs,signal,
+          authorize:async directory=>options.readRoots?.allowsReadDirectory?options.readRoots.allowsReadDirectory(directory):options.readRoots?false:config!.noteScopes.some(scope=>directory===scope.scopePath||directory.startsWith(scope.scopePath+path.sep)),
+          track:operation=>updateCleanup.track('main ledger Git read',()=>operation),
+        }):{state:'not-observed' as const,reason:'신뢰된 Git 실행 환경 미설정'};
+        session.sharedMain=observation.state==='not-observed'&&session.sharedMain?.state==='observed'?{...session.sharedMain,refreshFailure:observation.reason}:observation;
+      }
+      dags.push({ ...(model?.ledger?{ledger:model.ledger,sharedMain:session?.sharedMain}:{}), ...(model?.readContractVersion?{readContractVersion:model.readContractVersion,policies:model.policies??[]} : {}), readerRecovery:session?.reader?.recoveryState?.()??null, dagId: mapping.dagId, sourceHash: model?.sourceHash ?? null, doneStatus: model?.doneStatus ?? null, state, reason, observedAt: model?.observedAt ?? null, unchanged,
         taskCount: model?.coverage.tasksTotal ?? null, displayedTaskCount: Math.min(model?.tasks.length ?? 0, MAX_DISPLAY_TASKS),
         tasks: model?.tasks.slice(0, MAX_DISPLAY_TASKS).map(task => ({ ...task,
           dependencies: task.dependencies.slice(0, MAX_DISPLAY_REFERENCES),
@@ -995,12 +1008,23 @@ export function createLiveRuntime(options: {
       if(result.ok&&session.proofs.length<8&&result.content.kind==='text'&&result.content.mime==='text/markdown'){
         const descriptor=session.reader.list().find(d=>d.evidenceId===r.evidenceId),document=session.registrations.find(v=>v.id===descriptor?.registrationId);
         if(document){
-          const extracted=extractDocumentReferences(result.content.text),registrations:EvidenceRegistration[]=[];
-          const targets:{href:string;kind:'link'|'image';status:'resolved'|'missing'|'ambiguous'|'out-of-scope'|'unsupported';registrationIds:string[]}[]=[];let unsupportedCount=extracted.unsupportedCount;
+          let extracted=extractDocumentReferences(result.content.text,{harnessReferences:true});const registrations:EvidenceRegistration[]=[];
+          const harness=extracted.targets.some(t=>t.kind==='link'&&(t.href.startsWith('[[')||t.href.startsWith('https://github.com/')))?await readRegisteredHarnessSnapshot({root:session.root,from:document.relativePath,authorize:liveSession,signal:operationSignal,metadata:documentMetadata,trackRead:operation=>updateCleanup.track('harness snapshot read',operation,{fulfilled:value=>value.ok,rejected:cleanupFailure})}):null;
+          if(harness)result.omissions.push(...harness.omissions);
+          if(!harness?.enabled)extracted=extractDocumentReferences(result.content.text);
+          type Target=NonNullable<EvidenceReadView['references']>['targets'][number]&{registrationIds:string[]};
+          const targets:Target[]=[];let unsupportedCount=extracted.unsupportedCount;
           for(const target of extracted.targets){
-            const entry:{href:string;kind:'link'|'image';status:'resolved'|'missing'|'ambiguous'|'out-of-scope'|'unsupported';registrationIds:string[]}={href:target.href,kind:target.kind,status:'unsupported',registrationIds:[]};
+            const entry:Target={href:target.href,kind:target.kind,status:'unsupported',evidenceId:'',registrationIds:[]};
             targets.push(entry);
             try{
+              if(harness?.enabled&&target.kind==='link'&&(target.href.startsWith('[[')||target.href.startsWith('https://github.com/'))){
+                const resolved=harness.resolve(target.href);entry.status=resolved.result;
+                if(resolved.result!=='denied'){entry.warnings=resolved.warnings;entry.hint=resolved.hint;entry.target=resolved.target;}
+                const selected=harness.document(resolved);
+                if(selected){const id=String(registrations.length);registrations.push({id,...selected,label:target.label});entry.registrationIds.push(id);}
+                continue;
+              }
               const parsed=parseDocumentTarget(target.href);if(!parsed.relativePath)continue;
               const candidatePaths:string[]=[];
               if(parsed.syntax==='markdown')candidatePaths.push(path.posix.normalize(path.posix.join(path.posix.dirname(document.relativePath),parsed.relativePath)));
@@ -1017,7 +1041,7 @@ export function createLiveRuntime(options: {
             }catch{unsupportedCount++;}
           }
           // An empty capability list still carries explicit missing/out-of-scope states.
-          if(targets.length){const referenceSession=await derive(registrations,'references',unsupportedCount);references={session:referenceSession,targets:targets.map(target=>({href:target.href,kind:target.kind,status:target.status,evidenceId:target.status==='resolved'?referenceSession.items.find(item=>item.registrationId===target.registrationIds[0])!.evidenceId:'',...(target.status==='ambiguous'?{candidates:target.registrationIds.map(id=>{const item=referenceSession.items.find(item=>item.registrationId===id)!,registration=registrations.find(registration=>registration.id===id)!;return {evidenceId:item.evidenceId,label:item.label,relativePath:registration.relativePath,anchor:item.anchor};})}:{})}))};}
+          if(targets.length){const referenceSession=await derive(registrations,'references',unsupportedCount);references={...(harness?.enabled?{harness:true as const}:{}),session:referenceSession,targets:targets.map(target=>({href:target.href,kind:target.kind,status:target.status,warnings:target.warnings,hint:target.hint,target:target.target,evidenceId:target.status==='resolved'?referenceSession.items.find(item=>item.registrationId===target.registrationIds[0])?.evidenceId??'':'',...(target.status==='ambiguous'?{candidates:target.registrationIds.map(id=>{const item=referenceSession.items.find(item=>item.registrationId===id)!,registration=registrations.find(registration=>registration.id===id)!;return {evidenceId:item.evidenceId,label:item.label,relativePath:registration.relativePath,anchor:item.anchor};})}:{})}))};}
         }
       }
       if(!await liveSession()){for(const child of [images,references?.session])if(child){releaseEvidenceSession(child.sessionId);}throw Error('근거 읽기가 취소되거나 변경되었습니다.');}

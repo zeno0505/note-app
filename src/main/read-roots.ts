@@ -66,6 +66,8 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
     }
     if(scopes.size>NOTE_MAPPING_LIMITS.scopes)throw Error('프로젝트 노트 범위 초과');return [...scopes.values()];
   }
+  /** Read-only containment, distinct from which directories may register a new note scope. */
+  async function allowsReadDirectory(p:string){await load();if(blocked)return false;try{const selected=await directory(p);if(selected.path!==p)return false;for(const root of roots)if(inside(root.path,p)&&await valid(root))return true;return false;}catch{return false;}}
   async function allowsDirectory(p:string){await load();try{const selected=await directory(p);if(selected.path!==p)return false;for(const root of roots){if(!await valid(root))continue;if(root.kind==='vault'&&p!==root.path&&inside(root.path,p))return true;if(root.kind==='project'&&p===root.path&&options.initialScopes.some(s=>s.scopePath===p))return true;}return false;}catch{return false;}}
   async function scopeForDirectory(p:string,dagRelativePath:string):Promise<AllowedNoteScope>{
     if(!options.hostId||path.basename(dagRelativePath)!==dagRelativePath||!dagRelativePath||!await allowsDirectory(p))throw Error('현재 읽기 범위에서 DAG를 등록할 수 없습니다.');
@@ -73,5 +75,5 @@ export function createReadRoots(options:{initialScopes:AllowedNoteScope[];hostId
     const initial=options.initialScopes.find(s=>s.scopePath===p&&s.hostId===options.hostId);
     return {scopeId:initial?.scopeId??'read-root:'+id(p),hostId:options.hostId,vaultRootPath:root.kind==='vault'?root.path:initial!.vaultRootPath,scopePath:p,dagRelativePaths:[dagRelativePath]};
   }
-  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor,allowsDirectory,scopeForDirectory};
+  return {load,view,prepare,confirm,cancel,revoke,filterScopes,scopesFor,allowsDirectory,allowsReadDirectory,scopeForDirectory};
 }

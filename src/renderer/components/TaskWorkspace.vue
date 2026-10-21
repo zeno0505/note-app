@@ -11,6 +11,7 @@ import {taskPage,pageConnections,TASK_PAGE_SIZES} from '../../phase2/task-pages'
 import type {TaskWorkspaceState} from '../phase2-state';
 import {liveState,livePending} from '../store';
 import EvidenceViewer from './EvidenceViewer.vue';
+import HarnessTaskDeclaration from './HarnessTaskDeclaration.vue';
 import VerificationSourcesPopover from './VerificationSourcesPopover.vue';
 import TaskGraphWorkspace from './TaskGraphWorkspace.vue';
 import {sameGraphIdentity} from '../../shared/task-graph-contract';
@@ -94,6 +95,17 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
 </script>
 <template>
  <section class="task-workspace" :class="{'document-expanded':documentExpanded}" data-testid="task-workspace">
+  <div v-if="dag?.ledger&&!documentExpanded" class="harness-source-scopes">
+   <details><summary>공유 main · {{dag.sharedMain?.state==='observed'?dag.sharedMain.commit.slice(0,12):'미관측'}}</summary>
+    <template v-if="dag.sharedMain?.state==='observed'"><p>로컬 main 마지막 관측: {{dag.sharedMain.commit}} · {{dag.sharedMain.observedAt}}. 원격 최신 여부 미확인.</p><p v-if="dag.sharedMain.refreshFailure" role="status">갱신 미확인: {{dag.sharedMain.refreshFailure}} · 이전 관측을 보존합니다.</p>
+     <p>태스크 {{dag.sharedMain.taskCount}}개 · 아래 100개까지 표시</p>
+     <details v-for="task in dag.sharedMain.tasks.slice(0,100)" :key="task.id"><summary>{{task.id}} · {{task.title??'제목 미선언'}} · {{task.status??'상태 미선언'}}</summary><HarnessTaskDeclaration :ledger="dag.sharedMain.ledger" :declaration="task.harness"/></details>
+    </template><p v-else role="status">{{dag.sharedMain?.reason??'공유 main을 관측하지 못했습니다.'}}</p>
+   </details>
+   <p class="notice" role="status">아래 작업 목록·그래프와 상세: 현재 session 장부 파일 관측 · {{dag.observedAt}}. 공유 main 현황과 합치지 않습니다.<span v-if="dag.ledger.state!=='supported'"> 형식 미지원 또는 schema 미확인.</span></p>
+  </div>
+  <HarnessTaskDeclaration v-if="dag?.ledger&&dag.ledger.state!=='supported'&&!documentExpanded" :ledger="dag.ledger"/>
+  <template v-if="!dag?.ledger||dag.ledger.state==='supported'">
   <nav v-show="!documentExpanded" class="workspace-view-nav" aria-label="작업 보기"><button :aria-pressed="state.view==='list'" @click="state.view='list'">작업 목록</button><button :aria-pressed="state.view==='dag'&&!legacyGraph" data-testid="task-dag-toggle" @click="state.view='dag';legacyGraph=false;state.selected=''">관계 그래프</button><button v-if="state.view==='dag'" :aria-pressed="legacyGraph" @click="legacyGraph=!legacyGraph">{{legacyGraph?'전체 그래프로 돌아가기':'기존 페이지 DAG'}}</button></nav>
   <div v-show="!documentExpanded&&(state.view==='list'||legacyGraph)">
   <h2>태스크·DAG</h2><p class="muted">원문 상태와 정책 해석을 함께 봅니다. 실행과 파견은 Orca에서 수행합니다.</p>
@@ -145,7 +157,8 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
     <p v-if="(state.view==='list'||legacyGraph)&&!pageIds.has(state.selected)" class="notice warning" data-testid="task-selection-outside">선택한 작업은 {{visible.some(row=>row.task.id===state.selected)?'다른 페이지':'현재 필터 밖'}}에 있습니다. 상세는 선택한 작업을 유지합니다.<Button v-if="visible.some(row=>row.task.id===state.selected)" label="선택 작업 페이지 보기" text @click="reveal(state.selected)"/></p>
     <h3>{{selected.task.id}} · {{selected.task.title}}</h3><p v-if="stale" class="notice warning">선택 후 근거가 변경되었습니다. 현재 원문을 다시 검토하고 요약을 갱신해 주세요.</p>
     <dl><dt>원본 타입·상태</dt><dd>{{selected.rawType??'미선언'}} · {{selected.rawStatus??'미선언'}}</dd><dt>정책 해석</dt><dd>{{lifecycleLabels[selected.lifecycle]}}</dd><dt>Phase</dt><dd>{{selected.task.phase?.title??selected.task.phase?.id??'소속 미확인'}}</dd><dt>추가 이유·수행 설명 (선언)</dt><dd>{{selected.task.details?.description??'기록 미확인'}}</dd></dl>
-    <h4>수용 기준 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.acceptanceCriteria??[]" :key="i">{{value}}</li></ul><p v-if="!selected.task.details?.acceptanceCriteria.length">기록 미확인</p>
+    <HarnessTaskDeclaration :ledger="dag?.ledger" :declaration="selected.task.harness"/>
+    <h4 v-if="!selected.task.harness">수용 기준 (선언)</h4><ul v-if="!selected.task.harness"><li v-for="(value,i) in selected.task.details?.acceptanceCriteria??[]" :key="i">{{value}}</li></ul><p v-if="!selected.task.harness&&!selected.task.details?.acceptanceCriteria.length">기록 미확인</p>
     <h4>변경 대상 파일 (선언)</h4><ul><li v-for="(value,i) in selected.task.details?.targetFiles??[]" :key="i">{{value}}</li></ul><p>실제 파일 변경·커밋·검증 통과를 확인한 목록이 아닙니다.</p>
     <h4>의존성 {{selected.task.dependencies.length}}개</h4><ul><li v-for="(dep,index) in detailDependencies" :key="index">{{dep.id}} · {{dep.scope==='external'?'외부·미확인':'DAG 내부'}}<span v-if="!visible.some(r=>r.task.id===dep.id)"> · 현재 목록 밖</span></li></ul>
     <nav v-if="state.view==='dag'&&!legacyGraph&&selected.task.dependencies.length>20" aria-label="상세 의존성 페이지"><button :disabled="detailDependencyPage===1" @click="detailDependencyPage--">의존성 이전</button><span>{{detailDependencyPage}} / {{Math.ceil(selected.task.dependencies.length/20)}}</span><button :disabled="detailDependencyPage*20>=selected.task.dependencies.length" @click="detailDependencyPage++">의존성 다음</button></nav>
@@ -157,6 +170,7 @@ const lifecycleLabels={before:'작업 전','in-progress':'진행 중',review:'�
    </aside>
   </div>
 
+  </template>
  </section>
 </template>
 

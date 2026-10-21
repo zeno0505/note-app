@@ -108,7 +108,7 @@ function objectId(bytes:Buffer):string {
  * Ambiguous headers, continuations and malformed text fail closed without opening
  * any referenced path. Ordinary direct Git-generated configuration remains usable.
  */
-function directGitConfiguration(bytes:Buffer):void {
+export function directGitConfiguration(bytes:Buffer):void {
   const decoded=bytes.toString('utf8');
   if(!Buffer.from(decoded,'utf8').equals(bytes)||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(decoded)
     ||/\\(?:\r?\n|$)/u.test(decoded))fail('invalid_source','Indirect, continued or ambiguous Git configuration is unsupported for project creation.');
@@ -131,8 +131,8 @@ function directGitConfiguration(bytes:Buffer):void {
       fail('invalid_source','Partial-clone and promisor configuration is unsupported for offline project creation.');
   }
 }
-async function directGitMetadata(
-  authority:Pick<GitAuthority,'gitDirectory'|'commonDirectory'>,selected:ProjectWorkspaceOption,baseBranch:string,budget:Budget,
+export async function directGitMetadata(
+  authority:Pick<GitAuthority,'gitDirectory'|'commonDirectory'>,selected:Pick<ProjectWorkspaceOption,'branch'>|null,baseBranch:string,budget:Budget,
 ):Promise<Snapshot[]> {
   const stamps:Snapshot[]=[],common=authority.commonDirectory;
   const directory=async(p:string,required=false):Promise<boolean>=>{
@@ -155,7 +155,7 @@ async function directGitMetadata(
   const symbolic=/^ref: (refs\/heads\/[^\r\n]+)\r?\n?$/u.exec(head.bytes.toString('utf8'));
   let currentBranch:string|null=null,headId:string|undefined;
   if(symbolic)currentBranch=branchName(symbolic[1]!.slice(11));else headId=objectId(head.bytes);
-  if(currentBranch!==selected.branch&&(currentBranch===null||selected.branch!=='refs/heads/'+currentBranch))changed();
+  if(selected&&currentBranch!==selected.branch&&(currentBranch===null||selected.branch!=='refs/heads/'+currentBranch))changed();
 
   const packed=await file(path.join(common,'packed-refs'),true,1_048_576),packedRefs=new Map<string,string>();
   if(packed.bytes)for(const raw of packed.bytes.toString('utf8').split(/\r?\n/u)){

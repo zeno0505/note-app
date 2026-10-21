@@ -356,7 +356,8 @@ export function parseGraphDetailResult(value: unknown): GraphDetailResult {
     const nullableText = (value: unknown): string | null => value === null ? null : text(value);
     const references = (value: unknown, max: number = TASK_GRAPH_LIMITS.detailReferences, empty = false): string[] => array(value, max).map(item => text(item, TASK_GRAPH_LIMITS.detailTextCharacters, empty));
     const raw = record(data.task, ['id', 'title', 'status', 'rawType', 'rawFeature', 'phase', 'details', 'dependencies',
-      'e2e', 'commitReferences', 'commitReferencesUnsupported', 'commitVerification', 'displayOmissions']);
+      'e2e', 'commitReferences', 'commitReferencesUnsupported', 'commitVerification', 'displayOmissions',
+      ...(Object.hasOwn(data.task as object,'harness')?['harness']:[])]);
     const sourceNode = node({ id: raw.id, title: raw.title, declaredStatus: raw.status, phase: raw.phase });
     const detail = record(raw.details, ['description', 'acceptanceCriteria', 'targetFiles', 'discussion', 'design', 'omissions']);
     const e2e = record(raw.e2e, ['state', 'required', 'coveredBy', 'coverage']);
@@ -410,6 +411,13 @@ export function parseGraphDetailResult(value: unknown): GraphDetailResult {
       }
       return copy;
     };
+    if(Object.hasOwn(raw,'harness')){
+      const declaration=record(json(raw.harness,0),['acceptance','judgment','verification','block','who','question','omissions','verificationState']);
+      const records=(value:unknown)=>array(value,100).map(item=>{if(!item||typeof item!=='object'||Array.isArray(item))return invalid();return item as Record<string,unknown>;});
+      const optionalRecord=(value:unknown)=>value===null?null:records([value])[0];
+      if(declaration.verificationState!=='검사 결과 연결 미확인')return invalid();
+      task.harness={acceptance:records(declaration.acceptance),judgment:optionalRecord(declaration.judgment),verification:records(declaration.verification),block:optionalRecord(declaration.block),who:nullableText(declaration.who),question:nullableText(declaration.question),omissions:integer(declaration.omissions),verificationState:'검사 결과 연결 미확인'};
+    }
     const policies = array(data.policies, TASK_GRAPH_LIMITS.detailPolicies).map(value => {
       if (!value || typeof value !== 'object' || Array.isArray(value)) return invalid();
       return json(value, 0) as Record<string, unknown>;

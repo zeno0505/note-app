@@ -1,0 +1,163 @@
+schema: 3
+profile: v3
+features: []
+ledger_key: MIG.DEV
+legacy: false
+project:
+  repo: o/r
+  project_path: mig
+  note_dir: docs/note
+project_policy: []
+rounds: []
+phases:
+- name: feature
+  tasks:
+  - id: MIG.DEV-0001
+    title: 기준 시뮬 결정
+    type: decision
+    status: pending
+    who: zeno
+    question: 기준 시뮬은?
+    depends_on: []
+    target_files: []
+    judgment:
+      leaf: human-decision
+  - id: MIG.DEV-0002
+    title: 가입 코드 화면 이관
+    type: feature
+    status: running
+    depends_on:
+    - MIG.DEV-0001
+    target_files:
+    - pages/admin/codes.vue
+    judgment:
+      leaf: machine
+    acceptance:
+    - id: AC-1
+      expect: 행 20개
+      verify_by:
+        repo: web
+        path: a.test.py
+    - id: AC-2
+      expect: 첫 행 일치
+      verify_by:
+        repo: web
+        path: b.test.py
+    - id: AC-3
+      expect: 정렬
+      verify_by:
+        repo: web
+        path: c.test.py
+      block:
+        reason: needs_input
+        who: zeno
+        question: 정렬 기준은?
+    - id: AC-4
+      expect: 필터
+      verify_by:
+        repo: web
+        path: d.test.py
+      block:
+        reason: transient
+        detail: 시뮬 다운
+    - id: AC-5
+      expect: 페이지
+      verify_by:
+        repo: web
+        path: e.test.py
+    - id: AC-6
+      expect: 검색
+      verify_by:
+        repo: web
+        path: f.test.py
+    - id: AC-7
+      expect: 접근성
+      exception:
+        reason_ref: https://github.com/o/r/pull/3#r1
+        risk: r
+        recheck: c
+    - id: AC-8
+      expect: 다운로드
+      verify_by:
+        repo: web
+        path: g.test.py
+    - id: AC-9
+      expect: 삭제
+      verify_by:
+        repo: web
+        path: h.test.py
+    - id: AC-10
+      expect: 로그
+    verification:
+    - kind: fixed
+      ref: t.py@abc1234
+      verdict: pass
+      grade: 실행 관측
+      evidence: 출력
+      recorded_at: '2026-10-19T10:00:00+09:00'
+      discriminates: &id001
+        how: red-first
+        ref: '[[inbox/x/discrimination#1]]'
+      observes:
+      - AC-1
+    - kind: fixed
+      ref: t.py@abc1234
+      verdict: pass
+      grade: 실행 관측
+      evidence: 출력
+      recorded_at: '2026-10-19T10:00:00+09:00'
+      discriminates:
+        how: none
+      observes:
+      - AC-2
+    - kind: fixed
+      ref: t.py@abc1234
+      verdict: pass
+      grade: 추정
+      evidence: 출력
+      recorded_at: '2026-10-19T10:00:00+09:00'
+      discriminates: *id001
+      observes:
+      - AC-5
+    - kind: exploratory
+      verdict: pass
+      observes:
+      - AC-6
+      grade: 실행 관측
+      evidence: 둘러봄
+      recorded_at: '2026-10-19T11:00:00+09:00'
+    - kind: fixed
+      ref: t.py@abc1234
+      verdict: pass
+      grade: 실행 관측
+      evidence: 출력
+      recorded_at: '2026-10-18T10:00:00+09:00'
+      discriminates: *id001
+      observes:
+      - AC-8
+    - kind: fixed
+      ref: t.py@abc1234
+      verdict: fail
+      grade: 실행 관측
+      evidence: 출력
+      recorded_at: '2026-10-19T12:00:00+09:00'
+      discriminates: *id001
+      observes:
+      - AC-8
+  - id: MIG.DEV-0003
+    title: AC 없는 기계 판정
+    type: feature
+    status: pending
+    depends_on: []
+    target_files: []
+    judgment:
+      leaf: machine
+  - id: MIG.DEV-0004
+    title: 사람만 가능
+    type: verify
+    status: pending
+    depends_on:
+    - MIG.DEV-0002
+    target_files: []
+    judgment:
+      leaf: human-only
